@@ -1,18 +1,6 @@
-/**
- * Store Page
- *
- * Main store page displaying daily offers
- * - Fetches store data from /api/store
- * - Displays StoreGrid with hydrated items
- * - Shows wallet balance
- * - Handles loading and error states
- *
- * Security: Client-side fetch uses browser cookies automatically
- */
-
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { StoreGrid } from "@/components/store/StoreGrid";
 import { WalletDisplay } from "@/components/store/WalletDisplay";
@@ -20,6 +8,49 @@ import { NightMarket } from "@/components/store/NightMarket";
 import type { StoreData } from "@/types/store";
 
 type LoadingState = "idle" | "loading" | "success" | "error";
+
+/** Inline countdown timer with individual digit cards */
+function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
+  const [timeLeft, setTimeLeft] = useState({ h: "00", m: "00", s: "00" });
+
+  const calcTime = useCallback(() => {
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    if (diff <= 0) return { h: "00", m: "00", s: "00" };
+    const h = String(Math.floor(diff / 3600000)).padStart(2, "0");
+    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+    return { h, m, s };
+  }, [expiresAt]);
+
+  useEffect(() => {
+    setTimeLeft(calcTime());
+    const id = setInterval(() => setTimeLeft(calcTime()), 1000);
+    return () => clearInterval(id);
+  }, [calcTime]);
+
+  const DigitCard = ({ value }: { value: string }) => (
+    <span className="inline-block w-10 h-12 leading-[3rem] text-center text-2xl font-mono font-bold text-light bg-void-deep angular-card-sm">
+      {value}
+    </span>
+  );
+
+  const Separator = () => (
+    <span className="text-valorant-red text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>
+  );
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <DigitCard value={timeLeft.h[0]} />
+      <DigitCard value={timeLeft.h[1]} />
+      <Separator />
+      <DigitCard value={timeLeft.m[0]} />
+      <DigitCard value={timeLeft.m[1]} />
+      <Separator />
+      <DigitCard value={timeLeft.s[0]} />
+      <DigitCard value={timeLeft.s[1]} />
+    </div>
+  );
+}
 
 export default function StorePage() {
   const router = useRouter();
@@ -45,17 +76,15 @@ export default function StorePage() {
       try {
         const response = await fetch("/api/store", {
           method: "GET",
-          credentials: "include", // Include cookies for auth
+          credentials: "include",
         });
 
         if (!response.ok) {
-          // Handle specific error cases
           if (response.status === 401) {
             setError("Not authenticated. Please log in.");
             setLoadingState("error");
             return;
           }
-
           const errorData = await response.json().catch(() => ({}));
           setError(errorData.error || `Failed to fetch store (${response.status})`);
           setLoadingState("error");
@@ -75,40 +104,29 @@ export default function StorePage() {
     fetchStore();
   }, []);
 
-  // Calculate time until store reset
-  const getTimeRemaining = () => {
-    if (!storeData?.expiresAt) return null;
-
-    const now = new Date();
-    const reset = new Date(storeData.expiresAt);
-    const diff = reset.getTime() - now.getTime();
-
-    if (diff <= 0) return "Store expired - refresh to see new items";
-
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-    return `Resets in ${hours}h ${minutes}m`;
-  };
-
   return (
     <div className="min-h-screen px-4 py-8 md:px-8 lg:px-16">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
+        <div
+          className="mb-8 stagger-entrance"
+          style={{ "--stagger-delay": "0ms" } as React.CSSProperties}
+        >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-2">
+              <h1 className="font-display text-5xl md:text-6xl uppercase font-bold text-light mb-2">
                 Daily Store
               </h1>
-              {loadingState === "success" && storeData && (
-                <p className="text-zinc-400 text-sm">
-                  {getTimeRemaining()}
-                </p>
+              {loadingState === "success" && storeData?.expiresAt && (
+                <div className="flex items-center gap-3">
+                  <span className="text-zinc-500 text-xs font-display uppercase tracking-wider">
+                    Resets in
+                  </span>
+                  <CountdownTimer expiresAt={storeData.expiresAt} />
+                </div>
               )}
             </div>
 
-            {/* Wallet display & logout */}
             <div className="flex items-center gap-4">
               {loadingState === "success" && storeData?.wallet && (
                 <WalletDisplay wallet={storeData.wallet} />
@@ -116,7 +134,7 @@ export default function StorePage() {
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className="px-4 py-2 text-sm font-medium text-zinc-400 bg-zinc-900/80 border border-zinc-800/50 rounded-xl hover:text-white hover:border-zinc-700 transition-colors disabled:opacity-50"
+                className="angular-btn px-4 py-2 text-sm font-display uppercase tracking-wider text-zinc-400 bg-void-surface border border-white/5 hover:text-white hover:border-valorant-red/30 transition-all disabled:opacity-50"
               >
                 {loggingOut ? "Logging out..." : "Logout"}
               </button>
@@ -124,45 +142,70 @@ export default function StorePage() {
           </div>
         </div>
 
-        {/* Content */}
+        {/* Loading state */}
         {loadingState === "loading" && (
-          <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-valorant-red"></div>
-            <p className="text-zinc-400">Loading your store...</p>
+          <div
+            className="stagger-entrance"
+            style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
+          >
+            <div className="angular-card bg-void-surface/50 flex flex-col items-center justify-center py-20 space-y-4">
+              <div className="relative w-12 h-12">
+                <div className="absolute inset-0 border-2 border-valorant-red/20 angular-card-sm" />
+                <div className="absolute inset-0 border-t-2 border-valorant-red animate-spin" style={{ borderRadius: "50%" }} />
+              </div>
+              <p className="text-zinc-400 font-display uppercase tracking-wider text-sm">Loading your store...</p>
+            </div>
           </div>
         )}
 
+        {/* Error state */}
         {loadingState === "error" && (
-          <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <div className="text-6xl">⚠️</div>
-            <p className="text-zinc-300 text-lg font-medium">Error loading store</p>
-            <p className="text-zinc-500 text-sm">{error}</p>
-            {error?.includes("Not authenticated") && (
-              <a
-                href="/login"
-                className="mt-4 px-6 py-3 bg-valorant-red text-white rounded-lg hover:bg-red-600 transition-colors"
-              >
-                Go to Login
-              </a>
-            )}
-            {!error?.includes("Not authenticated") && (
-              <button
-                onClick={() => window.location.reload()}
-                className="mt-4 px-6 py-3 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 transition-colors"
-              >
-                Retry
-              </button>
-            )}
+          <div
+            className="stagger-entrance"
+            style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
+          >
+            <div className="angular-card bg-void-surface/50 flex flex-col items-center justify-center py-20 space-y-4">
+              <div className="w-16 h-16 flex items-center justify-center border border-red-500/30 angular-card-sm">
+                <span className="text-3xl text-red-500">!</span>
+              </div>
+              <p className="text-zinc-300 text-lg font-display uppercase">Error loading store</p>
+              <p className="text-zinc-500 text-sm">{error}</p>
+              {error?.includes("Not authenticated") ? (
+                <a
+                  href="/login"
+                  className="mt-4 angular-btn px-6 py-3 bg-valorant-red text-white font-display uppercase tracking-wider hover:bg-red-600 transition-colors"
+                >
+                  Go to Login
+                </a>
+              ) : (
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-4 angular-btn px-6 py-3 bg-void-elevated text-white font-display uppercase tracking-wider hover:bg-void-surface transition-colors"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
           </div>
         )}
 
+        {/* Store content */}
         {loadingState === "success" && storeData && (
           <>
-            <StoreGrid items={storeData.items} />
+            <div
+              className="stagger-entrance"
+              style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
+            >
+              <StoreGrid items={storeData.items} />
+            </div>
 
-            {/* Night Market Section */}
             {storeData.nightMarket && (
-              <NightMarket nightMarket={storeData.nightMarket} />
+              <div
+                className="stagger-entrance"
+                style={{ "--stagger-delay": "200ms" } as React.CSSProperties}
+              >
+                <NightMarket nightMarket={storeData.nightMarket} />
+              </div>
             )}
           </>
         )}
