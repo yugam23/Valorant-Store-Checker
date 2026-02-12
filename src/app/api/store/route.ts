@@ -1,182 +1,137 @@
 /**
  * Store API Route
  *
- * Proxy endpoint for fetching player store data from Riot API
- * and hydrating it with static assets from Valorant-API.com
- *
- * Security: Server-side only. Uses session cookies for authentication.
- * Never exposes Riot tokens to client.
+ * Protected endpoint that returns the user's daily store and wallet balance.
+ * Aggregates data from Riot Store API (user-specific) and Valorant-API (static).
  */
 
 import { NextResponse } from "next/server";
-import { getSession } from "../../../lib/session";
-import { getPlayerStore, getWallet, getStoreResetTime } from "../../../lib/riot-api";
-import {
-  getWeaponSkinsByUuids,
-  getContentTierByUuid,
-} from "../../../lib/valorant-api";
-import { CURRENCY_IDS } from "../../../types/riot";
-import type { StoreData, StoreItem } from "../../../types/store";
+import { getSession } from "@/lib/session";
+import { getStorefront, getWallet } from "@/lib/riot-store";
+import { getWeaponSkins, getContentTiers } from "@/lib/valorant-api";
+import { StoreData, StoreItem, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
+import { CURRENCY_IDS } from "@/types/riot";
 
-/**
- * GET /api/store
- *
- * Fetches player's daily store with hydrated skin data
- *
- * Flow:
- * 1. Get session from cookie (401 if missing)
- * 2. Fetch store from Riot API
- * 3. Fetch static skin data from Valorant-API
- * 4. Hydrate store items with images, names, prices
- * 5. Return unified StoreData
- */
 export async function GET() {
   try {
-    // Step 1: Authenticate via session
+    // 1. Verify Session
     const session = await getSession();
-
     if (!session) {
-      return NextResponse.json(
-        { error: "Not authenticated. Please log in." },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Step 2: Fetch player store and wallet in parallel
-    const [storeResult, walletResult] = await Promise.all([
-      getPlayerStore(session),
-      getWallet(session),
+    // 2. Fetch User Data (Parallel)
+    const [storefront, wallet] = await Promise.all([
+      getStorefront(session as any),
+      getWallet(session as any),
     ]);
 
-    // Handle store fetch failure
-    if (!storeResult.success) {
-      const errorMsg = "error" in storeResult ? storeResult.error : "Unknown error";
-      console.error("[Store API] Failed to fetch store:", errorMsg);
-      return NextResponse.json(
-        { error: errorMsg },
-        { status: errorMsg.includes("Authentication") ? 401 : 500 }
+    // 3. Fetch Static Data
+    // We fetch all skins/tiers because it's cached and fast
+    const [skins, tiers] = await Promise.all([
+      getWeaponSkins(),
+      getContentTiers(),
+    ]);
+
+    // Helper to find skin by UUID (checking base, levels, and chromas)
+    const findSkin = (uuid: string) => {
+      const target = uuid.toLowerCase();
+      return skins.find((s) => 
+        s.uuid.toLowerCase() === target || 
+        s.levels.some((l) => l.uuid.toLowerCase() === target) ||
+        s.chromas.some((c) => c.uuid.toLowerCase() === target)
       );
-    }
-
-    const storefront = storeResult.data;
-
-    // Step 3: Extract skin UUIDs from daily offers
-    const skinUuids = storefront.SkinsPanelLayout.SingleItemOffers;
-
-    if (!skinUuids || skinUuids.length === 0) {
-      return NextResponse.json(
-        { error: "No items in store today" },
-        { status: 404 }
-      );
-    }
-
-    // Step 4: Fetch static skin data from Valorant-API
-    const skinsMap = await getWeaponSkinsByUuids(skinUuids);
-
-    // Step 5: Hydrate store items
-    const items: StoreItem[] = [];
-
-    for (const skinUuid of skinUuids) {
-      const skinData = skinsMap.get(skinUuid.toLowerCase());
-
-      if (!skinData) {
-        console.warn(`[Store API] Skin not found in Valorant-API: ${skinUuid}`);
-        continue; // Skip missing skins
-      }
-
-      // Get content tier (rarity) data
-      let tierName: string | null = null;
-      let tierColor = "#71717A"; // Default zinc-500
-
-      if (skinData.contentTierUuid) {
-        const tier = await getContentTierByUuid(skinData.contentTierUuid);
-        if (tier) {
-          tierName = tier.displayName;
-          // Extract RGB from highlightColor (format: "edd65aff" -> "#edd65a")
-          if (tier.highlightColor) {
-            tierColor = `#${tier.highlightColor.substring(0, 6)}`;
-          }
-        }
-      }
-
-      // Get primary chroma (first variant) for images
-      const primaryChroma = skinData.chromas[0];
-      const primaryLevel = skinData.levels[0];
-
-      // Build hydrated item
-      const item: StoreItem = {
-        uuid: skinData.uuid,
-        displayName: skinData.displayName,
-        displayIcon: primaryChroma?.fullRender || skinData.displayIcon || "",
-        streamedVideo: primaryLevel?.streamedVideo || primaryChroma?.streamedVideo || null,
-        wallpaper: skinData.wallpaper,
-        cost: 0, // Will be set below
-        currencyId: CURRENCY_IDS.VP,
-        tierUuid: skinData.contentTierUuid,
-        tierName,
-        tierColor,
-        chromaCount: skinData.chromas.length,
-        levelCount: skinData.levels.length,
-        assetPath: skinData.assetPath,
-      };
-
-      items.push(item);
-    }
-
-    // Step 6: Fetch prices from offers (not in SingleItemOffers, need to query offers endpoint)
-    // For now, use placeholder pricing - will be fixed in next iteration
-    // TODO: Fetch actual prices from /store/v2/offers endpoint
-    items.forEach((item) => {
-      item.cost = 1775; // Placeholder - typical skin price
-    });
-
-    // Step 7: Calculate store expiration
-    const expiresAt = getStoreResetTime(
-      storefront.SkinsPanelLayout.SingleItemOffersRemainingDurationInSeconds
-    );
-
-    // Step 8: Build wallet data if available
-    let walletBalance = undefined;
-    if (walletResult.success) {
-      const balances = walletResult.data.Balances;
-      walletBalance = {
-        vp: balances[CURRENCY_IDS.VP] || 0,
-        rp: balances[CURRENCY_IDS.RP] || 0,
-        kc: balances[CURRENCY_IDS.KC] || undefined,
-      };
-    }
-
-    // Step 9: Return hydrated store data
-    const response: StoreData = {
-      items,
-      expiresAt,
-      wallet: walletBalance,
     };
 
-    return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    console.error("[Store API] Unexpected error:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to fetch store",
-        details: error instanceof Error ? error.message : "Unknown error",
+    // Helper to find tier
+    const findTier = (uuid: string) => 
+      tiers.find((t) => t.uuid.toLowerCase() === uuid.toLowerCase());
+
+    // 4. Hydrate Daily Store Items
+    // SingleItemOffers contains the OfferIDs visible in the store
+    const dailyOfferIds = storefront.SkinsPanelLayout.SingleItemOffers;
+    // SingleItemStoreOffers contains the price and reward details for those offers
+    const storeOffers = storefront.SkinsPanelLayout.SingleItemStoreOffers;
+
+    const dailyItems = dailyOfferIds.map((offerId): StoreItem | null => {
+      // Find the offer details
+      const offer = storeOffers.find((o) => o.OfferID === offerId);
+      
+      if (!offer) {
+        return null;
+      }
+
+      // Extract Item ID (Skin UUID) from rewards
+      // ItemTypeID for skins in V3 is e7c63390-eda7-46e0-bb7a-a6abdacd2433
+      const reward = offer.Rewards.find((r) => r.ItemTypeID === "e7c63390-eda7-46e0-bb7a-a6abdacd2433");
+      const skinUuid = reward?.ItemID;
+
+      if (!skinUuid) {
+        return null; // Not a skin offer?
+      }
+
+      const skin = findSkin(skinUuid);
+      const cost = offer.Cost[CURRENCY_IDS.VP] || 0;
+
+      if (!skin) {
+        // Fallback if skin not found in static data
+        return {
+          uuid: skinUuid,
+          displayName: "Unknown Skin",
+          displayIcon: "", 
+          streamedVideo: null,
+          wallpaper: null,
+          cost,
+          currencyId: CURRENCY_IDS.VP,
+          tierUuid: null,
+          tierName: null,
+          tierColor: DEFAULT_TIER_COLOR,
+          chromaCount: 0,
+          levelCount: 0,
+          assetPath: "",
+        };
+      }
+
+      const tier = skin.contentTierUuid ? findTier(skin.contentTierUuid) : null;
+      const tierColor = tier 
+        ? (TIER_COLORS[tier.displayName] || `#${tier.highlightColor.slice(0, 6)}`) 
+        : DEFAULT_TIER_COLOR;
+
+      return {
+        uuid: skin.uuid,
+        displayName: skin.displayName,
+        displayIcon: skin.levels?.[0]?.displayIcon || skin.displayIcon || "",
+        streamedVideo: skin.levels?.[0]?.streamedVideo || null,
+        wallpaper: skin.wallpaper,
+        cost,
+        currencyId: CURRENCY_IDS.VP,
+        tierUuid: tier?.uuid || null,
+        tierName: tier?.displayName || null,
+        tierColor,
+        chromaCount: skin.chromas.length,
+        levelCount: skin.levels.length,
+        assetPath: skin.assetPath,
+      };
+    }).filter((item): item is StoreItem => item !== null);
+
+    // 5. Construct Response
+    const storeData: StoreData = {
+      items: dailyItems,
+      expiresAt: new Date(Date.now() + storefront.SkinsPanelLayout.SingleItemOffersRemainingDurationInSeconds * 1000),
+      wallet: {
+        vp: wallet.Balances[CURRENCY_IDS.VP] || 0,
+        rp: wallet.Balances[CURRENCY_IDS.RP] || 0,
+        kc: wallet.Balances[CURRENCY_IDS.KC] || 0,
       },
+    };
+
+    return NextResponse.json(storeData);
+
+  } catch (error) {
+    console.error("Store API Error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch store data" },
       { status: 500 }
     );
   }
-}
-
-/**
- * Handle other HTTP methods
- */
-export async function POST() {
-  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-}
-
-export async function PUT() {
-  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-}
-
-export async function DELETE() {
-  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
 }
