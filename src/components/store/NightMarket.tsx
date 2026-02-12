@@ -106,16 +106,19 @@ export function NightMarket({ nightMarket }: NightMarketProps) {
               {/* Pricing */}
               <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
                 <div className="flex flex-col">
-                  <p className="text-xs text-zinc-500 line-through">
-                    {item.basePrice.toLocaleString()} VP
+                  <p className="text-xs text-zinc-500 line-through flex items-center gap-1">
+                    {item.basePrice.toLocaleString()}
+                    <Image src="/icons/Valorant_Points.webp" alt="VP" width={14} height={14} />
                   </p>
-                  <p className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">
-                    {item.discountedPrice.toLocaleString()} VP
+                  <p className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400 flex items-center gap-1">
+                    {item.discountedPrice.toLocaleString()}
+                    <Image src="/icons/Valorant_Points.webp" alt="VP" width={20} height={20} />
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-green-400 font-medium">
-                    Save {(item.basePrice - item.discountedPrice).toLocaleString()} VP
+                  <p className="text-xs text-green-400 font-medium flex items-center gap-1">
+                    Save {(item.basePrice - item.discountedPrice).toLocaleString()}
+                    <Image src="/icons/Valorant_Points.webp" alt="VP" width={12} height={12} />
                   </p>
                 </div>
               </div>

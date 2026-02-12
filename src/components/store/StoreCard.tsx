@@ -105,10 +105,7 @@ export function StoreCard({ item }: StoreCardProps) {
           {/* Price and tier */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {/* VP icon placeholder - using emoji for now */}
-              <span className="text-2xl" aria-label="Valorant Points">
-                💎
-              </span>
+              <Image src="/icons/Valorant_Points.webp" alt="VP" width={28} height={28} />
               <span className="text-foreground font-bold text-xl">
                 {item.cost.toLocaleString()}
               </span>
