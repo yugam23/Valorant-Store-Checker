@@ -23,8 +23,8 @@ export function Header() {
           >
             Store
           </Link>
-          <Button variant="valorant" size="sm">
-            Login with Riot
+          <Button variant="valorant" size="sm" asChild>
+            <Link href="/login">Login with Riot</Link>
           </Button>
         </nav>
       </div>

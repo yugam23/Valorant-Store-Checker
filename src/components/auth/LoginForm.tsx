@@ -47,6 +47,8 @@ export function LoginForm() {
   const [showMfa, setShowMfa] = useState(false);
   const [mfaCookie, setMfaCookie] = useState<string | null>(null);
   const [mfaEmail, setMfaEmail] = useState<string | null>(null);
+  const [loginMethod, setLoginMethod] = useState<"credentials" | "browser">("credentials");
+  const [pastedUrl, setPastedUrl] = useState("");
 
   /**
    * Handles initial authentication with username and password
@@ -86,6 +88,41 @@ export function LoginForm() {
     } catch (err) {
       setError("Network error. Please check your connection and try again.");
       console.error("Auth error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Handles browser-based auth submission
+   */
+  const handleBrowserAuth = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/auth", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "url",
+          url: pastedUrl,
+        }),
+      });
+
+      const data: AuthResponse = await response.json();
+
+      if (data.success) {
+        router.push("/store");
+      } else {
+        setError(data.error || "Failed to process the URL. Please make sure you copied the entire URL.");
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
+      console.error("Browser auth error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -140,6 +177,10 @@ export function LoginForm() {
     setError(null);
   };
 
+  // Generate Riot Auth URL (hardcoded for client-side usage to avoid async fetch delay in UI)
+  // detailed explanation: must use /authorize for browser flow, not /api/v1/authorization
+  const RIOT_AUTH_URL = "https://auth.riotgames.com/authorize?client_id=play-valorant-web-prod&redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&response_type=token%20id_token&scope=account%20openid&nonce=1";
+
   return (
     <div className="w-full max-w-md">
       {/* Login Card */}
@@ -152,9 +193,37 @@ export function LoginForm() {
           <p className="text-zinc-400 text-sm">
             {showMfa
               ? `Enter the code sent to ${mfaEmail || "your email"}`
-              : "Enter your Riot Games credentials"}
+              : "Access your Valorant Store"}
           </p>
         </div>
+
+        {/* Method Toggle */}
+        {!showMfa && (
+          <div className="flex p-1 bg-zinc-800/50 rounded-lg mb-6">
+            <button
+              type="button"
+              onClick={() => setLoginMethod("credentials")}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                loginMethod === "credentials"
+                  ? "bg-valorant-red text-white shadow-lg"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              Riot ID
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoginMethod("browser")}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                loginMethod === "browser"
+                  ? "bg-valorant-red text-white shadow-lg"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              Browser Login
+            </button>
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -164,8 +233,8 @@ export function LoginForm() {
           </div>
         )}
 
-        {/* Initial Auth Form */}
-        {!showMfa && (
+        {/* Credentials Form */}
+        {!showMfa && loginMethod === "credentials" && (
           <form onSubmit={handleInitialAuth} className="space-y-6">
             {/* Username Input */}
             <div>
@@ -216,6 +285,58 @@ export function LoginForm() {
                 </>
               ) : (
                 "Sign In"
+              )}
+            </Button>
+          </form>
+        )}
+
+        {/* Browser Auth Form */}
+        {!showMfa && loginMethod === "browser" && (
+          <form onSubmit={handleBrowserAuth} className="space-y-6">
+            <div className="space-y-4">
+              <div className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700 text-sm text-zinc-300">
+                <p className="mb-3">
+                  1. Click standard <a href={RIOT_AUTH_URL} target="_blank" rel="noopener noreferrer" className="text-valorant-red hover:underline font-bold">Riot Login Link</a> (Opens in new tab).
+                </p>
+                <p className="mb-3">
+                  2. Log in with your account.
+                </p>
+                <p>
+                  3. You will be redirected to a page that might say "Connect Accounts" or check a box. <strong>Copy the entire URL from your browser address bar</strong> (it starts with https://playvalorant.com/opt_in...).
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="pastedUrl" className="block text-sm font-medium text-zinc-300 mb-2">
+                  Paste URL here
+                </label>
+                <input
+                  id="pastedUrl"
+                  type="text"
+                  value={pastedUrl}
+                  onChange={(e) => setPastedUrl(e.target.value)}
+                  placeholder="https://playvalorant.com/opt_in#access_token=..."
+                  required
+                  disabled={isLoading}
+                  className="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-valorant-red focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              variant="valorant"
+              size="lg"
+              disabled={isLoading || !pastedUrl.includes("access_token")}
+              className="w-full"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Complete Login"
               )}
             </Button>
           </form>
