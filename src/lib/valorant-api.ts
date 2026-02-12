@@ -7,6 +7,7 @@ import type {
   ValorantAPIResponse,
   ValorantWeaponSkin,
   ValorantContentTier,
+  ValorantBundle,
 } from "../types/riot";
 
 const VALORANT_API_BASE = "https://valorant-api.com/v1";
@@ -14,9 +15,12 @@ const VALORANT_API_BASE = "https://valorant-api.com/v1";
 // In-memory cache to avoid repeated fetches
 let weaponSkinsCache: ValorantWeaponSkin[] | null = null;
 let contentTiersCache: ValorantContentTier[] | null = null;
+let bundlesCache: ValorantBundle[] | null = null;
+
 let lastFetchTime = {
   skins: 0,
   tiers: 0,
+  bundles: 0,
 };
 
 // Cache expiration: 24 hours (static data changes rarely)
@@ -39,7 +43,6 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
       headers: {
         "Content-Type": "application/json",
       },
-      // @ts-expect-error - Next.js extends fetch with next option
       next: {
         revalidate: 86400, // Next.js cache: 24 hours
       },
@@ -95,7 +98,6 @@ export async function getContentTiers(): Promise<ValorantContentTier[]> {
       headers: {
         "Content-Type": "application/json",
       },
-      // @ts-expect-error - Next.js extends fetch with next option
       next: {
         revalidate: 86400, // Next.js cache: 24 hours
       },
@@ -135,6 +137,61 @@ export async function getContentTiers(): Promise<ValorantContentTier[]> {
 }
 
 /**
+ * Fetch all bundles from Valorant-API
+ * Results are cached in memory for 24 hours
+ */
+export async function getBundles(): Promise<ValorantBundle[]> {
+  const now = Date.now();
+
+  // Return cached data if still valid
+  if (bundlesCache && now - lastFetchTime.bundles < CACHE_TTL) {
+    return bundlesCache;
+  }
+
+  try {
+    const response = await fetch(`${VALORANT_API_BASE}/bundles`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      next: {
+        revalidate: 86400, // Next.js cache: 24 hours
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Valorant-API returned ${response.status}: ${response.statusText}`
+      );
+    }
+
+    const result: ValorantAPIResponse<ValorantBundle[]> =
+      await response.json();
+
+    if (result.status !== 200) {
+      throw new Error(`Valorant-API error: status ${result.status}`);
+    }
+
+    // Update cache
+    bundlesCache = result.data;
+    lastFetchTime.bundles = now;
+
+    return result.data;
+  } catch (error) {
+    console.error("[Valorant-API] Failed to fetch bundles:", error);
+
+    // Return cached data if available, even if expired
+    if (bundlesCache) {
+      console.warn(
+        "[Valorant-API] Using expired cache due to fetch failure"
+      );
+      return bundlesCache;
+    }
+
+    throw error;
+  }
+}
+
+/**
  * Find a specific weapon skin by UUID
  * Uses cached data from getWeaponSkins()
  */
@@ -154,6 +211,17 @@ export async function getContentTierByUuid(
 ): Promise<ValorantContentTier | null> {
   const tiers = await getContentTiers();
   return tiers.find((tier) => tier.uuid.toLowerCase() === uuid.toLowerCase()) || null;
+}
+
+/**
+ * Find a specific bundle by UUID
+ * Uses cached data from getBundles()
+ */
+export async function getBundleByUuid(
+  uuid: string
+): Promise<ValorantBundle | null> {
+  const bundles = await getBundles();
+  return bundles.find((bundle) => bundle.uuid.toLowerCase() === uuid.toLowerCase()) || null;
 }
 
 /**
@@ -184,7 +252,8 @@ export async function getWeaponSkinsByUuids(
 export function clearCache(): void {
   weaponSkinsCache = null;
   contentTiersCache = null;
-  lastFetchTime = { skins: 0, tiers: 0 };
+  bundlesCache = null;
+  lastFetchTime = { skins: 0, tiers: 0, bundles: 0 };
 }
 
 /**
@@ -204,6 +273,12 @@ export function getCacheStatus() {
       count: contentTiersCache?.length || 0,
       age: contentTiersCache ? now - lastFetchTime.tiers : null,
       valid: contentTiersCache && now - lastFetchTime.tiers < CACHE_TTL,
+    },
+    bundles: {
+      cached: !!bundlesCache,
+      count: bundlesCache?.length || 0,
+      age: bundlesCache ? now - lastFetchTime.bundles : null,
+      valid: bundlesCache && now - lastFetchTime.bundles < CACHE_TTL,
     },
   };
 }

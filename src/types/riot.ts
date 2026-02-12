@@ -55,6 +55,19 @@ export interface RiotStorefront {
   SkinsPanelLayout: {
     SingleItemOffers: string[]; // Array of skin UUIDs
     SingleItemOffersRemainingDurationInSeconds: number;
+    SingleItemStoreOffers: Array<{
+      OfferID: string;
+      IsDirectPurchase: boolean;
+      StartDate: string;
+      Cost: {
+        [currencyID: string]: number;
+      };
+      Rewards: Array<{
+        ItemTypeID: string;
+        ItemID: string;
+        Quantity: number;
+      }>;
+    }>;
   };
   BonusStore?: {
     BonusStoreOffers: Array<{
@@ -163,6 +176,23 @@ export interface ValorantWeaponSkin {
 export interface ValorantAPIResponse<T> {
   status: number;
   data: T;
+}
+
+/**
+ * Bundle data from Valorant-API
+ */
+export interface ValorantBundle {
+  uuid: string;
+  displayName: string;
+  displayNameSubText: string | null;
+  description: string | null;
+  extraDescription: string | null;
+  promoDescription: string | null;
+  useAdditionalContext: boolean;
+  displayIcon: string;
+  displayIcon2: string;
+  verticalPromoImage: string | null;
+  assetPath: string;
 }
 
 // ============================================
