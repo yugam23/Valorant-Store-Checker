@@ -17,6 +17,27 @@ const RIOT_USERINFO_URL = "https://auth.riotgames.com/userinfo";
 
 const CLIENT_ID = "play-valorant-web-prod";
 const REDIRECT_URI = "https://playvalorant.com/opt_in";
+const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
+
+/** Generate a random hex string for referer spoofing or nonce */
+function randomHex(bytes: number): string {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Common headers for all Riot auth requests */
+function riotHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "User-Agent": USER_AGENT,
+    Accept: "application/json",
+    "Accept-Encoding": "deflate, gzip, zstd",
+    "Cache-Control": "no-cache",
+    ...extra,
+  };
+}
 
 export interface AuthResponse {
   type: "response" | "multifactor";
@@ -74,11 +95,73 @@ export interface UserInfo {
 }
 
 /**
- * Initiates the authentication flow with Riot Games
- * @param username Riot ID (username#tagline)
- * @param password Account password
- * @returns Authentication response with tokens or MFA requirement
+ * Generates the Riot Login URL for browser-based authentication
  */
+export function getRiotLoginUrl(): string {
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    response_type: "token id_token",
+    scope: "account openid",
+    nonce: randomHex(16),
+  });
+  return `${RIOT_AUTH_URL}?${params.toString()}`;
+}
+
+/**
+ * Processes the redirect URL from browser login to complete authentication
+ * @param url The full redirect URL containing access_token in hash
+ */
+export async function completeAuthWithUrl(url: string): Promise<
+  | { success: true; tokens: AuthTokens }
+  | { success: false; error: string }
+> {
+  try {
+    let hash = "";
+    if (url.includes("#")) {
+      hash = url.split("#")[1];
+    } else {
+      hash = url; 
+    }
+
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get("access_token");
+    const idToken = params.get("id_token");
+
+    if (!accessToken || !idToken) {
+      return { success: false, error: "Invalid URL: Missing access_token or id_token" };
+    }
+
+    const entitlementsToken = await getEntitlementsToken(accessToken);
+    if (!entitlementsToken) {
+      return { success: false, error: "Failed to retrieve entitlements token" };
+    }
+
+    const userInfo = await getUserInfo(accessToken);
+    if (!userInfo) {
+      return { success: false, error: "Failed to retrieve user information" };
+    }
+
+    const region = determineRegion(userInfo);
+
+    return {
+      success: true,
+      tokens: {
+        accessToken,
+        idToken,
+        entitlementsToken,
+        puuid: userInfo.sub,
+        region,
+      },
+    };
+  } catch (error) {
+    return {
+       success: false,
+       error: error instanceof Error ? error.message : "Failed to process auth URL",
+    };
+  }
+}
+
 export async function authenticateRiotAccount(
   username: string,
   password: string
@@ -91,17 +174,18 @@ export async function authenticateRiotAccount(
     // Step 1: Initialize authorization session
     const initResponse = await fetch(RIOT_AUTH_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: riotHeaders(),
       body: JSON.stringify({
         client_id: CLIENT_ID,
-        nonce: "1",
+        nonce: randomHex(16),
         redirect_uri: REDIRECT_URI,
         response_type: "token id_token",
         scope: "account openid",
       }),
+      cache: "no-store",
     });
+
+    console.log("[riot-auth] Step 1 - Init status:", initResponse.status);
 
     if (!initResponse.ok) {
       return {
@@ -110,38 +194,50 @@ export async function authenticateRiotAccount(
       };
     }
 
-    // Extract session cookie
-    const cookies = initResponse.headers.get("set-cookie");
-    if (!cookies) {
+    // Extract session cookies properly
+    const setCookieHeaders = initResponse.headers.getSetCookie();
+    if (!setCookieHeaders || setCookieHeaders.length === 0) {
       return {
         success: false,
         error: "No session cookie received from auth initialization",
       };
     }
+    const cookies = setCookieHeaders
+      .map((c) => c.split(";")[0])
+      .join("; ");
+
+    console.log("[riot-auth] Step 1 - Cookie names:", setCookieHeaders.map((c) => c.split("=")[0]).join(", "));
 
     // Step 2: Submit credentials
     const authResponse = await fetch(RIOT_AUTH_URL, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: cookies,
-      },
+      headers: riotHeaders({ Cookie: cookies }),
       body: JSON.stringify({
         type: "auth",
         username,
         password,
+        language: "en_US",
+        region: null,
         remember: true,
       }),
+      cache: "no-store",
     });
 
+    console.log("[riot-auth] Step 2 - Auth status:", authResponse.status);
+
     if (!authResponse.ok) {
+      // Read the body for more context on failures
+      const errorBody = await authResponse.text();
+      console.log("[riot-auth] Step 2 - Error body:", errorBody);
       return {
         success: false,
-        error: `Authentication failed: ${authResponse.statusText}`,
+        error: `Authentication failed: ${authResponse.status} ${authResponse.statusText}`,
       };
     }
 
     const authData: AuthResponse = await authResponse.json();
+
+    console.log("[riot-auth] Step 2 - Full response:", JSON.stringify(authData));
 
     // Step 3: Handle MFA if required
     if (authData.type === "multifactor") {
@@ -150,6 +246,16 @@ export async function authenticateRiotAccount(
         type: "multifactor",
         cookie: cookies,
         multifactor: authData.multifactor,
+      };
+    }
+
+    // Step 3b: Handle auth failure
+    if (authData.type !== "response") {
+      const errorDetail = (authData as any).error || "Unknown authentication error";
+      const country = authData.country ? ` (Region: ${authData.country})` : "";
+      return {
+        success: false,
+        error: `Riot Auth Error: ${errorDetail}${country}`,
       };
     }
 
@@ -225,15 +331,13 @@ export async function submitMfa(
   try {
     const mfaResponse = await fetch(RIOT_AUTH_URL, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: cookie,
-      },
+      headers: riotHeaders({ Cookie: cookie }),
       body: JSON.stringify({
         type: "multifactor",
         code,
         rememberDevice: true,
       }),
+      cache: "no-store",
     });
 
     if (!mfaResponse.ok) {
@@ -381,56 +485,74 @@ async function getUserInfo(accessToken: string): Promise<UserInfo | null> {
  * @returns Region identifier (na, eu, ap, kr, latam, br)
  */
 function determineRegion(userInfo: UserInfo): string {
-  // Try to get region from affinity if available
-  if (userInfo.affinity && userInfo.affinity.pbe) {
-    return userInfo.affinity.pbe;
+  console.log("[riot-auth] Determining region. Country:", userInfo.country, "Affinity:", JSON.stringify(userInfo.affinity));
+
+  // Primary: use the affinity field which contains the actual shard assignment
+  // The "pp" key (player platform) maps directly to the PD shard
+  if (userInfo.affinity) {
+    const shard = userInfo.affinity.pp || userInfo.affinity.live || Object.values(userInfo.affinity)[0];
+    if (shard) {
+      console.log(`[riot-auth] Using affinity shard: ${shard}`);
+      return shard;
+    }
   }
 
   // Fallback to country-based mapping
+  // Map both 2-letter and 3-letter codes just in case
   const countryToRegion: { [key: string]: string } = {
     // North America
-    US: "na",
-    CA: "na",
-    MX: "na",
+    US: "na", USA: "na",
+    CA: "na", CAN: "na",
+    MX: "na", MEX: "na",
 
     // Europe
-    GB: "eu",
-    DE: "eu",
-    FR: "eu",
-    IT: "eu",
-    ES: "eu",
-    RU: "eu",
-    TR: "eu",
-    PL: "eu",
-    NL: "eu",
-    SE: "eu",
-    NO: "eu",
-    DK: "eu",
-    FI: "eu",
+    GB: "eu", GBR: "eu",
+    DE: "eu", DEU: "eu",
+    FR: "eu", FRA: "eu",
+    IT: "eu", ITA: "eu",
+    ES: "eu", ESP: "eu",
+    RU: "eu", RUS: "eu",
+    TR: "eu", TUR: "eu",
+    PL: "eu", POL: "eu",
+    NL: "eu", NLD: "eu",
+    SE: "eu", SWE: "eu",
+    NO: "eu", NOR: "eu",
+    DK: "eu", DNK: "eu",
+    FI: "eu", FIN: "eu",
+    UA: "eu", UKR: "eu",
 
     // Asia Pacific
-    JP: "ap",
-    KR: "kr",
-    CN: "ap",
-    TW: "ap",
-    HK: "ap",
-    SG: "ap",
-    TH: "ap",
-    VN: "ap",
-    ID: "ap",
-    MY: "ap",
-    PH: "ap",
-    IN: "ap",
-    AU: "ap",
-    NZ: "ap",
+    JP: "ap", JPN: "ap",
+    KR: "kr", KOR: "kr",
+    CN: "ap", CHN: "ap",
+    TW: "ap", TWN: "ap",
+    HK: "ap", HKG: "ap",
+    SG: "ap", SGP: "ap",
+    TH: "ap", THA: "ap",
+    VN: "ap", VNM: "ap",
+    ID: "ap", IDN: "ap",
+    MY: "ap", MYS: "ap",
+    PH: "ap", PHL: "ap",
+    IN: "ap", IND: "ap",
+    AU: "ap", AUS: "ap",
+    NZ: "ap", NZL: "ap",
 
     // Latin America
-    BR: "br",
-    AR: "latam",
-    CL: "latam",
-    CO: "latam",
-    PE: "latam",
+    BR: "br", BRA: "br",
+    AR: "latam", ARG: "latam",
+    CL: "latam", CHL: "latam",
+    CO: "latam", COL: "latam",
+    PE: "latam", PER: "latam",
   };
 
-  return countryToRegion[userInfo.country] || "na";
+  const countryCode = userInfo.country?.toUpperCase();
+  const region = countryToRegion[countryCode];
+
+  if (region) {
+    console.log(`[riot-auth] Mapped country ${countryCode} to region ${region}`);
+    return region;
+  }
+
+  console.warn(`[riot-auth] Unknown country code: ${countryCode}, defaulting to 'na'`);
+  return "na";
 }

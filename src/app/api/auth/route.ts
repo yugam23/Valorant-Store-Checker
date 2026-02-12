@@ -20,9 +20,10 @@ import { createSession } from "@/lib/session";
 interface LoginRequestBody {
   username?: string;
   password?: string;
-  type?: "auth" | "multifactor";
+  type?: "auth" | "multifactor" | "url";
   code?: string;
   cookie?: string;
+  url?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -30,11 +31,43 @@ export async function POST(request: NextRequest) {
     const body: LoginRequestBody = await request.json();
 
     // Validate request type
-    if (!body.type || (body.type !== "auth" && body.type !== "multifactor")) {
+    if (!body.type || (body.type !== "auth" && body.type !== "multifactor" && body.type !== "url")) {
       return NextResponse.json(
-        { error: "Invalid request type. Expected 'auth' or 'multifactor'" },
+        { error: "Invalid request type. Expected 'auth', 'multifactor', or 'url'" },
         { status: 400 }
       );
+    }
+
+    // Handle Browser Auth (Paste URL)
+    if (body.type === "url") {
+      if (!body.url) {
+        return NextResponse.json(
+          { error: "Redirect URL is required" },
+          { status: 400 }
+        );
+      }
+
+      // Import dynamically to avoid circular deps if any (though likely none here)
+      const { completeAuthWithUrl } = await import("@/lib/riot-auth");
+      const result = await completeAuthWithUrl(body.url);
+
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error || "Failed to process auth URL" },
+          { status: 401 }
+        );
+      }
+
+      // Create session with tokens
+      await createSession(result.tokens);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          puuid: result.tokens.puuid,
+          region: result.tokens.region,
+        },
+      });
     }
 
     // Handle MFA submission
@@ -80,7 +113,7 @@ export async function POST(request: NextRequest) {
 
       if (!result.success) {
         // Check if MFA is required
-        if (result.type === "multifactor") {
+        if ("type" in result && result.type === "multifactor") {
           return NextResponse.json({
             success: false,
             requiresMfa: true,
@@ -90,8 +123,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Authentication failed
+        const errorMsg = "error" in result ? result.error : "Authentication failed";
         return NextResponse.json(
-          { error: result.error || "Authentication failed" },
+          { error: errorMsg || "Authentication failed" },
           { status: 401 }
         );
       }
