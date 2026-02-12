@@ -1,9 +1,18 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google"; // Use Inter
+import { Teko, Outfit } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 
-const inter = Inter({ subsets: ["latin"] });
+const teko = Teko({
+  subsets: ["latin"],
+  variable: "--font-teko",
+  weight: ["400", "500", "600", "700"],
+});
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-outfit",
+});
 
 export const metadata: Metadata = {
   title: "Valorant Store Checker",
@@ -17,11 +26,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} min-h-screen flex flex-col antialiased bg-void text-light`}>
+      <body
+        className={`${teko.variable} ${outfit.variable} font-sans min-h-screen flex flex-col antialiased bg-void text-light`}
+      >
+        {/* Noise texture overlay */}
+        <div className="noise-overlay" />
+
         <Header />
-        <main className="flex-1">
-            {children}
-        </main>
+        <main className="relative z-10 flex-1">{children}</main>
       </body>
     </html>
   );

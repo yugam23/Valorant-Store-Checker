@@ -3,12 +3,27 @@
 @theme {
   --color-valorant-red: #ff4655;
   --color-void: #0f1923;
+  --color-void-deep: #0a1118;
+  --color-void-surface: #162230;
+  --color-void-elevated: #1c2d3d;
   --color-light: #ece8e1;
   --color-background: var(--color-void);
   --color-foreground: var(--color-light);
 
-  --font-sans: var(--font-geist-sans);
+  --color-glow-red: rgba(255, 70, 85, 0.6);
+  --color-glow-purple: rgba(168, 85, 247, 0.6);
+  --color-glow-gold: rgba(234, 179, 8, 0.6);
+
+  --font-sans: var(--font-outfit);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-teko);
+}
+
+/* Animatable custom property for conic-gradient border rotation */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
 }
 
 :root {
@@ -17,7 +32,168 @@
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(145deg, #0a1118 0%, #0f1923 40%, #162230 100%);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* ========================
+   KEYFRAMES
+   ======================== */
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes borderGlow {
+  from {
+    --border-angle: 0deg;
+  }
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes subtleFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.05);
+  }
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+/* ========================
+   UTILITY CLASSES
+   ======================== */
+
+/* Angular clip-path cards — Valorant's signature cut-corner motif */
+.angular-card {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 24px) 0,
+    100% 24px,
+    100% 100%,
+    24px 100%,
+    0 calc(100% - 24px)
+  );
+}
+
+.angular-card-sm {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% 100%,
+    12px 100%,
+    0 calc(100% - 12px)
+  );
+}
+
+/* Angular button clip-path */
+.angular-btn {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    10px 100%,
+    0 calc(100% - 10px)
+  );
+}
+
+/* Animated conic-gradient glow border */
+.glow-border {
+  --glow-color: var(--color-valorant-red);
+  position: relative;
+  background: conic-gradient(
+    from var(--border-angle),
+    transparent 30%,
+    var(--glow-color) 50%,
+    transparent 70%
+  );
+  animation: borderGlow 3s linear infinite;
+  padding: 1px;
+}
+
+.glow-border > * {
+  background: var(--color-void-deep);
+}
+
+/* SVG noise texture overlay */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Staggered entrance animation */
+.stagger-entrance {
+  opacity: 0;
+  animation: fadeSlideUp 0.5s ease-out both;
+  animation-delay: var(--stagger-delay, 0ms);
+}
+
+/* Animate utilities */
+.animate-fade-slide-up {
+  animation: fadeSlideUp 0.5s ease-out both;
+}
+
+.animate-border-glow {
+  animation: borderGlow 3s linear infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+.animate-subtle-float {
+  animation: subtleFloat 6s ease-in-out infinite;
+}
+
+.animate-scanline {
+  animation: scanline 8s linear infinite;
 }
