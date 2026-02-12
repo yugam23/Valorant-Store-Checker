@@ -13,6 +13,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { StoreGrid } from "@/components/store/StoreGrid";
 import { WalletDisplay } from "@/components/store/WalletDisplay";
 import { NightMarket } from "@/components/store/NightMarket";
@@ -21,9 +22,20 @@ import type { StoreData } from "@/types/store";
 type LoadingState = "idle" | "loading" | "success" | "error";
 
 export default function StorePage() {
+  const router = useRouter();
   const [storeData, setStoreData] = useState<StoreData | null>(null);
   const [loadingState, setLoadingState] = useState<LoadingState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } finally {
+      router.push("/login");
+    }
+  };
 
   useEffect(() => {
     async function fetchStore() {
@@ -96,10 +108,19 @@ export default function StorePage() {
               )}
             </div>
 
-            {/* Wallet display */}
-            {loadingState === "success" && storeData?.wallet && (
-              <WalletDisplay wallet={storeData.wallet} />
-            )}
+            {/* Wallet display & logout */}
+            <div className="flex items-center gap-4">
+              {loadingState === "success" && storeData?.wallet && (
+                <WalletDisplay wallet={storeData.wallet} />
+              )}
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="px-4 py-2 text-sm font-medium text-zinc-400 bg-zinc-900/80 border border-zinc-800/50 rounded-xl hover:text-white hover:border-zinc-700 transition-colors disabled:opacity-50"
+              >
+                {loggingOut ? "Logging out..." : "Logout"}
+              </button>
+            </div>
           </div>
         </div>
 
