@@ -30,6 +30,7 @@ export interface SessionData {
   puuid: string;
   region: string;
   createdAt: number;
+  [key: string]: string | number; // Index signature for JWT compatibility
 }
 
 /**
