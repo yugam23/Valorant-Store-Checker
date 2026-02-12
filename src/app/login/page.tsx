@@ -1,11 +1,3 @@
-/**
- * Login Page
- *
- * Entry point for user authentication.
- * Renders the LoginForm component centered on the screen
- * with the Void & Light design system aesthetic.
- */
-
 import { LoginForm } from "@/components/auth/LoginForm";
 
 export const metadata = {
@@ -15,15 +7,35 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-gradient-to-b from-zinc-950 to-zinc-900">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-valorant-red/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-valorant-red/5 rounded-full blur-3xl" />
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      {/* Animated scan line */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="w-full h-[2px] bg-gradient-to-r from-transparent via-valorant-red/20 to-transparent animate-scanline" />
       </div>
 
+      {/* Diagonal grid overlay */}
+      <div
+        className="absolute inset-0 opacity-[0.02] pointer-events-none"
+        style={{
+          backgroundImage: `repeating-linear-gradient(
+            -45deg,
+            transparent,
+            transparent 40px,
+            rgba(255,255,255,0.5) 40px,
+            rgba(255,255,255,0.5) 41px
+          )`,
+        }}
+      />
+
+      {/* Dramatic red orbs */}
+      <div className="absolute top-1/3 -left-40 w-96 h-96 bg-valorant-red/8 rounded-full blur-3xl animate-subtle-float" />
+      <div className="absolute bottom-1/3 -right-40 w-96 h-96 bg-valorant-red/6 rounded-full blur-3xl animate-subtle-float" style={{ animationDelay: "3s" }} />
+
       {/* Login Form Container */}
-      <div className="relative z-10 w-full max-w-md">
+      <div
+        className="relative z-10 w-full max-w-md stagger-entrance"
+        style={{ "--stagger-delay": "0ms" } as React.CSSProperties}
+      >
         <LoginForm />
       </div>
     </div>
