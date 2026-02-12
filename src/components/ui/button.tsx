@@ -18,7 +18,9 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        valorant: "bg-valorant-red text-white hover:bg-red-600 shadow-[0_0_10px_rgba(255,70,85,0.4)] hover:shadow-[0_0_20px_rgba(255,70,85,0.6)] uppercase tracking-wider font-bold",
+        valorant: "angular-btn bg-valorant-red text-white hover:bg-red-600 shadow-[0_0_10px_rgba(255,70,85,0.4)] hover:shadow-[0_0_25px_rgba(255,70,85,0.6)] uppercase tracking-wider font-bold font-display",
+        angular: "angular-btn bg-void-surface text-light hover:bg-void-elevated uppercase tracking-wider font-bold font-display transition-all duration-200",
+        "angular-outline": "angular-btn bg-transparent border border-white/20 text-light hover:border-valorant-red/60 hover:shadow-[0_0_15px_rgba(255,70,85,0.3)] uppercase tracking-wider font-bold font-display transition-all duration-200",
       },
       size: {
         default: "h-10 px-4 py-2",
