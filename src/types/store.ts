@@ -41,6 +41,7 @@ export interface StoreData {
   items: StoreItem[]; // Daily 4 items
   expiresAt: Date; // When the store resets
   wallet?: WalletBalance; // Optional wallet data
+  nightMarket?: NightMarketData; // Optional Night Market data
 }
 
 /**
