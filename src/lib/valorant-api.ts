@@ -257,6 +257,29 @@ export function clearCache(): void {
 }
 
 /**
+ * Get the best video URL for a skin
+ * Prioritizes the highest level with a video (usually Level 4/Variant 1)
+ * Returns null if no video is available
+ */
+export function getSkinVideo(skin: ValorantWeaponSkin): string | null {
+  if (!skin.levels || skin.levels.length === 0) {
+    return null;
+  }
+
+  // Try to find the highest level with a video
+  // Iterate backwards as higher levels usually come last
+  for (let i = skin.levels.length - 1; i >= 0; i--) {
+    const level = skin.levels[i];
+    if (level.streamedVideo) {
+      return level.streamedVideo;
+    }
+  }
+
+  // No video found in any level
+  return null;
+}
+
+/**
  * Get cache status for monitoring
  */
 export function getCacheStatus() {
