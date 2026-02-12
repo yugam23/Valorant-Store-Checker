@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { StoreGrid } from "@/components/store/StoreGrid";
+import { WalletDisplay } from "@/components/store/WalletDisplay";
 import type { StoreData } from "@/types/store";
 
 type LoadingState = "idle" | "loading" | "success" | "error";
@@ -96,26 +97,7 @@ export default function StorePage() {
 
             {/* Wallet display */}
             {loadingState === "success" && storeData?.wallet && (
-              <div className="flex gap-6 bg-zinc-900 rounded-2xl px-6 py-4 border border-zinc-800">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">💎</span>
-                  <div>
-                    <p className="text-xs text-zinc-500">VP</p>
-                    <p className="text-lg font-bold text-foreground">
-                      {storeData.wallet.vp.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">⚡</span>
-                  <div>
-                    <p className="text-xs text-zinc-500">RP</p>
-                    <p className="text-lg font-bold text-foreground">
-                      {storeData.wallet.rp.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <WalletDisplay wallet={storeData.wallet} />
             )}
           </div>
         </div>
