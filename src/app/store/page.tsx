@@ -15,6 +15,7 @@
 import { useEffect, useState } from "react";
 import { StoreGrid } from "@/components/store/StoreGrid";
 import { WalletDisplay } from "@/components/store/WalletDisplay";
+import { NightMarket } from "@/components/store/NightMarket";
 import type { StoreData } from "@/types/store";
 
 type LoadingState = "idle" | "loading" | "success" | "error";
@@ -135,7 +136,14 @@ export default function StorePage() {
         )}
 
         {loadingState === "success" && storeData && (
-          <StoreGrid items={storeData.items} />
+          <>
+            <StoreGrid items={storeData.items} />
+
+            {/* Night Market Section */}
+            {storeData.nightMarket && (
+              <NightMarket nightMarket={storeData.nightMarket} />
+            )}
+          </>
         )}
       </div>
     </div>
