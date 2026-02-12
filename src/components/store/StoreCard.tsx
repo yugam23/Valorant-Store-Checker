@@ -13,6 +13,7 @@
 
 "use client";
 
+import { useRef, useState } from "react";
 import Image from "next/image";
 import type { StoreItem } from "../../types/store";
 
@@ -21,8 +22,32 @@ interface StoreCardProps {
 }
 
 export function StoreCard({ item }: StoreCardProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (videoRef.current && item.streamedVideo) {
+      videoRef.current.play().catch((error) => {
+        // Ignore play errors (e.g., video not loaded yet)
+        console.debug("Video play prevented:", error);
+      });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
   return (
-    <div className="group relative overflow-hidden rounded-3xl bg-zinc-900 border border-zinc-800">
+    <div
+      className="group relative overflow-hidden rounded-3xl bg-zinc-900 border border-zinc-800"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       {/* Rarity indicator - 2px colored underline at top */}
       <div
         className="absolute top-0 left-0 right-0 h-0.5 z-10"
@@ -31,18 +56,39 @@ export function StoreCard({ item }: StoreCardProps) {
 
       {/* Card content */}
       <div className="relative p-6 space-y-4">
-        {/* Skin image */}
+        {/* Skin image/video */}
         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-zinc-950">
-          {item.displayIcon ? (
+          {/* Static image - always visible */}
+          {item.displayIcon && (
             <Image
               src={item.displayIcon}
               alt={item.displayName}
               fill
-              className="object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+              className={`object-contain p-4 transition-all duration-300 ${
+                isHovered && item.streamedVideo ? "opacity-0" : "opacity-100 group-hover:scale-105"
+              }`}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               priority
             />
-          ) : (
+          )}
+
+          {/* Video preview - shows on hover if available */}
+          {item.streamedVideo && (
+            <video
+              ref={videoRef}
+              src={item.streamedVideo}
+              className={`absolute inset-0 w-full h-full object-contain p-4 transition-opacity duration-300 ${
+                isHovered ? "opacity-100" : "opacity-0"
+              }`}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+            />
+          )}
+
+          {/* Fallback for no media */}
+          {!item.displayIcon && !item.streamedVideo && (
             <div className="flex items-center justify-center h-full text-zinc-500">
               <span className="text-sm">No preview available</span>
             </div>
