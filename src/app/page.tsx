@@ -16,8 +16,8 @@ export default function Home() {
       </p>
       
       <div className="flex gap-4">
-        <Button size="lg" variant="valorant" className="text-lg px-8 py-6 h-auto">
-          Login with Riot
+        <Button size="lg" variant="valorant" className="text-lg px-8 py-6 h-auto" asChild>
+          <Link href="/login">Login with Riot</Link>
         </Button>
         <Button size="lg" variant="outline" className="text-lg px-8 py-6 h-auto border-white/10 hover:bg-white/5 text-white bg-transparent">
           View Demo
