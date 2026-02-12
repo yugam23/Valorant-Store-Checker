@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { getStorefront, getWallet } from "@/lib/riot-store";
-import { getWeaponSkins, getContentTiers } from "@/lib/valorant-api";
+import { getWeaponSkins, getContentTiers, getSkinVideo } from "@/lib/valorant-api";
 import { StoreData, StoreItem, NightMarketItem, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { CURRENCY_IDS } from "@/types/riot";
 
@@ -101,7 +101,7 @@ export async function GET() {
         uuid: skin.uuid,
         displayName: skin.displayName,
         displayIcon: skin.levels?.[0]?.displayIcon || skin.displayIcon || "",
-        streamedVideo: skin.levels?.[0]?.streamedVideo || null,
+        streamedVideo: getSkinVideo(skin),
         wallpaper: skin.wallpaper,
         cost,
         currencyId: CURRENCY_IDS.VP,
@@ -145,7 +145,7 @@ export async function GET() {
           uuid: skin.uuid,
           displayName: skin.displayName,
           displayIcon: skin.levels?.[0]?.displayIcon || skin.displayIcon || "",
-          streamedVideo: skin.levels?.[0]?.streamedVideo || null,
+          streamedVideo: getSkinVideo(skin),
           wallpaper: skin.wallpaper,
           basePrice,
           discountedPrice,
