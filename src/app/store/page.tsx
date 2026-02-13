@@ -58,6 +58,7 @@ export default function StorePage() {
   const [loadingState, setLoadingState] = useState<LoadingState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -91,8 +92,9 @@ export default function StorePage() {
           return;
         }
 
-        const data: StoreData = await response.json();
-        setStoreData(data);
+        const data = await response.json();
+        setFromCache(!!data.fromCache);
+        setStoreData(data as StoreData);
         setLoadingState("success");
       } catch (err) {
         console.error("Store fetch error:", err);
@@ -123,6 +125,11 @@ export default function StorePage() {
                     Resets in
                   </span>
                   <CountdownTimer expiresAt={storeData.expiresAt} />
+                  {fromCache && (
+                    <span className="text-amber-500/70 text-[10px] font-display uppercase tracking-wider border border-amber-500/20 px-2 py-0.5">
+                      Cached
+                    </span>
+                  )}
                 </div>
               )}
             </div>
