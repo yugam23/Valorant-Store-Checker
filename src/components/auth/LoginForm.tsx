@@ -208,7 +208,7 @@ export function LoginForm() {
                   : "bg-void-deep text-zinc-400 hover:text-zinc-200"
               }`}
             >
-              Riot ID
+              Riot Login
             </button>
             <button
               type="button"
@@ -237,14 +237,14 @@ export function LoginForm() {
           <form onSubmit={handleInitialAuth} className="space-y-6">
             <div>
               <label htmlFor="username" className="block text-sm font-display uppercase tracking-wider text-zinc-300 mb-2">
-                Riot ID
+                Username
               </label>
               <input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Username#TAG"
+                placeholder="Enter your Riot Username"
                 required
                 disabled={isLoading}
                 className="w-full px-4 py-3 bg-void-deep border-l-2 border-transparent text-light placeholder-zinc-500 focus:outline-none focus:border-valorant-red disabled:opacity-50 disabled:cursor-not-allowed transition-all"
