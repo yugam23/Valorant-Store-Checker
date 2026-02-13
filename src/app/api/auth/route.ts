@@ -88,8 +88,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create session with tokens
-      await createSession(result.tokens);
+      // Create session with tokens + Riot cookies for token refresh
+      await createSession({
+        ...result.tokens,
+        riotCookies: result.riotCookies,
+      });
 
       return NextResponse.json({
         success: true,
@@ -130,8 +133,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Authentication successful - create session
-      await createSession(result.tokens);
+      // Authentication successful - create session with Riot cookies for token refresh
+      await createSession({
+        ...result.tokens,
+        riotCookies: result.riotCookies,
+      });
 
       return NextResponse.json({
         success: true,

@@ -35,7 +35,7 @@ export function LoginForm() {
   const [showMfa, setShowMfa] = useState(false);
   const [mfaCookie, setMfaCookie] = useState<string | null>(null);
   const [mfaEmail, setMfaEmail] = useState<string | null>(null);
-  const [loginMethod, setLoginMethod] = useState<"credentials" | "browser">("credentials");
+  const [loginMethod, setLoginMethod] = useState<"credentials" | "browser">("browser");
   const [pastedUrl, setPastedUrl] = useState("");
 
   // MFA digit refs
@@ -201,17 +201,6 @@ export function LoginForm() {
           <div className="flex gap-1 mb-6">
             <button
               type="button"
-              onClick={() => setLoginMethod("credentials")}
-              className={`flex-1 py-2 text-sm font-display uppercase tracking-wider transition-all angular-card-sm ${
-                loginMethod === "credentials"
-                  ? "bg-valorant-red text-white shadow-[0_0_15px_rgba(255,70,85,0.3)]"
-                  : "bg-void-deep text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              Riot Login
-            </button>
-            <button
-              type="button"
               onClick={() => setLoginMethod("browser")}
               className={`flex-1 py-2 text-sm font-display uppercase tracking-wider transition-all angular-card-sm ${
                 loginMethod === "browser"
@@ -220,6 +209,17 @@ export function LoginForm() {
               }`}
             >
               Browser Login
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoginMethod("credentials")}
+              className={`flex-1 py-2 text-sm font-display uppercase tracking-wider transition-all angular-card-sm ${
+                loginMethod === "credentials"
+                  ? "bg-valorant-red text-white shadow-[0_0_15px_rgba(255,70,85,0.3)]"
+                  : "bg-void-deep text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              Direct Login
             </button>
           </div>
         )}
@@ -235,6 +235,9 @@ export function LoginForm() {
         {/* Credentials Form */}
         {!showMfa && loginMethod === "credentials" && (
           <form onSubmit={handleInitialAuth} className="space-y-6">
+            <div className="p-3 bg-amber-500/10 border-l-2 border-amber-500/50 text-xs text-amber-300/80 mb-2">
+              Direct login may be blocked by Riot&apos;s bot protection. Use Browser Login if this fails.
+            </div>
             <div>
               <label htmlFor="username" className="block text-sm font-display uppercase tracking-wider text-zinc-300 mb-2">
                 Username
