@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/icons/Valorant_Store_Checker.webp" width="128" alt="Valorant Store Checker Logo">
+  <img src="public/icons/Valorant_Store_Checker.webp" width="750" alt="Valorant Store Checker Logo">
 </p>
 
 # Valorant Store Checker
