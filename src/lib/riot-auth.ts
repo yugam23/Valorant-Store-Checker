@@ -17,27 +17,42 @@ const RIOT_USERINFO_URL = "https://auth.riotgames.com/userinfo";
 
 const CLIENT_ID = "play-valorant-web-prod";
 const REDIRECT_URI = "https://playvalorant.com/opt_in";
-const USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
-/** Generate a random hex string for referer spoofing or nonce */
+// Riot Client user-agent from RadiantConnect — mimics the actual Riot Client SDK
+// instead of a browser, which reduces bot-detection / captcha triggering.
+const RIOT_CLIENT_UA =
+  "RiotGamesApi/24.11.0.4602 rso-auth (Windows;10;;Professional, x64) riot_client/0";
+
+// Broader scope matching RadiantConnect's SSID re-auth flow
+const AUTH_SCOPE = "account openid ban link lol_region lol summoner offline_access";
+
+/** Generate a random hex string for nonce / trace IDs */
 function randomHex(bytes: number): string {
   const arr = new Uint8Array(bytes);
   crypto.getRandomValues(arr);
   return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Common headers for all Riot auth requests */
+/** Generate a W3C traceparent header like RadiantConnect */
+function generateTraceParent(): string {
+  const traceId = randomHex(16);
+  const parentId = randomHex(8);
+  return `00-${traceId}-${parentId}-00`;
+}
+
+/**
+ * Common headers for Riot auth requests.
+ * Matches RadiantConnect's header set: Riot Client UA + baggage + traceparent.
+ */
 function riotHeaders(extra: Record<string, string> = {}): Record<string, string> {
   return {
     "Content-Type": "application/json",
-    "User-Agent": USER_AGENT,
+    "User-Agent": RIOT_CLIENT_UA,
     Accept: "application/json",
-    "Accept-Language": "en-US,en;q=0.9",
     "Accept-Encoding": "deflate, gzip, zstd",
-    "Cache-Control": "no-cache",
-    Referer: "https://authenticate.riotgames.com/",
-    Origin: "https://authenticate.riotgames.com",
+    Connection: "keep-alive",
+    baggage: `sdksid=${randomHex(16)}`,
+    traceparent: generateTraceParent(),
     ...extra,
   };
 }
@@ -65,6 +80,18 @@ export interface AuthTokens {
   entitlementsToken: string;
   puuid: string;
   region: string;
+}
+
+/**
+ * Individual Riot session cookies extracted from Set-Cookie headers.
+ * These are the critical cookies RadiantConnect tracks for SSID re-auth.
+ */
+export interface RiotSessionCookies {
+  ssid?: string;
+  clid?: string;
+  csid?: string;
+  tdid?: string;
+  raw: string; // The full cookie string for backward compat
 }
 
 export interface UserInfo {
@@ -105,7 +132,7 @@ export function getRiotLoginUrl(): string {
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
     response_type: "token id_token",
-    scope: "account openid",
+    scope: AUTH_SCOPE,
     nonce: randomHex(16),
   });
   return `${RIOT_AUTH_URL}?${params.toString()}`;
@@ -169,7 +196,7 @@ export async function authenticateRiotAccount(
   username: string,
   password: string
 ): Promise<
-  | { success: true; tokens: AuthTokens; riotCookies: string }
+  | { success: true; tokens: AuthTokens; riotCookies: string; namedCookies: RiotSessionCookies }
   | { success: false; type: "multifactor"; cookie: string; multifactor?: AuthResponse["multifactor"] }
   | { success: false; error: string }
 > {
@@ -179,11 +206,12 @@ export async function authenticateRiotAccount(
       method: "POST",
       headers: riotHeaders(),
       body: JSON.stringify({
+        acr_values: "",
         client_id: CLIENT_ID,
         nonce: randomHex(16),
         redirect_uri: REDIRECT_URI,
         response_type: "token id_token",
-        scope: "account openid",
+        scope: AUTH_SCOPE,
       }),
       cache: "no-store",
     });
@@ -304,6 +332,15 @@ export async function authenticateRiotAccount(
     // Determine region from user info
     const region = determineRegion(userInfo);
 
+    // Extract individual Riot cookies (ssid, clid, csid, tdid) for SSID re-auth
+    const namedCookies = extractNamedCookies(allCookies);
+    console.log("[riot-auth] Extracted named cookies:", {
+      ssid: namedCookies.ssid ? "present" : "missing",
+      clid: namedCookies.clid ? "present" : "missing",
+      csid: namedCookies.csid ? "present" : "missing",
+      tdid: namedCookies.tdid ? "present" : "missing",
+    });
+
     return {
       success: true,
       tokens: {
@@ -314,6 +351,7 @@ export async function authenticateRiotAccount(
         region,
       },
       riotCookies: allCookies,
+      namedCookies,
     };
   } catch (error) {
     return {
@@ -333,7 +371,7 @@ export async function submitMfa(
   code: string,
   cookie: string
 ): Promise<
-  | { success: true; tokens: AuthTokens; riotCookies: string }
+  | { success: true; tokens: AuthTokens; riotCookies: string; namedCookies: RiotSessionCookies }
   | { success: false; error: string }
 > {
   try {
@@ -397,6 +435,7 @@ export async function submitMfa(
     }
 
     const region = determineRegion(userInfo);
+    const namedCookies = extractNamedCookies(allCookies);
 
     return {
       success: true,
@@ -408,6 +447,7 @@ export async function submitMfa(
         region,
       },
       riotCookies: allCookies,
+      namedCookies,
     };
   } catch (error) {
     return {
@@ -520,50 +560,107 @@ function mergeCookies(existing: string, newSetCookieHeaders: string[]): string {
 }
 
 /**
- * Refreshes Riot tokens using stored session cookies (cookie re-auth).
- * This avoids requiring the user to log in again when access tokens expire.
+ * Extracts individual named Riot cookies from a raw cookie string.
+ * RadiantConnect tracks ssid, clid, csid, tdid separately for SSID re-auth.
+ */
+function extractNamedCookies(cookieString: string): RiotSessionCookies {
+  const result: RiotSessionCookies = { raw: cookieString };
+  for (const pair of cookieString.split("; ")) {
+    const eqIdx = pair.indexOf("=");
+    if (eqIdx <= 0) continue;
+    const name = pair.substring(0, eqIdx).trim();
+    const value = pair.substring(eqIdx + 1);
+    switch (name) {
+      case "ssid": result.ssid = value; break;
+      case "clid": result.clid = value; break;
+      case "csid": result.csid = value; break;
+      case "tdid": result.tdid = value; break;
+    }
+  }
+  return result;
+}
+
+/**
+ * Builds a cookie string from individual Riot session cookies,
+ * matching RadiantConnect's approach of setting only the cookies
+ * that are available (ssid is required, others optional).
+ */
+function buildCookieString(cookies: RiotSessionCookies): string {
+  const parts: string[] = [];
+  if (cookies.ssid) parts.push(`ssid=${cookies.ssid}`);
+  if (cookies.clid) parts.push(`clid=${cookies.clid}`);
+  if (cookies.csid) parts.push(`csid=${cookies.csid}`);
+  if (cookies.tdid) parts.push(`tdid=${cookies.tdid}`);
+  return parts.join("; ");
+}
+
+/**
+ * Refreshes Riot tokens using stored session cookies (SSID re-auth).
+ *
+ * Follows RadiantConnect's SSIDAuthManager approach:
+ * 1. Build a cookie string from individual named cookies (ssid is critical)
+ * 2. POST to authorization endpoint with cookies to get fresh tokens
+ * 3. Extract tokens from the response redirect URI
+ *
  * @param riotCookies Stored Riot session cookies from a previous login
  * @returns Fresh tokens + updated cookies, or error
  */
 export async function refreshTokensWithCookies(
   riotCookies: string
 ): Promise<
-  | { success: true; tokens: AuthTokens; riotCookies: string }
+  | { success: true; tokens: AuthTokens; riotCookies: string; namedCookies: RiotSessionCookies }
   | { success: false; error: string }
 > {
   try {
-    console.log("[riot-auth] Attempting token refresh with stored cookies");
+    const named = extractNamedCookies(riotCookies);
+
+    if (!named.ssid) {
+      return { success: false, error: "No SSID cookie available for re-auth — full login required" };
+    }
+
+    console.log("[riot-auth] SSID re-auth: ssid=%s, clid=%s, csid=%s, tdid=%s",
+      named.ssid ? "present" : "missing",
+      named.clid ? "present" : "missing",
+      named.csid ? "present" : "missing",
+      named.tdid ? "present" : "missing",
+    );
+
+    // Use the full provided cookie string to ensure we don't filter out 
+    // potentially necessary cookies like 'asid' or 'did'
+    const cookieStr = riotCookies; // Was buildCookieString(named);
 
     const response = await fetch(RIOT_AUTH_URL, {
       method: "POST",
-      headers: riotHeaders({ Cookie: riotCookies }),
+      headers: riotHeaders({ Cookie: cookieStr }),
       body: JSON.stringify({
+        acr_values: "",
         client_id: CLIENT_ID,
         nonce: randomHex(16),
         redirect_uri: REDIRECT_URI,
         response_type: "token id_token",
-        scope: "account openid",
+        scope: AUTH_SCOPE,
       }),
       cache: "no-store",
     });
 
     if (!response.ok) {
-      return { success: false, error: `Cookie re-auth failed: ${response.status}` };
+      return { success: false, error: `SSID re-auth failed: ${response.status}` };
     }
 
     // Merge any updated cookies from the response
     const newSetCookies = response.headers.getSetCookie();
-    const updatedCookies = mergeCookies(riotCookies, newSetCookies);
+    const updatedCookies = mergeCookies(cookieStr, newSetCookies);
+    const updatedNamed = extractNamedCookies(updatedCookies);
 
     const data: AuthResponse = await response.json();
 
     if (data.type !== "response") {
-      return { success: false, error: "Cookie re-auth did not return tokens (session may have expired)" };
+      return { success: false, error: "SSID re-auth did not return tokens (session expired — full login required)" };
     }
 
     const uri = data.response?.parameters?.uri;
     if (!uri) {
-      return { success: false, error: "No redirect URI in cookie re-auth response" };
+      return { success: false, error: "No redirect URI in SSID re-auth response" };
     }
 
     const tokens = extractTokensFromUri(uri);
@@ -583,7 +680,7 @@ export async function refreshTokensWithCookies(
 
     const region = determineRegion(userInfo);
 
-    console.log("[riot-auth] Token refresh successful");
+    console.log("[riot-auth] SSID re-auth successful");
 
     return {
       success: true,
@@ -595,11 +692,12 @@ export async function refreshTokensWithCookies(
         region,
       },
       riotCookies: updatedCookies,
+      namedCookies: updatedNamed,
     };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Cookie re-auth failed",
+      error: error instanceof Error ? error.message : "SSID re-auth failed",
     };
   }
 }

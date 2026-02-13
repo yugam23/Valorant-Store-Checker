@@ -1,184 +1,85 @@
 "use client";
 
-import { useState, useRef, useCallback, FormEvent, KeyboardEvent } from "react";
+import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, Info } from "lucide-react";
 
 interface AuthResponse {
   success: boolean;
-  requiresMfa?: boolean;
-  cookie?: string;
-  multifactor?: {
-    email?: string;
-    method?: string;
-    multiFactorCodeLength?: number;
-  };
+  error?: string;
   data?: {
     puuid: string;
     region: string;
   };
-  error?: string;
 }
 
 export function LoginForm() {
   const router = useRouter();
 
-  // Form state
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [mfaDigits, setMfaDigits] = useState<string[]>(["", "", "", "", "", ""]);
-
-  // UI state
+  // State
+  const [pastedValue, setPastedValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showMfa, setShowMfa] = useState(false);
-  const [mfaCookie, setMfaCookie] = useState<string | null>(null);
-  const [mfaEmail, setMfaEmail] = useState<string | null>(null);
-  const [loginMethod, setLoginMethod] = useState<"credentials" | "browser">("browser");
-  const [pastedUrl, setPastedUrl] = useState("");
 
-  // MFA digit refs
-  const digitRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const handleDigitChange = useCallback(
-    (index: number, value: string) => {
-      if (!/^\d*$/.test(value)) return;
-      const newDigits = [...mfaDigits];
-      newDigits[index] = value.slice(-1);
-      setMfaDigits(newDigits);
 
-      // Auto-advance to next input
-      if (value && index < 5) {
-        digitRefs.current[index + 1]?.focus();
-      }
-    },
-    [mfaDigits]
-  );
-
-  const handleDigitKeyDown = useCallback(
-    (index: number, e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Backspace" && !mfaDigits[index] && index > 0) {
-        digitRefs.current[index - 1]?.focus();
-      }
-    },
-    [mfaDigits]
-  );
-
-  const handleDigitPaste = useCallback(
-    (e: React.ClipboardEvent) => {
-      e.preventDefault();
-      const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-      const newDigits = [...mfaDigits];
-      for (let i = 0; i < pasted.length; i++) {
-        newDigits[i] = pasted[i];
-      }
-      setMfaDigits(newDigits);
-      // Focus the next empty or last
-      const nextEmpty = newDigits.findIndex((d) => !d);
-      digitRefs.current[nextEmpty === -1 ? 5 : nextEmpty]?.focus();
-    },
-    [mfaDigits]
-  );
-
-  const mfaCode = mfaDigits.join("");
-
-  const handleInitialAuth = async (e: FormEvent) => {
+  const handleAuth = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
+      // Determine if input is a URL (Browser Auth) or Cookie string (Session Auth)
+      const isUrl = pastedValue.trim().startsWith("http");
+      
+      const payload = isUrl 
+        ? { type: "url", url: pastedValue }
+        : { type: "cookie", cookie: pastedValue };
+
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "auth", username, password }),
+        credentials: "include", // Ensure cookies are received and saved
+        body: JSON.stringify(payload),
       });
 
       const data: AuthResponse = await response.json();
 
-      if (data.requiresMfa) {
-        setShowMfa(true);
-        setMfaCookie(data.cookie || null);
-        setMfaEmail(data.multifactor?.email || null);
-        // Focus first digit after render
-        setTimeout(() => digitRefs.current[0]?.focus(), 100);
-      } else if (data.success) {
-        router.push("/store");
+      if (data.success) {
+        // Force a hard navigation to ensure session state is picked up
+        window.location.href = "/store";
       } else {
-        setError(data.error || "Authentication failed. Please check your credentials.");
+        setError(data.error || "Authentication failed. Please check your input.");
       }
     } catch (err) {
-      setError("Network error. Please check your connection and try again.");
+      setError("Network error. Please try again.");
       console.error("Auth error:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleBrowserAuth = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  const handleLaunchBrowser = async () => {
     setIsLoading(true);
-
     try {
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "url", url: pastedUrl }),
+        body: JSON.stringify({ type: "launch_browser" }),
       });
-
-      const data: AuthResponse = await response.json();
-
-      if (data.success) {
-        router.push("/store");
-      } else {
-        setError(data.error || "Failed to process the URL. Please make sure you copied the entire URL.");
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+         setError(data.error || "Failed to launch browser");
       }
-    } catch (err) {
-      setError("Network error. Please try again.");
-      console.error("Browser auth error:", err);
+    } catch (e) {
+      setError("Failed to connect to server");
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleMfaSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      const response = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "multifactor", code: mfaCode, cookie: mfaCookie }),
-      });
-
-      const data: AuthResponse = await response.json();
-
-      if (data.success) {
-        router.push("/store");
-      } else {
-        setError(data.error || "Invalid verification code. Please try again.");
-      }
-    } catch (err) {
-      setError("Network error. Please check your connection and try again.");
-      console.error("MFA error:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleBackToLogin = () => {
-    setShowMfa(false);
-    setMfaDigits(["", "", "", "", "", ""]);
-    setMfaCookie(null);
-    setMfaEmail(null);
-    setError(null);
-  };
-
-  const RIOT_AUTH_URL = "https://auth.riotgames.com/authorize?client_id=play-valorant-web-prod&redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&response_type=token%20id_token&scope=account%20openid&nonce=1";
 
   return (
     <div className="w-full max-w-md">
@@ -187,217 +88,109 @@ export function LoginForm() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="font-display text-4xl uppercase font-bold text-light mb-2">
-            {showMfa ? "Verify Identity" : "Sign In"}
+            Sign In
           </h1>
           <p className="text-zinc-400 text-sm">
-            {showMfa
-              ? `Enter the code sent to ${mfaEmail || "your email"}`
-              : "Access your Valorant Store"}
+            Access your Valorant Store
           </p>
         </div>
 
-        {/* Method Toggle — angular tabs */}
-        {!showMfa && (
-          <div className="flex gap-1 mb-6">
-            <button
-              type="button"
-              onClick={() => setLoginMethod("browser")}
-              className={`flex-1 py-2 text-sm font-display uppercase tracking-wider transition-all angular-card-sm ${
-                loginMethod === "browser"
-                  ? "bg-valorant-red text-white shadow-[0_0_15px_rgba(255,70,85,0.3)]"
-                  : "bg-void-deep text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              Browser Login
-            </button>
-            <button
-              type="button"
-              onClick={() => setLoginMethod("credentials")}
-              className={`flex-1 py-2 text-sm font-display uppercase tracking-wider transition-all angular-card-sm ${
-                loginMethod === "credentials"
-                  ? "bg-valorant-red text-white shadow-[0_0_15px_rgba(255,70,85,0.3)]"
-                  : "bg-void-deep text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              Direct Login
-            </button>
-          </div>
-        )}
-
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 border-l-2 border-red-500 bg-red-500/10 flex items-start gap-3">
+          <div className="mb-6 p-4 border-l-2 border-red-500 bg-red-500/10 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
 
-        {/* Credentials Form */}
-        {!showMfa && loginMethod === "credentials" && (
-          <form onSubmit={handleInitialAuth} className="space-y-6">
-            <div className="p-3 bg-amber-500/10 border-l-2 border-amber-500/50 text-xs text-amber-300/80 mb-2">
-              Direct login may be blocked by Riot&apos;s bot protection. Use Browser Login if this fails.
+        <form onSubmit={handleAuth} className="space-y-6">
+          <div className="space-y-4">
+            {/* Steps */}
+            <div className="p-4 bg-void-deep border-l-2 border-valorant-red/30 text-sm text-zinc-300 rounded-sm">
+              <p className="mb-3">
+                1. Click{" "}
+                <button
+                  type="button"
+                  onClick={handleLaunchBrowser}
+                  className="text-valorant-red hover:text-valorant-red/80 hover:underline font-bold transition-colors"
+                >
+                  Launch Riot Login
+                </button>{" "}
+                (Opens browser window).
+              </p>
+              <p className="mb-3">2. Log in with your Riot account.</p>
+              <p>
+                3. <strong>Copy the entire URL</strong> from the address bar (starts with https://playvalorant.com/opt_in...) <strong>OR</strong> paste your full cookie string (must include <code>ssid</code>, <code>tdid</code>, <code>clid</code>, <code>csid</code>).
+              </p>
             </div>
+
+            {/* Input Field */}
             <div>
-              <label htmlFor="username" className="block text-sm font-display uppercase tracking-wider text-zinc-300 mb-2">
-                Username
+              <label htmlFor="pastedValue" className="block text-sm font-display uppercase tracking-wider text-zinc-300 mb-2">
+                Paste URL or Cookies
               </label>
               <input
-                id="username"
+                id="pastedValue"
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your Riot Username"
+                value={pastedValue}
+                onChange={(e) => setPastedValue(e.target.value)}
+                placeholder="https://playvalorant.com... OR ssid=...; tdid=..."
                 required
                 disabled={isLoading}
-                className="w-full px-4 py-3 bg-void-deep border-l-2 border-transparent text-light placeholder-zinc-500 focus:outline-none focus:border-valorant-red disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="w-full px-4 py-3 bg-void-deep border-l-2 border-transparent text-light placeholder-zinc-500 focus:outline-none focus:border-valorant-red disabled:opacity-50 disabled:cursor-not-allowed transition-all font-mono text-sm"
               />
             </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-display uppercase tracking-wider text-zinc-300 mb-2">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                required
-                disabled={isLoading}
-                className="w-full px-4 py-3 bg-void-deep border-l-2 border-transparent text-light placeholder-zinc-500 focus:outline-none focus:border-valorant-red disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              />
+            <div className="pt-4 border-t border-white/5">
+              <details className="group text-sm text-zinc-400">
+                <summary className="cursor-pointer font-medium hover:text-valorant-red transition-colors list-none flex items-center gap-2">
+                  <span className="text-xs">▶</span> How to get your full cookie string?
+                </summary>
+                <div className="mt-3 pl-4 space-y-2 text-zinc-500 border-l border-white/10">
+                  <p>1. In the opened Riot Login window, press <strong>F12</strong> to open Developer Tools.</p>
+                  <p>2. Go to the <strong>Application</strong> tab (you may need to click &apos;&gt;&apos; to find it).</p>
+                  <p>3. In the left sidebar, expand <strong>Cookies</strong> and select <code>https://auth.riotgames.com</code>.</p>
+                  <p>4. You will see a list of cookies. You can either:</p>
+                  <ul className="list-disc pl-5 mt-1 space-y-1">
+                    <li>Type <code>document.cookie</code> in the <strong>Console</strong> tab and copy the result (Easiest).</li>
+                    <li>Or manually copy <code>ssid</code>, <code>tdid</code>, <code>clid</code>, <code>csid</code> values.</li>
+                  </ul>
+                  <p className="mt-2 text-xs italic text-zinc-600">
+                    Note: The easiest way is to just copy the **URL** from the address bar after logging in, but cookies last longer.
+                  </p>
+                </div>
+              </details>
             </div>
+          </div>
 
-            <Button type="submit" variant="valorant" size="lg" disabled={isLoading} className="w-full">
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Signing In...
-                </>
-              ) : (
-                "Sign In"
-              )}
-            </Button>
-          </form>
-        )}
+          <Button
+            type="submit"
+            variant="valorant"
+            size="lg"
+            disabled={isLoading || !pastedValue}
+            className="w-full"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              "Complete Login"
+            )}
+          </Button>
+        </form>
 
-        {/* Browser Auth Form */}
-        {!showMfa && loginMethod === "browser" && (
-          <form onSubmit={handleBrowserAuth} className="space-y-6">
-            <div className="space-y-4">
-              <div className="p-4 bg-void-deep border-l-2 border-valorant-red/30 text-sm text-zinc-300">
-                <p className="mb-3">
-                  1. Click{" "}
-                  <a href={RIOT_AUTH_URL} target="_blank" rel="noopener noreferrer" className="text-valorant-red hover:underline font-bold">
-                    Riot Login Link
-                  </a>{" "}
-                  (Opens in new tab).
-                </p>
-                <p className="mb-3">2. Log in with your account.</p>
-                <p>
-                  3. <strong>Copy the entire URL</strong> from your browser address bar (starts with https://playvalorant.com/opt_in...).
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="pastedUrl" className="block text-sm font-display uppercase tracking-wider text-zinc-300 mb-2">
-                  Paste URL here
-                </label>
-                <input
-                  id="pastedUrl"
-                  type="text"
-                  value={pastedUrl}
-                  onChange={(e) => setPastedUrl(e.target.value)}
-                  placeholder="https://playvalorant.com/opt_in#access_token=..."
-                  required
-                  disabled={isLoading}
-                  className="w-full px-4 py-3 bg-void-deep border-l-2 border-transparent text-light placeholder-zinc-500 focus:outline-none focus:border-valorant-red disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                />
-              </div>
+        {/* Cookie Info */}
+        <div className="mt-8 pt-6 border-t border-white/5">
+          <details className="group">
+            <summary className="flex items-center justify-center gap-2 py-2 text-xs text-zinc-500 hover:text-zinc-300 font-display uppercase tracking-widest cursor-pointer list-none transition-colors">
+              <Info className="w-3 h-3" /> 
+              <span>Why paste cookies?</span>
+            </summary>
+            <div className="mt-2 text-xs text-zinc-400 leading-relaxed px-2 text-center animate-in fade-in slide-in-from-top-1">
+              Pasting your <strong>ssid</strong>, <strong>tdid</strong>, or other Riot cookies allows you to stay logged in for longer (up to 30 days) without needing to re-authenticate daily. You can find these in your browser&apos;s developer tools (Application &gt; Cookies) after logging in on the Riot website.
             </div>
-
-            <Button
-              type="submit"
-              variant="valorant"
-              size="lg"
-              disabled={isLoading || !pastedUrl.includes("access_token")}
-              className="w-full"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Complete Login"
-              )}
-            </Button>
-          </form>
-        )}
-
-        {/* MFA Form — individual digit boxes */}
-        {showMfa && (
-          <form onSubmit={handleMfaSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-display uppercase tracking-wider text-zinc-300 mb-4 text-center">
-                Verification Code
-              </label>
-              <div className="flex justify-center gap-2" onPaste={handleDigitPaste}>
-                {mfaDigits.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={(el) => { digitRefs.current[i] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleDigitChange(i, e.target.value)}
-                    onKeyDown={(e) => handleDigitKeyDown(i, e)}
-                    disabled={isLoading}
-                    className="w-12 h-14 text-center text-2xl font-mono font-bold bg-void-deep border-b-2 border-zinc-700 text-light focus:outline-none focus:border-valorant-red disabled:opacity-50 transition-all angular-card-sm"
-                  />
-                ))}
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              variant="valorant"
-              size="lg"
-              disabled={isLoading || mfaCode.length !== 6}
-              className="w-full"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                "Verify"
-              )}
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="lg"
-              onClick={handleBackToLogin}
-              disabled={isLoading}
-              className="w-full text-zinc-400 hover:text-zinc-100"
-            >
-              Back to Login
-            </Button>
-          </form>
-        )}
-
-        {/* Security divider */}
-        <div className="mt-6 pt-6">
-          <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-4" />
-          <p className="text-xs text-zinc-500 text-center">
-            Your credentials are securely transmitted and never stored on our servers.
-          </p>
+          </details>
         </div>
       </div>
     </div>

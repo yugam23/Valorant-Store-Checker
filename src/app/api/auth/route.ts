@@ -15,15 +15,17 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRiotAccount, submitMfa } from "@/lib/riot-auth";
+import { authenticateWithBrowser } from "@/lib/browser-auth";
 import { createSession } from "@/lib/session";
 
 interface LoginRequestBody {
   username?: string;
   password?: string;
-  type?: "auth" | "multifactor" | "url";
+  type?: "auth" | "multifactor" | "url" | "cookie" | "launch_browser";
   code?: string;
   cookie?: string;
   url?: string;
+  useBrowser?: boolean;
 }
 
 export async function POST(request: NextRequest) {
@@ -31,9 +33,9 @@ export async function POST(request: NextRequest) {
     const body: LoginRequestBody = await request.json();
 
     // Validate request type
-    if (!body.type || (body.type !== "auth" && body.type !== "multifactor" && body.type !== "url")) {
+    if (!body.type || (body.type !== "auth" && body.type !== "multifactor" && body.type !== "url" && body.type !== "cookie" && body.type !== "launch_browser")) {
       return NextResponse.json(
-        { error: "Invalid request type. Expected 'auth', 'multifactor', or 'url'" },
+        { error: "Invalid request type" },
         { status: 400 }
       );
     }
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Import dynamically to avoid circular deps if any (though likely none here)
+      // Import dynamically to avoid circular deps if any
       const { completeAuthWithUrl } = await import("@/lib/riot-auth");
       const result = await completeAuthWithUrl(body.url);
 
@@ -60,6 +62,40 @@ export async function POST(request: NextRequest) {
 
       // Create session with tokens
       await createSession(result.tokens);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          puuid: result.tokens.puuid,
+          region: result.tokens.region,
+        },
+      });
+    }
+
+    // Handle Cookie Auth (Paste Cookies)
+    if (body.type === "cookie") {
+      if (!body.cookie) {
+        return NextResponse.json(
+          { error: "Cookie string is required" },
+          { status: 400 }
+        );
+      }
+
+      const { refreshTokensWithCookies } = await import("@/lib/riot-auth");
+      const result = await refreshTokensWithCookies(body.cookie);
+
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error || "Failed to authenticate with cookies" },
+          { status: 401 }
+        );
+      }
+
+      // Create session with tokens + updated Riot cookies
+      await createSession({
+        ...result.tokens,
+        riotCookies: result.riotCookies,
+      });
 
       return NextResponse.json({
         success: true,
@@ -88,10 +124,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create session with tokens + Riot cookies for token refresh
+      // Create session with tokens + Riot cookies for SSID re-auth
       await createSession({
         ...result.tokens,
-        riotCookies: result.riotCookies,
+        riotCookies: "riotCookies" in result ? (result as any).riotCookies : "",
       });
 
       return NextResponse.json({
@@ -103,8 +139,27 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Handle Browser Launch (Interactive)
+    if (body.type === "launch_browser") {
+      const { launchBasicBrowser } = await import("@/lib/browser-auth") as any;
+      const result = await launchBasicBrowser();
+
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error || "Failed to launch browser" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Browser launched successfully"
+      });
+    }
+
     // Handle initial authentication
     if (body.type === "auth") {
+
       if (!body.username || !body.password) {
         return NextResponse.json(
           { error: "Username and password are required" },
@@ -112,10 +167,32 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const result = await authenticateRiotAccount(body.username, body.password);
+      let result;
+      
+      if (body.useBrowser) {
+        console.log("[Auth API] Using browser-based authentication (forced)");
+        result = await authenticateWithBrowser(body.username, body.password);
+      } else {
+        // Try standard auth first
+        result = await authenticateRiotAccount(body.username, body.password);
+
+        // Fallback to browser auth if standard auth fails and it's NOT an MFA challenge
+        if (!result.success && !("type" in result && result.type === "multifactor")) {
+          console.log("[Auth API] Standard auth failed, falling back to browser auth...");
+          const browserResult = await authenticateWithBrowser(body.username, body.password);
+          
+          if (browserResult.success) {
+             result = browserResult;
+          } else {
+             console.log(`[Auth API] Browser auth also failed: ${browserResult.error}`);
+             // Return the browser error as it was the last attempt
+             result = browserResult;
+          }
+        }
+      }
 
       if (!result.success) {
-        // Check if MFA is required
+        // Check if MFA is required (only for standard auth currently)
         if ("type" in result && result.type === "multifactor") {
           return NextResponse.json({
             success: false,
@@ -133,17 +210,28 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Authentication successful - create session with Riot cookies for token refresh
+      // Authentication successful - create session with tokens + Riot cookies for SSID re-auth
+      const tokens = 'tokens' in result ? result.tokens : null;
+      if (!tokens) {
+          return NextResponse.json(
+            { error: "Authentication successful but failed to retrieve tokens" },
+            { status: 500 }
+          );
+      }
+
+      const riotCookies = "riotCookies" in result ? (result as any).riotCookies : "";
+      console.log("[Auth API] Creating session. Riot cookies present:", !!riotCookies);
+
       await createSession({
-        ...result.tokens,
-        riotCookies: result.riotCookies,
+        ...tokens,
+        riotCookies,
       });
 
       return NextResponse.json({
         success: true,
         data: {
-          puuid: result.tokens.puuid,
-          region: result.tokens.region,
+          puuid: tokens.puuid,
+          region: tokens.region,
         },
       });
     }
