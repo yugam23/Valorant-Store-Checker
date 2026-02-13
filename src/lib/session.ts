@@ -29,8 +29,9 @@ export interface SessionData {
   entitlementsToken: string;
   puuid: string;
   region: string;
+  riotCookies?: string;
   createdAt: number;
-  [key: string]: string | number; // Index signature for JWT compatibility
+  [key: string]: string | number | undefined; // Index signature for JWT compatibility
 }
 
 /**
@@ -44,6 +45,7 @@ export async function createSession(tokens: {
   entitlementsToken: string;
   puuid: string;
   region: string;
+  riotCookies?: string;
 }): Promise<void> {
   const sessionData: SessionData = {
     ...tokens,
@@ -100,6 +102,7 @@ export async function getSession(): Promise<SessionData | null> {
       entitlementsToken: payload.entitlementsToken as string,
       puuid: payload.puuid as string,
       region: payload.region as string,
+      riotCookies: payload.riotCookies as string | undefined,
       createdAt: payload.createdAt as number,
     };
   } catch (error) {
@@ -145,6 +148,7 @@ export async function refreshSession(): Promise<boolean> {
     entitlementsToken: session.entitlementsToken,
     puuid: session.puuid,
     region: session.region,
+    riotCookies: session.riotCookies,
   });
 
   return true;

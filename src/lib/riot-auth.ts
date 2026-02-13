@@ -33,8 +33,11 @@ function riotHeaders(extra: Record<string, string> = {}): Record<string, string>
     "Content-Type": "application/json",
     "User-Agent": USER_AGENT,
     Accept: "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
     "Accept-Encoding": "deflate, gzip, zstd",
     "Cache-Control": "no-cache",
+    Referer: "https://authenticate.riotgames.com/",
+    Origin: "https://authenticate.riotgames.com",
     ...extra,
   };
 }
@@ -166,7 +169,7 @@ export async function authenticateRiotAccount(
   username: string,
   password: string
 ): Promise<
-  | { success: true; tokens: AuthTokens }
+  | { success: true; tokens: AuthTokens; riotCookies: string }
   | { success: false; type: "multifactor"; cookie: string; multifactor?: AuthResponse["multifactor"] }
   | { success: false; error: string }
 > {
@@ -235,6 +238,10 @@ export async function authenticateRiotAccount(
       };
     }
 
+    // Merge cookies from credential response
+    const authSetCookies = authResponse.headers.getSetCookie();
+    const allCookies = mergeCookies(cookies, authSetCookies);
+
     const authData: AuthResponse = await authResponse.json();
 
     console.log("[riot-auth] Step 2 - Full response:", JSON.stringify(authData));
@@ -244,7 +251,7 @@ export async function authenticateRiotAccount(
       return {
         success: false,
         type: "multifactor",
-        cookie: cookies,
+        cookie: allCookies,
         multifactor: authData.multifactor,
       };
     }
@@ -306,6 +313,7 @@ export async function authenticateRiotAccount(
         puuid: userInfo.sub,
         region,
       },
+      riotCookies: allCookies,
     };
   } catch (error) {
     return {
@@ -325,7 +333,7 @@ export async function submitMfa(
   code: string,
   cookie: string
 ): Promise<
-  | { success: true; tokens: AuthTokens }
+  | { success: true; tokens: AuthTokens; riotCookies: string }
   | { success: false; error: string }
 > {
   try {
@@ -346,6 +354,10 @@ export async function submitMfa(
         error: `MFA submission failed: ${mfaResponse.statusText}`,
       };
     }
+
+    // Merge cookies from MFA response
+    const mfaSetCookies = mfaResponse.headers.getSetCookie();
+    const allCookies = mergeCookies(cookie, mfaSetCookies);
 
     const mfaData: AuthResponse = await mfaResponse.json();
 
@@ -395,6 +407,7 @@ export async function submitMfa(
         puuid: userInfo.sub,
         region,
       },
+      riotCookies: allCookies,
     };
   } catch (error) {
     return {
@@ -476,6 +489,118 @@ async function getUserInfo(accessToken: string): Promise<UserInfo | null> {
     return data;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Merges existing cookies with new set-cookie headers.
+ * New cookies with the same name override old ones.
+ */
+function mergeCookies(existing: string, newSetCookieHeaders: string[]): string {
+  const cookieMap = new Map<string, string>();
+
+  // Parse existing cookies
+  for (const pair of existing.split("; ")) {
+    const eqIdx = pair.indexOf("=");
+    if (eqIdx > 0) {
+      cookieMap.set(pair.substring(0, eqIdx), pair);
+    }
+  }
+
+  // Override with new cookies
+  for (const header of newSetCookieHeaders) {
+    const cookiePart = header.split(";")[0];
+    const eqIdx = cookiePart.indexOf("=");
+    if (eqIdx > 0) {
+      cookieMap.set(cookiePart.substring(0, eqIdx), cookiePart);
+    }
+  }
+
+  return Array.from(cookieMap.values()).join("; ");
+}
+
+/**
+ * Refreshes Riot tokens using stored session cookies (cookie re-auth).
+ * This avoids requiring the user to log in again when access tokens expire.
+ * @param riotCookies Stored Riot session cookies from a previous login
+ * @returns Fresh tokens + updated cookies, or error
+ */
+export async function refreshTokensWithCookies(
+  riotCookies: string
+): Promise<
+  | { success: true; tokens: AuthTokens; riotCookies: string }
+  | { success: false; error: string }
+> {
+  try {
+    console.log("[riot-auth] Attempting token refresh with stored cookies");
+
+    const response = await fetch(RIOT_AUTH_URL, {
+      method: "POST",
+      headers: riotHeaders({ Cookie: riotCookies }),
+      body: JSON.stringify({
+        client_id: CLIENT_ID,
+        nonce: randomHex(16),
+        redirect_uri: REDIRECT_URI,
+        response_type: "token id_token",
+        scope: "account openid",
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return { success: false, error: `Cookie re-auth failed: ${response.status}` };
+    }
+
+    // Merge any updated cookies from the response
+    const newSetCookies = response.headers.getSetCookie();
+    const updatedCookies = mergeCookies(riotCookies, newSetCookies);
+
+    const data: AuthResponse = await response.json();
+
+    if (data.type !== "response") {
+      return { success: false, error: "Cookie re-auth did not return tokens (session may have expired)" };
+    }
+
+    const uri = data.response?.parameters?.uri;
+    if (!uri) {
+      return { success: false, error: "No redirect URI in cookie re-auth response" };
+    }
+
+    const tokens = extractTokensFromUri(uri);
+    if (!tokens) {
+      return { success: false, error: "Failed to extract tokens from re-auth URI" };
+    }
+
+    const entitlementsToken = await getEntitlementsToken(tokens.accessToken);
+    if (!entitlementsToken) {
+      return { success: false, error: "Failed to get entitlements after re-auth" };
+    }
+
+    const userInfo = await getUserInfo(tokens.accessToken);
+    if (!userInfo) {
+      return { success: false, error: "Failed to get user info after re-auth" };
+    }
+
+    const region = determineRegion(userInfo);
+
+    console.log("[riot-auth] Token refresh successful");
+
+    return {
+      success: true,
+      tokens: {
+        accessToken: tokens.accessToken,
+        idToken: tokens.idToken,
+        entitlementsToken,
+        puuid: userInfo.sub,
+        region,
+      },
+      riotCookies: updatedCookies,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Cookie re-auth failed",
+    };
   }
 }
 
