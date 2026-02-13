@@ -25,7 +25,7 @@ const getSecretKey = (): Uint8Array => {
 
 export interface SessionData {
   accessToken: string;
-  idToken: string;
+  idToken?: string;
   entitlementsToken: string;
   puuid: string;
   region: string;
@@ -41,14 +41,19 @@ export interface SessionData {
  */
 export async function createSession(tokens: {
   accessToken: string;
-  idToken: string;
+  idToken?: string;
   entitlementsToken: string;
   puuid: string;
   region: string;
   riotCookies?: string;
 }): Promise<void> {
   const sessionData: SessionData = {
-    ...tokens,
+    accessToken: tokens.accessToken,
+    // idToken: tokens.idToken, // Removed to save space
+    entitlementsToken: tokens.entitlementsToken,
+    puuid: tokens.puuid,
+    region: tokens.region,
+    riotCookies: tokens.riotCookies,
     createdAt: Date.now(),
   };
 
@@ -61,10 +66,11 @@ export async function createSession(tokens: {
 
   // Set HTTP-only cookie
   const cookieStore = await cookies();
+  console.log(`[Session] Setting cookie: ${SESSION_COOKIE_NAME}, Secure: false, SameSite: lax`);
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: false, // FORCE FALSE FOR DEBUGGING
+    sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
     path: "/",
   });
@@ -98,7 +104,7 @@ export async function getSession(): Promise<SessionData | null> {
 
     return {
       accessToken: payload.accessToken as string,
-      idToken: payload.idToken as string,
+      idToken: payload.idToken as string | undefined,
       entitlementsToken: payload.entitlementsToken as string,
       puuid: payload.puuid as string,
       region: payload.region as string,
