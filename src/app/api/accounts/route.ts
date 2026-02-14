@@ -11,7 +11,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAccounts, removeAccount } from "@/lib/accounts";
+import { getAccounts, addAccount, removeAccount } from "@/lib/accounts";
+import { getSession } from "@/lib/session";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Accounts API");
@@ -22,7 +23,31 @@ const log = createLogger("Accounts API");
  */
 export async function GET() {
   try {
-    const registry = await getAccounts();
+    let registry = await getAccounts();
+
+    // Migration: if no registry exists but an active session does,
+    // auto-populate the registry from the current session
+    if (!registry) {
+      const session = await getSession();
+      if (session) {
+        log.info("Migrating existing session to multi-account registry");
+        await addAccount(
+          {
+            puuid: session.puuid,
+            region: session.region,
+            addedAt: session.createdAt || Date.now(),
+          },
+          {
+            accessToken: session.accessToken,
+            entitlementsToken: session.entitlementsToken,
+            puuid: session.puuid,
+            region: session.region,
+            riotCookies: session.riotCookies,
+          }
+        );
+        registry = await getAccounts();
+      }
+    }
 
     if (!registry) {
       return NextResponse.json({
