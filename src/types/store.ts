@@ -43,6 +43,7 @@ export interface StoreData {
   wallet?: WalletBalance; // Optional wallet data
   nightMarket?: NightMarketData; // Optional Night Market data
   bundle?: BundleData; // Optional Featured Bundle data
+  fromCache?: boolean; // Whether this data was served from cache (vs fresh from API)
 }
 
 /**

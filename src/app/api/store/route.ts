@@ -308,7 +308,7 @@ export async function GET() {
     try {
       const storeData = await fetchAndHydrateStore(session);
       setCachedStore(session.puuid, storeData);
-      return NextResponse.json(storeData, {
+      return NextResponse.json({ ...storeData, fromCache: false }, {
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
           "Pragma": "no-cache",
@@ -334,7 +334,7 @@ export async function GET() {
             const storeData = await fetchAndHydrateStore(refreshResult.tokens);
             setCachedStore(refreshResult.tokens.puuid, storeData);
             log.info("Served fresh data after token refresh");
-            return NextResponse.json(storeData, {
+            return NextResponse.json({ ...storeData, fromCache: false }, {
               headers: {
                 "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
                 "Pragma": "no-cache",
