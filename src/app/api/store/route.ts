@@ -11,6 +11,7 @@ import { getStorefront, getWallet } from "@/lib/riot-store";
 import { getWeaponSkins, getContentTiers, getSkinVideo, getBundleByUuid } from "@/lib/valorant-api";
 import { getCachedStore, setCachedStore } from "@/lib/store-cache";
 import { refreshTokensWithCookies } from "@/lib/riot-auth";
+import { checkWishlistInStore } from "@/lib/wishlist";
 import { StoreData, StoreItem, BundleData, BundleItem, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { CURRENCY_IDS } from "@/types/riot";
 import { createLogger } from "@/lib/logger";
@@ -308,13 +309,27 @@ export async function GET() {
     try {
       const storeData = await fetchAndHydrateStore(session);
       setCachedStore(session.puuid, storeData);
-      return NextResponse.json({ ...storeData, fromCache: false }, {
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
-        },
-      });
+
+      // Check wishlist matches
+      const storeItemUuids = storeData.items.map((item) => item.uuid);
+      const wishlistMatches = await checkWishlistInStore(
+        session.puuid,
+        storeItemUuids
+      );
+      const matchedUuids = wishlistMatches
+        .filter((m) => m.isInStore)
+        .map((m) => m.skinUuid);
+
+      return NextResponse.json(
+        { ...storeData, fromCache: false, wishlistMatches: matchedUuids },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+          },
+        }
+      );
     } catch (fetchError) {
       // Token likely expired — try refreshing with stored Riot cookies
       log.warn("Fresh fetch failed, attempting token refresh:", fetchError);
@@ -334,13 +349,27 @@ export async function GET() {
             const storeData = await fetchAndHydrateStore(refreshResult.tokens);
             setCachedStore(refreshResult.tokens.puuid, storeData);
             log.info("Served fresh data after token refresh");
-            return NextResponse.json({ ...storeData, fromCache: false }, {
-              headers: {
-                "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-                "Pragma": "no-cache",
-                "Expires": "0",
-              },
-            });
+
+            // Check wishlist matches
+            const storeItemUuids = storeData.items.map((item) => item.uuid);
+            const wishlistMatches = await checkWishlistInStore(
+              refreshResult.tokens.puuid,
+              storeItemUuids
+            );
+            const matchedUuids = wishlistMatches
+              .filter((m) => m.isInStore)
+              .map((m) => m.skinUuid);
+
+            return NextResponse.json(
+              { ...storeData, fromCache: false, wishlistMatches: matchedUuids },
+              {
+                headers: {
+                  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+                  "Pragma": "no-cache",
+                  "Expires": "0",
+                },
+              }
+            );
           } catch (retryError) {
             log.warn("Retry after refresh also failed:", retryError);
           }
@@ -353,13 +382,27 @@ export async function GET() {
       const cached = getCachedStore(session.puuid);
       if (cached) {
         log.info("Serving cached store data");
-        return NextResponse.json({ ...cached, fromCache: true }, {
-          headers: {
-            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
-          },
-        });
+
+        // Check wishlist matches even for cached data
+        const storeItemUuids = cached.items.map((item) => item.uuid);
+        const wishlistMatches = await checkWishlistInStore(
+          session.puuid,
+          storeItemUuids
+        );
+        const matchedUuids = wishlistMatches
+          .filter((m) => m.isInStore)
+          .map((m) => m.skinUuid);
+
+        return NextResponse.json(
+          { ...cached, fromCache: true, wishlistMatches: matchedUuids },
+          {
+            headers: {
+              "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+              "Pragma": "no-cache",
+              "Expires": "0",
+            },
+          }
+        );
       }
 
       // No cache available — return the error

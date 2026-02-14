@@ -6,6 +6,7 @@ import { WalletDisplay } from "@/components/store/WalletDisplay";
 import { NightMarket } from "@/components/store/NightMarket";
 import { FeaturedBundle } from "@/components/store/FeaturedBundle";
 import type { StoreData, StoreLoadingState } from "@/types/store";
+import type { WishlistData } from "@/types/wishlist";
 
 /** Inline countdown timer with individual digit cards */
 function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
@@ -56,6 +57,7 @@ export default function StorePage() {
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [fromCache, setFromCache] = useState(false);
+  const [wishlist, setWishlist] = useState<WishlistData>({ items: [], count: 0 });
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -66,30 +68,95 @@ export default function StorePage() {
     }
   };
 
+  const handleWishlistToggle = async (skinUuid: string, item: any) => {
+    const isCurrentlyWishlisted = wishlist.items.some(
+      (w) => w.skinUuid === skinUuid
+    );
+
+    try {
+      if (isCurrentlyWishlisted) {
+        // Remove from wishlist
+        const response = await fetch("/api/wishlist", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ skinUuid }),
+        });
+
+        if (response.ok) {
+          const updated: WishlistData = await response.json();
+          setWishlist(updated);
+        }
+      } else {
+        // Add to wishlist
+        const wishlistItem = {
+          skinUuid: item.uuid,
+          displayName: item.displayName,
+          displayIcon: item.displayIcon,
+          tierColor: item.tierColor,
+          addedAt: new Date().toISOString(),
+        };
+
+        const response = await fetch("/api/wishlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(wishlistItem),
+        });
+
+        if (response.ok) {
+          const updated: WishlistData = await response.json();
+          setWishlist(updated);
+        }
+      }
+    } catch (err) {
+      console.error("Wishlist toggle error:", err);
+    }
+  };
+
+  const fetchWishlist = useCallback(async () => {
+    try {
+      const response = await fetch("/api/wishlist", {
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data: WishlistData = await response.json();
+        setWishlist(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch wishlist:", err);
+    }
+  }, []);
+
   useEffect(() => {
     async function fetchStore() {
       setLoadingState("loading");
       setError(null);
 
       try {
-        const response = await fetch("/api/store", {
-          method: "GET",
-          credentials: "include",
-        });
+        // Fetch store and wishlist in parallel
+        const [storeResponse] = await Promise.all([
+          fetch("/api/store", {
+            method: "GET",
+            credentials: "include",
+          }),
+          fetchWishlist(),
+        ]);
 
-        if (!response.ok) {
-          if (response.status === 401) {
+        if (!storeResponse.ok) {
+          if (storeResponse.status === 401) {
             setError("Not authenticated. Please log in.");
             setLoadingState("error");
             return;
           }
-          const errorData = await response.json().catch(() => ({}));
-          setError(errorData.error || `Failed to fetch store (${response.status})`);
+          const errorData = await storeResponse.json().catch(() => ({}));
+          setError(errorData.error || `Failed to fetch store (${storeResponse.status})`);
           setLoadingState("error");
           return;
         }
 
-        const data = await response.json();
+        const data = await storeResponse.json();
         setFromCache(!!data.fromCache);
         setStoreData(data as StoreData);
         setLoadingState("success");
@@ -101,7 +168,7 @@ export default function StorePage() {
     }
 
     fetchStore();
-  }, []);
+  }, [fetchWishlist]);
 
   return (
     <div className="min-h-screen px-4 py-8 md:px-8 lg:px-16">
@@ -221,7 +288,12 @@ export default function StorePage() {
                   </div>
                 )}
               </div>
-              <StoreGrid items={storeData.items} />
+              <StoreGrid
+                items={storeData.items}
+                wishlistedUuids={wishlist.items.map((w) => w.skinUuid)}
+                onWishlistToggle={handleWishlistToggle}
+                showInStoreNotifications={true}
+              />
             </div>
 
             {/* Night Market */}

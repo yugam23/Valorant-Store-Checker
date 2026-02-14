@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Button } from "../ui/button";
 import { hasValidSession } from "@/lib/session";
 import { AccountSwitcher } from "./AccountSwitcher";
+import { WishlistButton } from "./WishlistButton";
 
 export async function Header() {
   const isLoggedIn = await hasValidSession();
@@ -43,7 +44,10 @@ export async function Header() {
             <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />
           </Link>
           {isLoggedIn ? (
-            <AccountSwitcher />
+            <>
+              <WishlistButton />
+              <AccountSwitcher />
+            </>
           ) : (
             <Button variant="valorant" size="sm" asChild>
               <Link href="/login">Login with Riot</Link>

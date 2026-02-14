@@ -7,11 +7,22 @@ import type { StoreItem } from "../../types/store";
 interface StoreCardProps {
   item: StoreItem;
   staggerIndex?: number;
+  isWishlisted?: boolean;
+  onWishlistToggle?: (skinUuid: string, item: StoreItem) => void;
+  showInStoreNotification?: boolean;
 }
 
-export function StoreCard({ item, staggerIndex = 0 }: StoreCardProps) {
+export function StoreCard({
+  item,
+  staggerIndex = 0,
+  isWishlisted = false,
+  onWishlistToggle,
+  showInStoreNotification = false
+}: StoreCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isOptimisticallyWishlisted, setIsOptimisticallyWishlisted] = useState(isWishlisted);
+  const [isPulsing, setIsPulsing] = useState(false);
 
   const handleMouseEnter = () => {
     setIsHovered(true);
@@ -29,6 +40,26 @@ export function StoreCard({ item, staggerIndex = 0 }: StoreCardProps) {
       videoRef.current.currentTime = 0;
     }
   };
+
+  const handleHeartClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!onWishlistToggle) return;
+
+    // Optimistic UI update
+    setIsOptimisticallyWishlisted(!isOptimisticallyWishlisted);
+    setIsPulsing(true);
+    setTimeout(() => setIsPulsing(false), 300);
+
+    // Call parent handler
+    onWishlistToggle(item.uuid, item);
+  };
+
+  // Sync optimistic state when prop changes
+  if (isWishlisted !== isOptimisticallyWishlisted && !isPulsing) {
+    setIsOptimisticallyWishlisted(isWishlisted);
+  }
 
   return (
     <div
@@ -54,6 +85,36 @@ export function StoreCard({ item, staggerIndex = 0 }: StoreCardProps) {
               background: `radial-gradient(ellipse at center, ${item.tierColor}15 0%, transparent 70%)`,
             }}
           />
+
+          {/* Heart button (wishlist toggle) */}
+          {onWishlistToggle && (
+            <button
+              onClick={handleHeartClick}
+              className={`absolute top-3 right-3 z-20 w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 ${
+                isOptimisticallyWishlisted
+                  ? "bg-valorant-red/20 hover:bg-valorant-red/30"
+                  : "bg-void-deep/80 hover:bg-void-surface"
+              } ${isPulsing ? "scale-125" : "scale-100"}`}
+              aria-label={isOptimisticallyWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            >
+              <svg
+                className={`w-5 h-5 transition-all duration-300 ${
+                  isOptimisticallyWishlisted ? "fill-valorant-red scale-110" : "fill-none stroke-zinc-400"
+                }`}
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+              >
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </button>
+          )}
+
+          {/* "IN YOUR STORE!" notification badge */}
+          {showInStoreNotification && (
+            <div className="absolute top-3 left-3 z-20 px-3 py-1 bg-[#F0B232] text-void-deep text-xs font-bold uppercase tracking-wider angular-card-sm animate-pulse-glow">
+              In Your Store!
+            </div>
+          )}
 
           {/* Card content */}
           <div className="relative p-6 space-y-4 z-10">
