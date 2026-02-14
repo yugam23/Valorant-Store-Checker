@@ -6,9 +6,7 @@ import { StoreGrid } from "@/components/store/StoreGrid";
 import { WalletDisplay } from "@/components/store/WalletDisplay";
 import { NightMarket } from "@/components/store/NightMarket";
 import { FeaturedBundle } from "@/components/store/FeaturedBundle";
-import type { StoreData } from "@/types/store";
-
-type LoadingState = "idle" | "loading" | "success" | "error";
+import type { StoreData, StoreLoadingState } from "@/types/store";
 
 /** Inline countdown timer with individual digit cards */
 function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
@@ -56,7 +54,7 @@ function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
 export default function StorePage() {
   const router = useRouter();
   const [storeData, setStoreData] = useState<StoreData | null>(null);
-  const [loadingState, setLoadingState] = useState<LoadingState>("idle");
+  const [loadingState, setLoadingState] = useState<StoreLoadingState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [fromCache, setFromCache] = useState(false);

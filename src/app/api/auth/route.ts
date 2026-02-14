@@ -17,6 +17,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateRiotAccount, submitMfa } from "@/lib/riot-auth";
 import { authenticateWithBrowser } from "@/lib/browser-auth";
 import { createSession } from "@/lib/session";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Auth API");
 
 interface LoginRequestBody {
   username?: string;
@@ -170,7 +173,7 @@ export async function POST(request: NextRequest) {
       let result;
       
       if (body.useBrowser) {
-        console.log("[Auth API] Using browser-based authentication (forced)");
+        log.info("Using browser-based authentication (forced)");
         result = await authenticateWithBrowser(body.username, body.password);
       } else {
         // Try standard auth first
@@ -178,13 +181,13 @@ export async function POST(request: NextRequest) {
 
         // Fallback to browser auth if standard auth fails and it's NOT an MFA challenge
         if (!result.success && !("type" in result && result.type === "multifactor")) {
-          console.log("[Auth API] Standard auth failed, falling back to browser auth...");
+          log.info("Standard auth failed, falling back to browser auth...");
           const browserResult = await authenticateWithBrowser(body.username, body.password);
           
           if (browserResult.success) {
              result = browserResult;
           } else {
-             console.log(`[Auth API] Browser auth also failed: ${browserResult.error}`);
+             log.warn(`Browser auth also failed: ${browserResult.error}`);
              // Return the browser error as it was the last attempt
              result = browserResult;
           }
@@ -242,7 +245,7 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error("Auth API error:", error);
+    log.error("Unhandled error:", error);
 
     return NextResponse.json(
       { error: "Internal server error during authentication" },

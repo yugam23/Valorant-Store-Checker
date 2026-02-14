@@ -13,6 +13,9 @@ import { getCachedStore, setCachedStore } from "@/lib/store-cache";
 import { refreshTokensWithCookies } from "@/lib/riot-auth";
 import { StoreData, StoreItem, BundleData, BundleItem, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { CURRENCY_IDS } from "@/types/riot";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Store API");
 
 /** Fetches storefront + wallet and hydrates into StoreData */
 async function fetchAndHydrateStore(tokens: {
@@ -235,7 +238,7 @@ export async function GET() {
       return NextResponse.json(storeData);
     } catch (fetchError) {
       // Token likely expired — try refreshing with stored Riot cookies
-      console.warn("[Store API] Fresh fetch failed, attempting token refresh:", fetchError);
+      log.warn("Fresh fetch failed, attempting token refresh:", fetchError);
 
       if (session.riotCookies) {
         const refreshResult = await refreshTokensWithCookies(session.riotCookies);
@@ -251,20 +254,20 @@ export async function GET() {
           try {
             const storeData = await fetchAndHydrateStore(refreshResult.tokens);
             setCachedStore(refreshResult.tokens.puuid, storeData);
-            console.log("[Store API] Served fresh data after token refresh");
+            log.info("Served fresh data after token refresh");
             return NextResponse.json(storeData);
           } catch (retryError) {
-            console.warn("[Store API] Retry after refresh also failed:", retryError);
+            log.warn("Retry after refresh also failed:", retryError);
           }
         } else {
-          console.warn("[Store API] Token refresh failed:", refreshResult.error);
+          log.warn("Token refresh failed:", refreshResult.error);
         }
       }
 
       // Fall back to cache
       const cached = getCachedStore(session.puuid);
       if (cached) {
-        console.log("[Store API] Serving cached store data");
+        log.info("Serving cached store data");
         return NextResponse.json({ ...cached, fromCache: true });
       }
 
@@ -276,7 +279,7 @@ export async function GET() {
     }
 
   } catch (error) {
-    console.error("Store API Error:", error);
+    log.error("Unhandled error:", error);
     return NextResponse.json(
       { error: "Failed to fetch store data" },
       { status: 500 }
