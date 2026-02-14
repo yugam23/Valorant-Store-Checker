@@ -11,6 +11,9 @@
 
 import type { RiotStorefront, RiotWallet } from "../types/riot";
 import type { SessionData } from "./session";
+import { createLogger } from "./logger";
+
+const log = createLogger("riot-api");
 
 // Riot PD (Player Data) API endpoints
 const RIOT_PD_BASE = "https://pd.{region}.a.pvp.net";
@@ -59,7 +62,7 @@ export async function getPlayerStore(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[Riot API] Store fetch failed:", response.status, errorText);
+      log.error("Store fetch failed:", response.status, errorText);
 
       if (response.status === 401 || response.status === 403) {
         return { success: false, error: "Authentication expired. Please log in again." };
@@ -74,7 +77,7 @@ export async function getPlayerStore(
     const data: RiotStorefront = await response.json();
     return { success: true, data };
   } catch (error) {
-    console.error("[Riot API] Store fetch error:", error);
+    log.error("Store fetch error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -108,7 +111,7 @@ export async function getWallet(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[Riot API] Wallet fetch failed:", response.status, errorText);
+      log.error("Wallet fetch failed:", response.status, errorText);
 
       if (response.status === 401 || response.status === 403) {
         return { success: false, error: "Authentication expired. Please log in again." };
@@ -123,7 +126,7 @@ export async function getWallet(
     const data: RiotWallet = await response.json();
     return { success: true, data };
   } catch (error) {
-    console.error("[Riot API] Wallet fetch error:", error);
+    log.error("Wallet fetch error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",

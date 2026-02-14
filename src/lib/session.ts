@@ -13,19 +13,16 @@
 
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { env } from "./env";
+import { createLogger } from "./logger";
+
+const log = createLogger("session");
 
 const SESSION_COOKIE_NAME = "valorant_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 
 const getSecretKey = (): Uint8Array => {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("SESSION_SECRET environment variable is required in production");
-    }
-    return new TextEncoder().encode("dev-only-insecure-secret");
-  }
-  return new TextEncoder().encode(secret);
+  return new TextEncoder().encode(env.SESSION_SECRET);
 };
 
 export interface SessionData {
@@ -118,7 +115,7 @@ export async function getSession(): Promise<SessionData | null> {
     };
   } catch (error) {
     // Token verification failed (expired, invalid, tampered)
-    console.error("Session verification failed:", error);
+    log.error("Session verification failed:", error);
     return null;
   }
 }

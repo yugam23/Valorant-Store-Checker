@@ -3,6 +3,10 @@
  * @see https://valorant-api.com/
  */
 
+import { createLogger } from "./logger";
+
+const log = createLogger("valorant-api");
+
 import type {
   ValorantAPIResponse,
   ValorantWeaponSkin,
@@ -67,13 +71,11 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
 
     return result.data;
   } catch (error) {
-    console.error("[Valorant-API] Failed to fetch weapon skins:", error);
+    log.error("Failed to fetch weapon skins:", error);
 
     // Return cached data if available, even if expired
     if (weaponSkinsCache) {
-      console.warn(
-        "[Valorant-API] Using expired cache due to fetch failure"
-      );
+      log.warn("Using expired cache due to fetch failure");
       return weaponSkinsCache;
     }
 
@@ -122,13 +124,11 @@ export async function getContentTiers(): Promise<ValorantContentTier[]> {
 
     return result.data;
   } catch (error) {
-    console.error("[Valorant-API] Failed to fetch content tiers:", error);
+    log.error("Failed to fetch content tiers:", error);
 
     // Return cached data if available, even if expired
     if (contentTiersCache) {
-      console.warn(
-        "[Valorant-API] Using expired cache due to fetch failure"
-      );
+      log.warn("Using expired cache due to fetch failure");
       return contentTiersCache;
     }
 
@@ -177,13 +177,11 @@ export async function getBundles(): Promise<ValorantBundle[]> {
 
     return result.data;
   } catch (error) {
-    console.error("[Valorant-API] Failed to fetch bundles:", error);
+    log.error("Failed to fetch bundles:", error);
 
     // Return cached data if available, even if expired
     if (bundlesCache) {
-      console.warn(
-        "[Valorant-API] Using expired cache due to fetch failure"
-      );
+      log.warn("Using expired cache due to fetch failure");
       return bundlesCache;
     }
 

@@ -11,6 +11,10 @@
  * Security: This module runs server-side only. Never expose tokens to client.
  */
 
+import { createLogger } from "./logger";
+
+const log = createLogger("riot-auth");
+
 const RIOT_AUTH_URL = "https://auth.riotgames.com/api/v1/authorization";
 const RIOT_ENTITLEMENTS_URL = "https://entitlements.auth.riotgames.com/api/token/v1";
 const RIOT_USERINFO_URL = "https://auth.riotgames.com/userinfo";
@@ -216,7 +220,7 @@ export async function authenticateRiotAccount(
       cache: "no-store",
     });
 
-    console.log("[riot-auth] Step 1 - Init status:", initResponse.status);
+    log.info("Step 1 - Init status:", initResponse.status);
 
     if (!initResponse.ok) {
       return {
@@ -237,7 +241,7 @@ export async function authenticateRiotAccount(
       .map((c) => c.split(";")[0])
       .join("; ");
 
-    console.log("[riot-auth] Step 1 - Cookie names:", setCookieHeaders.map((c) => c.split("=")[0]).join(", "));
+    log.debug("Step 1 - Cookie names:", setCookieHeaders.map((c) => c.split("=")[0]).join(", "));
 
     // Step 2: Submit credentials
     const authResponse = await fetch(RIOT_AUTH_URL, {
@@ -254,12 +258,12 @@ export async function authenticateRiotAccount(
       cache: "no-store",
     });
 
-    console.log("[riot-auth] Step 2 - Auth status:", authResponse.status);
+    log.info("Step 2 - Auth status:", authResponse.status);
 
     if (!authResponse.ok) {
       // Read the body for more context on failures
       const errorBody = await authResponse.text();
-      console.log("[riot-auth] Step 2 - Error body:", errorBody);
+      log.warn("Step 2 - Error body:", errorBody);
       return {
         success: false,
         error: `Authentication failed: ${authResponse.status} ${authResponse.statusText}`,
@@ -272,7 +276,7 @@ export async function authenticateRiotAccount(
 
     const authData: AuthResponse = await authResponse.json();
 
-    console.log("[riot-auth] Step 2 - Full response:", JSON.stringify(authData));
+    log.debug("Step 2 - Full response:", JSON.stringify(authData));
 
     // Step 3: Handle MFA if required
     if (authData.type === "multifactor") {
@@ -334,7 +338,7 @@ export async function authenticateRiotAccount(
 
     // Extract individual Riot cookies (ssid, clid, csid, tdid) for SSID re-auth
     const namedCookies = extractNamedCookies(allCookies);
-    console.log("[riot-auth] Extracted named cookies:", {
+    log.debug("Extracted named cookies:", {
       ssid: namedCookies.ssid ? "present" : "missing",
       clid: namedCookies.clid ? "present" : "missing",
       csid: namedCookies.csid ? "present" : "missing",
@@ -580,19 +584,9 @@ function extractNamedCookies(cookieString: string): RiotSessionCookies {
   return result;
 }
 
-/**
- * Builds a cookie string from individual Riot session cookies,
- * matching RadiantConnect's approach of setting only the cookies
- * that are available (ssid is required, others optional).
- */
-function buildCookieString(cookies: RiotSessionCookies): string {
-  const parts: string[] = [];
-  if (cookies.ssid) parts.push(`ssid=${cookies.ssid}`);
-  if (cookies.clid) parts.push(`clid=${cookies.clid}`);
-  if (cookies.csid) parts.push(`csid=${cookies.csid}`);
-  if (cookies.tdid) parts.push(`tdid=${cookies.tdid}`);
-  return parts.join("; ");
-}
+// NOTE: buildCookieString was removed — dead code.
+// Line 630 (now below) uses the raw cookie string directly to avoid
+// filtering out potentially necessary cookies like 'asid' or 'did'.
 
 /**
  * Refreshes Riot tokens using stored session cookies (SSID re-auth).
@@ -618,16 +612,15 @@ export async function refreshTokensWithCookies(
       return { success: false, error: "No SSID cookie available for re-auth — full login required" };
     }
 
-    console.log("[riot-auth] SSID re-auth: ssid=%s, clid=%s, csid=%s, tdid=%s",
+    log.info("SSID re-auth: ssid=%s, clid=%s, csid=%s, tdid=%s",
       named.ssid ? "present" : "missing",
       named.clid ? "present" : "missing",
       named.csid ? "present" : "missing",
       named.tdid ? "present" : "missing",
     );
 
-    // Use the full provided cookie string to ensure we don't filter out 
-    // potentially necessary cookies like 'asid' or 'did'
-    const cookieStr = riotCookies; // Was buildCookieString(named);
+    // Use the full provided cookie string (see NOTE above for why)
+    const cookieStr = riotCookies;
 
     const response = await fetch(RIOT_AUTH_URL, {
       method: "POST",
@@ -680,7 +673,7 @@ export async function refreshTokensWithCookies(
 
     const region = determineRegion(userInfo);
 
-    console.log("[riot-auth] SSID re-auth successful");
+    log.info("SSID re-auth successful");
 
     return {
       success: true,
@@ -708,14 +701,14 @@ export async function refreshTokensWithCookies(
  * @returns Region identifier (na, eu, ap, kr, latam, br)
  */
 export function determineRegion(userInfo: UserInfo): string {
-  console.log("[riot-auth] Determining region. Country:", userInfo.country, "Affinity:", JSON.stringify(userInfo.affinity));
+  log.debug("Determining region. Country:", userInfo.country, "Affinity:", JSON.stringify(userInfo.affinity));
 
   // Primary: use the affinity field which contains the actual shard assignment
   // The "pp" key (player platform) maps directly to the PD shard
   if (userInfo.affinity) {
     const shard = userInfo.affinity.pp || userInfo.affinity.live || Object.values(userInfo.affinity)[0];
     if (shard) {
-      console.log(`[riot-auth] Using affinity shard: ${shard}`);
+      log.info(`Using affinity shard: ${shard}`);
       return shard;
     }
   }
@@ -772,10 +765,10 @@ export function determineRegion(userInfo: UserInfo): string {
   const region = countryToRegion[countryCode];
 
   if (region) {
-    console.log(`[riot-auth] Mapped country ${countryCode} to region ${region}`);
+    log.info(`Mapped country ${countryCode} to region ${region}`);
     return region;
   }
 
-  console.warn(`[riot-auth] Unknown country code: ${countryCode}, defaulting to 'na'`);
+  log.warn(`Unknown country code: ${countryCode}, defaulting to 'na'`);
   return "na";
 }

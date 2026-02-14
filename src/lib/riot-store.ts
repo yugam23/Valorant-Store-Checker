@@ -6,6 +6,9 @@
  */
 
 import { RiotStorefront, RiotWallet } from "@/types/riot";
+import { createLogger } from "./logger";
+
+const log = createLogger("riot-store");
 
 /** Minimum token set needed for store API requests */
 export interface StoreTokens {
@@ -53,7 +56,7 @@ async function getClientVersion(): Promise<string> {
       return version;
     }
   } catch (error) {
-    console.warn("[riot-store] Failed to fetch client version:", error);
+    log.warn("Failed to fetch client version:", error);
   }
 
   // Fallback if fetch fails
@@ -99,7 +102,7 @@ function getPdUrl(region: string): string {
  */
 async function getStoreHeaders(tokens: StoreTokens) {
   const clientVersion = await getClientVersion();
-  console.log(`[riot-store] Using Client Version: ${clientVersion}`);
+  log.debug(`Using Client Version: ${clientVersion}`);
 
   return {
     Authorization: `Bearer ${tokens.accessToken}`,
@@ -139,7 +142,7 @@ async function fetchWithShardFallback(
     const pdUrl = getPdUrl(region);
     const url = endpointBuilder(pdUrl);
 
-    console.log(`[riot-store] Trying shard: ${region.toUpperCase()} (${url})`);
+    log.info(`Trying shard: ${region.toUpperCase()} (${url})`);
 
     try {
       // Determine method based on endpoint (v3 requires POST)
@@ -159,7 +162,7 @@ async function fetchWithShardFallback(
 
       if (response.ok) {
         if (region !== tokens.region && region !== cachedShardRegion) {
-          console.log(`[riot-store] Discovered correct shard: ${region.toUpperCase()}`);
+          log.info(`Discovered correct shard: ${region.toUpperCase()}`);
           cachedShardRegion = region;
         }
         return response;
@@ -167,16 +170,16 @@ async function fetchWithShardFallback(
 
       // If 404/403/405, it might be the wrong shard or method, so try next shard
       if ([403, 404, 405].includes(response.status)) {
-        console.warn(`[riot-store] Shard ${region.toUpperCase()} failed with ${response.status}. Retrying...`);
+        log.warn(`Shard ${region.toUpperCase()} failed with ${response.status}. Retrying...`);
         const bodyText = await response.text().catch(() => "");
-        console.warn(`[riot-store] Error body: ${bodyText}`);
+        log.warn(`Error body: ${bodyText}`);
         continue;
       }
 
       throw new Error(`Request failed with status ${response.status}`);
     } catch (err) {
       lastError = err as Error;
-      console.warn(`[riot-store] Network error on ${region.toUpperCase()}:`, err);
+      log.warn(`Network error on ${region.toUpperCase()}:`, err);
     }
   }
 
