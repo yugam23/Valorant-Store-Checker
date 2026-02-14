@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       // Create session with tokens + Riot cookies for SSID re-auth
       await createSession({
         ...result.tokens,
-        riotCookies: "riotCookies" in result ? (result as any).riotCookies : "",
+        riotCookies: result.riotCookies ?? "",
       });
 
       return NextResponse.json({
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
 
     // Handle Browser Launch (Interactive)
     if (body.type === "launch_browser") {
-      const { launchBasicBrowser } = await import("@/lib/browser-auth") as any;
+      const { launchBasicBrowser } = await import("@/lib/browser-auth");
       const result = await launchBasicBrowser();
 
       if (!result.success) {
@@ -219,8 +219,7 @@ export async function POST(request: NextRequest) {
           );
       }
 
-      const riotCookies = "riotCookies" in result ? (result as any).riotCookies : "";
-      console.log("[Auth API] Creating session. Riot cookies present:", !!riotCookies);
+      const riotCookies = "riotCookies" in result ? (result as { riotCookies: string }).riotCookies : "";
 
       await createSession({
         ...tokens,
@@ -246,10 +245,7 @@ export async function POST(request: NextRequest) {
     console.error("Auth API error:", error);
 
     return NextResponse.json(
-      {
-        error: "Internal server error during authentication",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Internal server error during authentication" },
       { status: 500 }
     );
   }

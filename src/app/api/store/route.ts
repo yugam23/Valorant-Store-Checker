@@ -22,8 +22,8 @@ async function fetchAndHydrateStore(tokens: {
   region: string;
 }): Promise<StoreData> {
   const [storefront, wallet] = await Promise.all([
-    getStorefront(tokens as any),
-    getWallet(tokens as any),
+    getStorefront(tokens),
+    getWallet(tokens),
   ]);
 
   const [skins, tiers] = await Promise.all([

@@ -5,8 +5,15 @@
  * Requires valid access token and entitlements token.
  */
 
-import { AuthTokens } from "./riot-auth";
 import { RiotStorefront, RiotWallet } from "@/types/riot";
+
+/** Minimum token set needed for store API requests */
+export interface StoreTokens {
+  accessToken: string;
+  entitlementsToken: string;
+  puuid: string;
+  region: string;
+}
 
 /**
  * Base64-encoded client platform identifier required by Riot PD endpoints.
@@ -90,7 +97,7 @@ function getPdUrl(region: string): string {
 /**
  * Common headers for Riot Store API requests
  */
-async function getStoreHeaders(tokens: AuthTokens) {
+async function getStoreHeaders(tokens: StoreTokens) {
   const clientVersion = await getClientVersion();
   console.log(`[riot-store] Using Client Version: ${clientVersion}`);
 
@@ -114,7 +121,7 @@ let cachedShardRegion: string | null = null;
  * If the primary shard returns 404, it tries other shards (na, eu, ap, kr)
  */
 async function fetchWithShardFallback(
-  tokens: AuthTokens,
+  tokens: StoreTokens,
   endpointBuilder: (pdUrl: string) => string
 ): Promise<Response> {
   const regions = ["na", "eu", "ap", "kr"];
@@ -176,11 +183,7 @@ async function fetchWithShardFallback(
   throw lastError || new Error("Failed to find correct shard for user data");
 }
 
-// ... existing imports ...
-
-// ... existing code ...
-
-export async function getStorefront(tokens: AuthTokens): Promise<RiotStorefront> {
+export async function getStorefront(tokens: StoreTokens): Promise<RiotStorefront> {
   const response = await fetchWithShardFallback(tokens, (pdUrl) => 
     `${pdUrl}/store/v3/storefront/${tokens.puuid}`
   );
@@ -193,7 +196,7 @@ export async function getStorefront(tokens: AuthTokens): Promise<RiotStorefront>
  * Fetches the player's wallet balance (VP, RP, KC)
  * Endpoint: /store/v1/wallet/{puuid}
  */
-export async function getWallet(tokens: AuthTokens): Promise<RiotWallet> {
+export async function getWallet(tokens: StoreTokens): Promise<RiotWallet> {
   const response = await fetchWithShardFallback(tokens, (pdUrl) => 
     `${pdUrl}/store/v1/wallet/${tokens.puuid}`
   );
