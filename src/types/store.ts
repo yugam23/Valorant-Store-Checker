@@ -42,6 +42,7 @@ export interface StoreData {
   expiresAt: Date; // When the store resets
   wallet?: WalletBalance; // Optional wallet data
   nightMarket?: NightMarketData; // Optional Night Market data
+  bundle?: BundleData; // Optional Featured Bundle data
 }
 
 /**
@@ -69,6 +70,40 @@ export interface NightMarketItem extends Omit<StoreItem, "cost"> {
 export interface NightMarketData {
   items: NightMarketItem[];
   expiresAt: Date;
+}
+
+/**
+ * Featured bundle item with pricing and discount information
+ */
+export interface BundleItem {
+  uuid: string;
+  displayName: string;
+  displayIcon: string;
+  basePrice: number;
+  discountedPrice: number;
+  discountPercent: number;
+  currencyId: string;
+  tierUuid: string | null;
+  tierName: string | null;
+  tierColor: string;
+  isPromoItem: boolean;
+}
+
+/**
+ * Featured bundle data structure
+ */
+export interface BundleData {
+  bundleUuid: string;
+  dataAssetID: string;
+  displayName: string;
+  displayIcon: string; // from Valorant-API bundle lookup
+  displayIcon2: string; // secondary image from Valorant-API
+  items: BundleItem[];
+  totalBasePrice: number; // sum of all item base prices
+  totalDiscountedPrice: number; // sum of all discounted prices (if any)
+  durationRemainingInSeconds: number;
+  expiresAt: Date;
+  wholesaleOnly: boolean;
 }
 
 /**

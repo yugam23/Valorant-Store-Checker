@@ -8,10 +8,10 @@
 import { NextResponse } from "next/server";
 import { getSession, createSession } from "@/lib/session";
 import { getStorefront, getWallet } from "@/lib/riot-store";
-import { getWeaponSkins, getContentTiers, getSkinVideo } from "@/lib/valorant-api";
+import { getWeaponSkins, getContentTiers, getSkinVideo, getBundleByUuid } from "@/lib/valorant-api";
 import { getCachedStore, setCachedStore } from "@/lib/store-cache";
 import { refreshTokensWithCookies } from "@/lib/riot-auth";
-import { StoreData, StoreItem, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
+import { StoreData, StoreItem, BundleData, BundleItem, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { CURRENCY_IDS } from "@/types/riot";
 
 /** Fetches storefront + wallet and hydrates into StoreData */
@@ -147,6 +147,66 @@ async function fetchAndHydrateStore(tokens: {
     }
   }
 
+  // Hydrate Featured Bundle (if active)
+  let bundleData: StoreData['bundle'] = undefined;
+
+  if (storefront.FeaturedBundle?.Bundle) {
+    const featuredBundle = storefront.FeaturedBundle.Bundle;
+
+    // Fetch bundle metadata from Valorant-API
+    const bundleMetadata = await getBundleByUuid(featuredBundle.DataAssetID);
+
+    // Hydrate bundle items
+    const bundleItems: BundleItem[] = featuredBundle.Items.map((item) => {
+      // Only process skin items
+      if (item.Item.ItemTypeID !== "e7c63390-eda7-46e0-bb7a-a6abdacd2433") {
+        return null;
+      }
+
+      const skin = findSkin(item.Item.ItemID);
+      if (!skin) return null;
+
+      const tier = skin.contentTierUuid ? findTier(skin.contentTierUuid) : null;
+      const tierColor = tier
+        ? (TIER_COLORS[tier.displayName] || `#${tier.highlightColor.slice(0, 6)}`)
+        : DEFAULT_TIER_COLOR;
+
+      return {
+        uuid: skin.uuid,
+        displayName: skin.displayName,
+        displayIcon: skin.levels?.[0]?.displayIcon || skin.displayIcon || "",
+        basePrice: item.BasePrice,
+        discountedPrice: item.DiscountedPrice,
+        discountPercent: item.DiscountPercent,
+        currencyId: item.CurrencyID,
+        tierUuid: tier?.uuid || null,
+        tierName: tier?.displayName || null,
+        tierColor,
+        isPromoItem: item.IsPromoItem,
+      };
+    }).filter((item): item is BundleItem => item !== null);
+
+    if (bundleItems.length > 0 && bundleMetadata) {
+      // Calculate totals
+      const totalBasePrice = bundleItems.reduce((sum, item) => sum + item.basePrice, 0);
+      const totalDiscountedPrice = bundleItems.reduce((sum, item) => sum + item.discountedPrice, 0);
+
+      bundleData = {
+        bundleUuid: featuredBundle.ID,
+        dataAssetID: featuredBundle.DataAssetID,
+        displayName: bundleMetadata.displayName,
+        displayIcon: bundleMetadata.displayIcon,
+        displayIcon2: bundleMetadata.displayIcon2,
+        items: bundleItems,
+        totalBasePrice,
+        totalDiscountedPrice,
+        durationRemainingInSeconds: featuredBundle.DurationRemainingInSeconds,
+        expiresAt: new Date(Date.now() + featuredBundle.DurationRemainingInSeconds * 1000),
+        wholesaleOnly: featuredBundle.WholesaleOnly,
+      };
+    }
+  }
+
   return {
     items: dailyItems,
     expiresAt: new Date(Date.now() + storefront.SkinsPanelLayout.SingleItemOffersRemainingDurationInSeconds * 1000),
@@ -156,6 +216,7 @@ async function fetchAndHydrateStore(tokens: {
       kc: wallet.Balances[CURRENCY_IDS.KC] || 0,
     },
     nightMarket: nightMarketData,
+    bundle: bundleData,
   };
 }
 
