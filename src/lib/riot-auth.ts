@@ -462,7 +462,7 @@ export async function submitMfa(
  * @param uri Redirect URI containing tokens in fragment
  * @returns Object with access and ID tokens, or null if extraction fails
  */
-function extractTokensFromUri(uri: string): { accessToken: string; idToken: string } | null {
+export function extractTokensFromUri(uri: string): { accessToken: string; idToken: string } | null {
   try {
     const url = new URL(uri);
     const fragment = url.hash.substring(1); // Remove the # character
@@ -486,7 +486,7 @@ function extractTokensFromUri(uri: string): { accessToken: string; idToken: stri
  * @param accessToken Bearer token from authentication
  * @returns Entitlements token string or null if request fails
  */
-async function getEntitlementsToken(accessToken: string): Promise<string | null> {
+export async function getEntitlementsToken(accessToken: string): Promise<string | null> {
   try {
     const response = await fetch(RIOT_ENTITLEMENTS_URL, {
       method: "POST",
@@ -513,7 +513,7 @@ async function getEntitlementsToken(accessToken: string): Promise<string | null>
  * @param accessToken Bearer token from authentication
  * @returns User info object or null if request fails
  */
-async function getUserInfo(accessToken: string): Promise<UserInfo | null> {
+export async function getUserInfo(accessToken: string): Promise<UserInfo | null> {
   try {
     const response = await fetch(RIOT_USERINFO_URL, {
       headers: {
@@ -707,7 +707,7 @@ export async function refreshTokensWithCookies(
  * @param userInfo User information object
  * @returns Region identifier (na, eu, ap, kr, latam, br)
  */
-function determineRegion(userInfo: UserInfo): string {
+export function determineRegion(userInfo: UserInfo): string {
   console.log("[riot-auth] Determining region. Country:", userInfo.country, "Affinity:", JSON.stringify(userInfo.affinity));
 
   // Primary: use the affinity field which contains the actual shard assignment

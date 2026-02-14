@@ -17,9 +17,14 @@ import { cookies } from "next/headers";
 const SESSION_COOKIE_NAME = "valorant_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 
-// Secret key for JWT encryption (should be in environment variable)
 const getSecretKey = (): Uint8Array => {
-  const secret = process.env.SESSION_SECRET || "default-secret-change-in-production";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SESSION_SECRET environment variable is required in production");
+    }
+    return new TextEncoder().encode("dev-only-insecure-secret");
+  }
   return new TextEncoder().encode(secret);
 };
 
@@ -66,10 +71,10 @@ export async function createSession(tokens: {
 
   // Set HTTP-only cookie
   const cookieStore = await cookies();
-  console.log(`[Session] Setting cookie: ${SESSION_COOKIE_NAME}, Secure: false, SameSite: lax`);
+  const isProduction = process.env.NODE_ENV === "production";
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: false, // FORCE FALSE FOR DEBUGGING
+    secure: isProduction,
     sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
     path: "/",
