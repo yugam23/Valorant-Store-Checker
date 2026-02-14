@@ -116,8 +116,9 @@ async function getStoreHeaders(tokens: StoreTokens) {
  * Fetches the player's storefront (Daily Shop, Night Market, Bundles)
  * Endpoint: /store/v2/storefront/{puuid}
  */
-// In-memory cache for the correct shard to avoid repeated discovery
-let cachedShardRegion: string | null = null;
+// In-memory cache for the correct shard to avoid repeated discovery.
+// Keyed by PUUID so different users on different shards don't collide.
+const cachedShardByPuuid = new Map<string, string>();
 
 /**
  * Helper to fetch data with automatic shard fallback
@@ -130,7 +131,8 @@ async function fetchWithShardFallback(
   const regions = ["na", "eu", "ap", "kr"];
   
   // Determine the order of regions to try
-  let attempts = [cachedShardRegion || tokens.region];
+  const cachedShard = cachedShardByPuuid.get(tokens.puuid);
+  let attempts = [cachedShard || tokens.region];
   for (const r of regions) {
     if (!attempts.includes(r)) attempts.push(r);
   }
@@ -161,9 +163,9 @@ async function fetchWithShardFallback(
       });
 
       if (response.ok) {
-        if (region !== tokens.region && region !== cachedShardRegion) {
+        if (region !== tokens.region && region !== cachedShard) {
           log.info(`Discovered correct shard: ${region.toUpperCase()}`);
-          cachedShardRegion = region;
+          cachedShardByPuuid.set(tokens.puuid, region);
         }
         return response;
       }

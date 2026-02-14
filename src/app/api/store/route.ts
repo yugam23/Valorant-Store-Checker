@@ -17,6 +17,12 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Store API");
 
+/**
+ * Riot's internal ItemTypeID for weapon skins.
+ * Used to filter rewards/items that are weapon skins vs. other item types.
+ */
+const ITEM_TYPE_WEAPON_SKIN = "e7c63390-eda7-46e0-bb7a-a6abdacd2433";
+
 /** Fetches storefront + wallet and hydrates into StoreData */
 async function fetchAndHydrateStore(tokens: {
   accessToken: string;
@@ -54,7 +60,7 @@ async function fetchAndHydrateStore(tokens: {
     const offer = storeOffers.find((o) => o.OfferID === offerId);
     if (!offer) return null;
 
-    const reward = offer.Rewards.find((r) => r.ItemTypeID === "e7c63390-eda7-46e0-bb7a-a6abdacd2433");
+    const reward = offer.Rewards.find((r) => r.ItemTypeID === ITEM_TYPE_WEAPON_SKIN);
     const skinUuid = reward?.ItemID;
     if (!skinUuid) return null;
 
@@ -107,7 +113,7 @@ async function fetchAndHydrateStore(tokens: {
   if (storefront.BonusStore?.BonusStoreOffers) {
     const nightMarketItems = storefront.BonusStore.BonusStoreOffers.map((bonusOffer) => {
       const offer = bonusOffer.Offer;
-      const reward = offer.Rewards.find((r) => r.ItemTypeID === "e7c63390-eda7-46e0-bb7a-a6abdacd2433");
+      const reward = offer.Rewards.find((r) => r.ItemTypeID === ITEM_TYPE_WEAPON_SKIN);
       const skinUuid = reward?.ItemID;
       if (!skinUuid) return null;
 
@@ -162,7 +168,7 @@ async function fetchAndHydrateStore(tokens: {
     // Hydrate bundle items
     const bundleItems: BundleItem[] = featuredBundle.Items.map((item) => {
       // Only process skin items
-      if (item.Item.ItemTypeID !== "e7c63390-eda7-46e0-bb7a-a6abdacd2433") {
+      if (item.Item.ItemTypeID !== ITEM_TYPE_WEAPON_SKIN) {
         return null;
       }
 
