@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateRiotAccount, submitMfa } from "@/lib/riot-auth";
 import { authenticateWithBrowser } from "@/lib/browser-auth";
 import { createSession } from "@/lib/session";
+import { addAccount } from "@/lib/accounts";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Auth API");
@@ -66,6 +67,21 @@ export async function POST(request: NextRequest) {
       // Create session with tokens
       await createSession(result.tokens);
 
+      // Add account to multi-account registry
+      await addAccount(
+        {
+          puuid: result.tokens.puuid,
+          region: result.tokens.region,
+          addedAt: Date.now(),
+        },
+        {
+          accessToken: result.tokens.accessToken,
+          entitlementsToken: result.tokens.entitlementsToken,
+          puuid: result.tokens.puuid,
+          region: result.tokens.region,
+        }
+      );
+
       return NextResponse.json({
         success: true,
         data: {
@@ -100,6 +116,22 @@ export async function POST(request: NextRequest) {
         riotCookies: result.riotCookies,
       });
 
+      // Add account to multi-account registry
+      await addAccount(
+        {
+          puuid: result.tokens.puuid,
+          region: result.tokens.region,
+          addedAt: Date.now(),
+        },
+        {
+          accessToken: result.tokens.accessToken,
+          entitlementsToken: result.tokens.entitlementsToken,
+          puuid: result.tokens.puuid,
+          region: result.tokens.region,
+          riotCookies: result.riotCookies,
+        }
+      );
+
       return NextResponse.json({
         success: true,
         data: {
@@ -132,6 +164,22 @@ export async function POST(request: NextRequest) {
         ...result.tokens,
         riotCookies: result.riotCookies ?? "",
       });
+
+      // Add account to multi-account registry
+      await addAccount(
+        {
+          puuid: result.tokens.puuid,
+          region: result.tokens.region,
+          addedAt: Date.now(),
+        },
+        {
+          accessToken: result.tokens.accessToken,
+          entitlementsToken: result.tokens.entitlementsToken,
+          puuid: result.tokens.puuid,
+          region: result.tokens.region,
+          riotCookies: result.riotCookies ?? "",
+        }
+      );
 
       return NextResponse.json({
         success: true,
@@ -228,6 +276,22 @@ export async function POST(request: NextRequest) {
         ...tokens,
         riotCookies,
       });
+
+      // Add account to multi-account registry
+      await addAccount(
+        {
+          puuid: tokens.puuid,
+          region: tokens.region,
+          addedAt: Date.now(),
+        },
+        {
+          accessToken: tokens.accessToken,
+          entitlementsToken: tokens.entitlementsToken,
+          puuid: tokens.puuid,
+          region: tokens.region,
+          riotCookies,
+        }
+      );
 
       return NextResponse.json({
         success: true,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSession, deleteSession } from "@/lib/session";
+import { getSession } from "@/lib/session";
+import { removeAccount, getActiveAccount } from "@/lib/accounts";
 import { clearCachedStore } from "@/lib/store-cache";
 
 export async function POST() {
@@ -7,6 +8,13 @@ export async function POST() {
   if (session?.puuid) {
     clearCachedStore(session.puuid);
   }
-  await deleteSession();
+
+  // Get active account and remove it from the registry
+  // This will automatically switch to next account or clear session if none remain
+  const activeAccount = await getActiveAccount();
+  if (activeAccount) {
+    await removeAccount(activeAccount.puuid);
+  }
+
   return NextResponse.json({ success: true });
 }
