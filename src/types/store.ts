@@ -87,6 +87,8 @@ export interface BundleItem {
   tierName: string | null;
   tierColor: string;
   isPromoItem: boolean;
+  /** Item category: "Skin", "Buddy", "Player Card", "Spray", "Title", or "Unknown" */
+  itemType: string;
 }
 
 /**

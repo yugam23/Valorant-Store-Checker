@@ -162,7 +162,7 @@ export function FeaturedBundle({ bundle }: FeaturedBundleProps) {
                               </span>
                             </div>
 
-                            {item.tierName && (
+                            {item.tierName ? (
                               <span
                                 className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 angular-card-sm"
                                 style={{
@@ -172,7 +172,17 @@ export function FeaturedBundle({ bundle }: FeaturedBundleProps) {
                               >
                                 {item.tierName}
                               </span>
-                            )}
+                            ) : item.itemType && item.itemType !== "Skin" ? (
+                              <span
+                                className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 angular-card-sm"
+                                style={{
+                                  backgroundColor: `${item.tierColor}20`,
+                                  color: item.tierColor,
+                                }}
+                              >
+                                {item.itemType}
+                              </span>
+                            ) : null}
                           </div>
 
                           {/* Show discount if applicable */}
