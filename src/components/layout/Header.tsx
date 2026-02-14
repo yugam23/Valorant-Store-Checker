@@ -25,7 +25,7 @@ export async function Header() {
           </div>
         </Link>
 
-        <nav className="flex items-center gap-6">
+        <nav className="flex items-center gap-6" aria-label="Main navigation">
           <Link href="/" className="group relative py-1 text-sm font-medium text-zinc-400 hover:text-white transition-colors">
             Home
             <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />

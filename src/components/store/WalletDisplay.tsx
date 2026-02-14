@@ -10,6 +10,8 @@ export function WalletDisplay({ wallet, className = "" }: WalletDisplayProps) {
   return (
     <div
       className={`flex gap-6 angular-card-sm bg-void-surface/80 backdrop-blur-sm px-6 py-4 border border-white/5 shadow-lg ${className}`}
+      role="region"
+      aria-label={`Wallet: ${wallet.vp.toLocaleString()} Valorant Points, ${wallet.rp.toLocaleString()} Radianite Points${wallet.kc ? `, ${wallet.kc.toLocaleString()} Kingdom Credits` : ''}`}
     >
       {/* Valorant Points */}
       <div className="flex items-center gap-3">

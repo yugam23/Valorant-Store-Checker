@@ -38,7 +38,7 @@ function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
   );
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${timeLeft.h} hours ${timeLeft.m} minutes ${timeLeft.s} seconds remaining`}>
       <DigitCard value={timeLeft.h[0]} />
       <DigitCard value={timeLeft.h[1]} />
       <Separator />
@@ -146,7 +146,7 @@ export default function StorePage() {
             className="stagger-entrance"
             style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
           >
-            <div className="angular-card bg-void-surface/50 flex flex-col items-center justify-center py-20 space-y-4">
+            <div className="angular-card bg-void-surface/50 flex flex-col items-center justify-center py-20 space-y-4" role="status" aria-label="Loading store data">
               <div className="relative w-12 h-12">
                 <div className="absolute inset-0 border-2 border-valorant-red/20 angular-card-sm" />
                 <div className="absolute inset-0 border-t-2 border-valorant-red animate-spin" style={{ borderRadius: "50%" }} />
@@ -162,8 +162,8 @@ export default function StorePage() {
             className="stagger-entrance"
             style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
           >
-            <div className="angular-card bg-void-surface/50 flex flex-col items-center justify-center py-20 space-y-4">
-              <div className="w-16 h-16 flex items-center justify-center border border-red-500/30 angular-card-sm">
+            <div className="angular-card bg-void-surface/50 flex flex-col items-center justify-center py-20 space-y-4" role="alert">
+              <div className="w-16 h-16 flex items-center justify-center border border-red-500/30 angular-card-sm" aria-hidden="true">
                 <span className="text-3xl text-red-500">!</span>
               </div>
               <p className="text-zinc-300 text-lg font-display uppercase">Error loading store</p>

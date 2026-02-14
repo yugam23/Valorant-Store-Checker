@@ -32,8 +32,16 @@ export default function RootLayout({
         {/* Noise texture overlay */}
         <div className="noise-overlay" />
 
+        {/* Skip-to-content link for keyboard/screen reader users */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-valorant-red focus:text-white focus:font-display focus:uppercase focus:tracking-wider focus:angular-card-sm"
+        >
+          Skip to content
+        </a>
+
         <Header />
-        <main className="relative z-10 flex-1">{children}</main>
+        <main id="main-content" className="relative z-10 flex-1">{children}</main>
       </body>
     </html>
   );

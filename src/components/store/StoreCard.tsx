@@ -34,6 +34,8 @@ export function StoreCard({ item, staggerIndex = 0 }: StoreCardProps) {
     <div
       className="stagger-entrance"
       style={{ "--stagger-delay": `${staggerIndex * 100}ms` } as React.CSSProperties}
+      role="article"
+      aria-label={`${item.displayName}, ${item.cost.toLocaleString()} Valorant Points${item.tierName ? `, ${item.tierName} tier` : ''}`}
     >
       {/* Glow border wrapper — animated conic gradient colored by rarity tier */}
       <div
@@ -69,7 +71,7 @@ export function StoreCard({ item, staggerIndex = 0 }: StoreCardProps) {
                     isHovered && item.streamedVideo ? "opacity-0" : "opacity-100 group-hover:scale-105"
                   }`}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  priority
+                  priority={staggerIndex < 2}
                 />
               )}
 

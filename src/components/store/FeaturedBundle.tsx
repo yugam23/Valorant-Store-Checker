@@ -38,7 +38,7 @@ function BundleCountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
   );
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${timeLeft.h} hours ${timeLeft.m} minutes ${timeLeft.s} seconds remaining`}>
       <DigitCard value={timeLeft.h[0]} />
       <DigitCard value={timeLeft.h[1]} />
       <Separator />
