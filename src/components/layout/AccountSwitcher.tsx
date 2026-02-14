@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("AccountSwitcher");
@@ -21,7 +20,6 @@ export function AccountSwitcher() {
   const [loading, setLoading] = useState(true);
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   // Fetch accounts on mount
   useEffect(() => {
@@ -122,7 +120,7 @@ export function AccountSwitcher() {
   }
 
   function handleAddAccount() {
-    router.push("/login");
+    window.location.href = "/login?addAccount=true";
   }
 
   // Get the active account for display
@@ -172,7 +170,7 @@ export function AccountSwitcher() {
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="angular-card absolute right-0 top-full mt-2 w-64 border border-white/10 bg-void-deep shadow-2xl">
+        <div className="angular-card absolute right-0 top-full z-50 mt-2 w-64 border border-white/10 bg-void-deep shadow-2xl">
           {/* Accounts List */}
           <div className="max-h-80 overflow-y-auto">
             {accounts.length === 0 ? (

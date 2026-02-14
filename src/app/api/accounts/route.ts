@@ -35,6 +35,8 @@ export async function GET() {
           {
             puuid: session.puuid,
             region: session.region,
+            gameName: session.gameName,
+            tagLine: session.tagLine,
             addedAt: session.createdAt || Date.now(),
           },
           {

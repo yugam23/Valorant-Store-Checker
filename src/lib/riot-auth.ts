@@ -84,6 +84,9 @@ export interface AuthTokens {
   entitlementsToken: string;
   puuid: string;
   region: string;
+  gameName?: string;
+  tagLine?: string;
+  riotCookies?: string;
 }
 
 /**
@@ -142,6 +145,12 @@ export function getRiotLoginUrl(): string {
   return `${RIOT_AUTH_URL}?${params.toString()}`;
 }
 
+export interface CompleteAuthResult {
+  success: boolean;
+  tokens?: AuthTokens;
+  error?: string;
+}
+
 /**
  * Processes the redirect URL from browser login to complete authentication
  * @param url The full redirect URL containing access_token in hash
@@ -186,6 +195,8 @@ export async function completeAuthWithUrl(url: string): Promise<
         entitlementsToken,
         puuid: userInfo.sub,
         region,
+        gameName: userInfo.acct?.game_name,
+        tagLine: userInfo.acct?.tag_line,
       },
     };
   } catch (error) {
@@ -353,6 +364,8 @@ export async function authenticateRiotAccount(
         entitlementsToken,
         puuid: userInfo.sub,
         region,
+        gameName: userInfo.acct?.game_name,
+        tagLine: userInfo.acct?.tag_line,
       },
       riotCookies: allCookies,
       namedCookies,
@@ -449,6 +462,8 @@ export async function submitMfa(
         entitlementsToken,
         puuid: userInfo.sub,
         region,
+        gameName: userInfo.acct?.game_name,
+        tagLine: userInfo.acct?.tag_line,
       },
       riotCookies: allCookies,
       namedCookies,
@@ -683,6 +698,8 @@ export async function refreshTokensWithCookies(
         entitlementsToken,
         puuid: userInfo.sub,
         region,
+        gameName: userInfo.acct?.game_name,
+        tagLine: userInfo.acct?.tag_line,
       },
       riotCookies: updatedCookies,
       namedCookies: updatedNamed,

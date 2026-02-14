@@ -72,6 +72,8 @@ export async function POST(request: NextRequest) {
         {
           puuid: result.tokens.puuid,
           region: result.tokens.region,
+          gameName: result.tokens.gameName,
+          tagLine: result.tokens.tagLine,
           addedAt: Date.now(),
         },
         {
@@ -79,6 +81,7 @@ export async function POST(request: NextRequest) {
           entitlementsToken: result.tokens.entitlementsToken,
           puuid: result.tokens.puuid,
           region: result.tokens.region,
+          riotCookies: result.tokens.riotCookies, // Should use the ones from token set
         }
       );
 
@@ -121,6 +124,8 @@ export async function POST(request: NextRequest) {
         {
           puuid: result.tokens.puuid,
           region: result.tokens.region,
+          gameName: result.tokens.gameName,
+          tagLine: result.tokens.tagLine,
           addedAt: Date.now(),
         },
         {
@@ -170,6 +175,8 @@ export async function POST(request: NextRequest) {
         {
           puuid: result.tokens.puuid,
           region: result.tokens.region,
+          gameName: result.tokens.gameName,
+          tagLine: result.tokens.tagLine,
           addedAt: Date.now(),
         },
         {
@@ -282,6 +289,8 @@ export async function POST(request: NextRequest) {
         {
           puuid: tokens.puuid,
           region: tokens.region,
+          gameName: tokens.gameName,
+          tagLine: tokens.tagLine,
           addedAt: Date.now(),
         },
         {

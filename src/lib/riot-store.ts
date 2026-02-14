@@ -76,9 +76,11 @@ function getPdUrl(region: string): string {
 
   switch (r) {
     case "na":
-    case "latam":
-    case "br":
       return "https://pd.na.a.pvp.net";
+    case "latam":
+      return "https://pd.latam.a.pvp.net";
+    case "br":
+      return "https://pd.br.a.pvp.net";
     case "ap":
     case "as":
     case "ind":
@@ -144,7 +146,7 @@ async function fetchWithShardFallback(
     const pdUrl = getPdUrl(region);
     const url = endpointBuilder(pdUrl);
 
-    log.info(`Trying shard: ${region.toUpperCase()} (${url})`);
+    log.info(`Fetching store for PUUID: ${tokens.puuid.substring(0, 8)} on shard: ${region.toUpperCase()} (${url})`);
 
     try {
       // Determine method based on endpoint (v3 requires POST)

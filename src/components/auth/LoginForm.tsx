@@ -60,25 +60,10 @@ export function LoginForm() {
     }
   };
 
-  const handleLaunchBrowser = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "launch_browser" }),
-      });
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-         setError(data.error || "Failed to launch browser");
-      }
-    } catch (e) {
-      setError("Failed to connect to server");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleLaunchBrowser = () => {
+    const RIOT_LOGIN_URL =
+      "https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1&scope=account%20openid";
+    window.open(RIOT_LOGIN_URL, "_blank", "noopener,noreferrer");
   };
 
   return (

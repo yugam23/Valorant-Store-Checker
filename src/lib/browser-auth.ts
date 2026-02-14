@@ -1,43 +1,33 @@
-import { chromium } from "playwright";
-import { getRiotLoginUrl } from "./riot-auth";
+import { exec } from "child_process";
+import { createLogger } from "@/lib/logger";
 
-const BROWSER_ARGS = [
-  "--disable-blink-features=AutomationControlled",
-  "--no-first-run",
-  "--disable-notifications",
-  "--disable-infobars",
-];
+const log = createLogger("BrowserAuth");
+
+const RIOT_LOGIN_URL =
+  "https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1&scope=account%20openid";
 
 export async function launchBasicBrowser(): Promise<{ success: boolean; error?: string }> {
   try {
-    const browser = await chromium.launch({
-      headless: false,
-      args: [
-        ...BROWSER_ARGS,
-        "--window-size=1280,720",
-        "--app=https://auth.riotgames.com",
-      ],
+    // Open the Riot login page in the user's default system browser.
+    // This avoids bot detection that blocks Playwright/Puppeteer.
+    const command =
+      process.platform === "win32"
+        ? `start "" "${RIOT_LOGIN_URL}"`
+        : process.platform === "darwin"
+          ? `open "${RIOT_LOGIN_URL}"`
+          : `xdg-open "${RIOT_LOGIN_URL}"`;
+
+    await new Promise<void>((resolve, reject) => {
+      exec(command, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
 
-    const context = await browser.newContext({
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-      viewport: { width: 1280, height: 720 },
-    });
-
-    const page = await context.newPage();
-    await page.goto(getRiotLoginUrl());
-
-    // Close the browser after 10 minutes
-    setTimeout(async () => {
-      try {
-        await browser.close();
-      } catch {
-        // Ignore if already closed
-      }
-    }, 600000);
-
+    log.info("Opened Riot login in default browser");
     return { success: true };
   } catch (e) {
+    log.error("Failed to open browser:", e);
     return { success: false, error: `Failed to launch browser: ${e instanceof Error ? e.message : String(e)}` };
   }
 }

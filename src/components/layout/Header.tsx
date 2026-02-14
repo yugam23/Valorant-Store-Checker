@@ -8,11 +8,14 @@ export async function Header() {
   const isLoggedIn = await hasValidSession();
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-void-deep/90 backdrop-blur-md" style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 6px), 50% 100%, 0 calc(100% - 6px))" }}>
-      {/* Red accent line at top */}
-      <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-valorant-red to-transparent" />
+    <header className="sticky top-0 z-40 w-full">
+      {/* Background layer with clip-path for angular cut */}
+      <div className="absolute inset-0 bg-void-deep/90 backdrop-blur-md" style={{ clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 6px), 50% 100%, 0 calc(100% - 6px))" }} />
 
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+      {/* Red accent line at top */}
+      <div className="relative h-[1px] w-full bg-gradient-to-r from-transparent via-valorant-red to-transparent" />
+
+      <div className="relative container mx-auto flex h-16 items-center justify-between px-4">
         <Link href="/" className="group flex items-center gap-2">
     <div className="relative h-12 w-auto">
             <Image

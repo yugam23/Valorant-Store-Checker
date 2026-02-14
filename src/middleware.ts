@@ -32,9 +32,12 @@ export function middleware(request: NextRequest) {
   const hasSession = !!sessionCookie;
 
   // If user is authenticated and tries to access login page
+  // Allow access with ?addAccount=true for multi-account flow
   if (hasSession && AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
-    const storeUrl = new URL("/store", request.url);
-    return NextResponse.redirect(storeUrl);
+    if (!request.nextUrl.searchParams.has("addAccount")) {
+      const storeUrl = new URL("/store", request.url);
+      return NextResponse.redirect(storeUrl);
+    }
   }
 
   // If user is not authenticated and tries to access protected route

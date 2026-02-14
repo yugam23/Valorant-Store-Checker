@@ -31,6 +31,8 @@ export interface SessionData {
   entitlementsToken: string;
   puuid: string;
   region: string;
+  gameName?: string;
+  tagLine?: string;
   riotCookies?: string;
   createdAt: number;
   [key: string]: string | number | undefined; // Index signature for JWT compatibility
@@ -47,6 +49,8 @@ export async function createSession(tokens: {
   entitlementsToken: string;
   puuid: string;
   region: string;
+  gameName?: string;
+  tagLine?: string;
   riotCookies?: string;
 }): Promise<void> {
   const sessionData: SessionData = {
@@ -55,6 +59,8 @@ export async function createSession(tokens: {
     entitlementsToken: tokens.entitlementsToken,
     puuid: tokens.puuid,
     region: tokens.region,
+    gameName: tokens.gameName,
+    tagLine: tokens.tagLine,
     riotCookies: tokens.riotCookies,
     createdAt: Date.now(),
   };
@@ -110,6 +116,8 @@ export async function getSession(): Promise<SessionData | null> {
       entitlementsToken: payload.entitlementsToken as string,
       puuid: payload.puuid as string,
       region: payload.region as string,
+      gameName: payload.gameName as string | undefined,
+      tagLine: payload.tagLine as string | undefined,
       riotCookies: payload.riotCookies as string | undefined,
       createdAt: payload.createdAt as number,
     };
@@ -156,6 +164,8 @@ export async function refreshSession(): Promise<boolean> {
     entitlementsToken: session.entitlementsToken,
     puuid: session.puuid,
     region: session.region,
+    gameName: session.gameName,
+    tagLine: session.tagLine,
     riotCookies: session.riotCookies,
   });
 

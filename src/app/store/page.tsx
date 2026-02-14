@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { StoreGrid } from "@/components/store/StoreGrid";
 import { WalletDisplay } from "@/components/store/WalletDisplay";
 import { NightMarket } from "@/components/store/NightMarket";
@@ -52,7 +51,6 @@ function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
 }
 
 export default function StorePage() {
-  const router = useRouter();
   const [storeData, setStoreData] = useState<StoreData | null>(null);
   const [loadingState, setLoadingState] = useState<StoreLoadingState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +62,7 @@ export default function StorePage() {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     } finally {
-      router.push("/login");
+      window.location.href = "/login";
     }
   };
 

@@ -308,7 +308,13 @@ export async function GET() {
     try {
       const storeData = await fetchAndHydrateStore(session);
       setCachedStore(session.puuid, storeData);
-      return NextResponse.json(storeData);
+      return NextResponse.json(storeData, {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0",
+        },
+      });
     } catch (fetchError) {
       // Token likely expired — try refreshing with stored Riot cookies
       log.warn("Fresh fetch failed, attempting token refresh:", fetchError);
@@ -328,7 +334,13 @@ export async function GET() {
             const storeData = await fetchAndHydrateStore(refreshResult.tokens);
             setCachedStore(refreshResult.tokens.puuid, storeData);
             log.info("Served fresh data after token refresh");
-            return NextResponse.json(storeData);
+            return NextResponse.json(storeData, {
+              headers: {
+                "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+              },
+            });
           } catch (retryError) {
             log.warn("Retry after refresh also failed:", retryError);
           }
@@ -341,7 +353,13 @@ export async function GET() {
       const cached = getCachedStore(session.puuid);
       if (cached) {
         log.info("Serving cached store data");
-        return NextResponse.json({ ...cached, fromCache: true });
+        return NextResponse.json({ ...cached, fromCache: true }, {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+          },
+        });
       }
 
       // No cache available — return the error
