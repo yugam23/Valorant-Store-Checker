@@ -126,7 +126,7 @@ const cachedShardByPuuid = new Map<string, string>();
  * Helper to fetch data with automatic shard fallback
  * If the primary shard returns 404, it tries other shards (na, eu, ap, kr)
  */
-async function fetchWithShardFallback(
+export async function fetchWithShardFallback(
   tokens: StoreTokens,
   endpointBuilder: (pdUrl: string) => string
 ): Promise<Response> {
