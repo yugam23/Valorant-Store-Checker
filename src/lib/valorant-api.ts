@@ -245,6 +245,39 @@ export async function getWeaponSkinsByUuids(
 }
 
 /**
+ * Batch fetch weapon skins by their LEVEL UUIDs
+ * The Riot entitlements API returns skin level UUIDs as ItemIDs,
+ * not the parent skin UUIDs. This function builds a reverse lookup
+ * map from level UUID → parent skin object.
+ */
+export async function getWeaponSkinsByLevelUuids(
+  levelUuids: string[]
+): Promise<Map<string, ValorantWeaponSkin>> {
+  const skins = await getWeaponSkins();
+  const result = new Map<string, ValorantWeaponSkin>();
+
+  const normalizedUuids = new Set(levelUuids.map((uuid) => uuid.toLowerCase()));
+
+  for (const skin of skins) {
+    // Check if any of this skin's level UUIDs match the requested UUIDs
+    if (skin.levels) {
+      for (const level of skin.levels) {
+        if (normalizedUuids.has(level.uuid.toLowerCase())) {
+          result.set(level.uuid.toLowerCase(), skin);
+        }
+      }
+    }
+
+    // Also check the parent skin UUID itself (some entitlements may use it)
+    if (normalizedUuids.has(skin.uuid.toLowerCase())) {
+      result.set(skin.uuid.toLowerCase(), skin);
+    }
+  }
+
+  return result;
+}
+
+/**
  * Clear all caches (useful for testing or manual refresh)
  */
 export function clearCache(): void {

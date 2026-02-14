@@ -32,8 +32,20 @@ export interface OwnedSkin {
 /**
  * Complete inventory response
  */
+/**
+ * Edition/tier category for filter UI
+ */
+export interface EditionCategory {
+  name: string;   // E.g., "Select", "Deluxe", "Premium"
+  color: string;  // Hex color for the tier pill indicator
+}
+
+/**
+ * Complete inventory response
+ */
 export interface InventoryData {
   skins: OwnedSkin[];
   totalCount: number;
-  weaponCategories: string[]; // Unique weapon types for filtering
+  weaponCategories: string[];    // Unique weapon types for filtering
+  editionCategories: EditionCategory[]; // Unique tiers for filtering
 }
