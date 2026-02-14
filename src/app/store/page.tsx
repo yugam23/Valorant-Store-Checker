@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { StoreGrid } from "@/components/store/StoreGrid";
 import { WalletDisplay } from "@/components/store/WalletDisplay";
 import { NightMarket } from "@/components/store/NightMarket";
+import { FeaturedBundle } from "@/components/store/FeaturedBundle";
 import type { StoreData } from "@/types/store";
 
 type LoadingState = "idle" | "loading" | "success" | "error";
@@ -117,20 +118,12 @@ export default function StorePage() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="font-display text-5xl md:text-6xl uppercase font-bold text-light mb-2">
-                Daily Store
+                Your Store
               </h1>
-              {loadingState === "success" && storeData?.expiresAt && (
-                <div className="flex items-center gap-3">
-                  <span className="text-zinc-500 text-xs font-display uppercase tracking-wider">
-                    Resets in
-                  </span>
-                  <CountdownTimer expiresAt={storeData.expiresAt} />
-                  {fromCache && (
-                    <span className="text-amber-500/70 text-[10px] font-display uppercase tracking-wider border border-amber-500/20 px-2 py-0.5">
-                      Cached
-                    </span>
-                  )}
-                </div>
+              {loadingState === "success" && storeData?.expiresAt && fromCache && (
+                <span className="text-amber-500/70 text-[10px] font-display uppercase tracking-wider border border-amber-500/20 px-2 py-0.5">
+                  Cached
+                </span>
               )}
             </div>
 
@@ -199,20 +192,53 @@ export default function StorePage() {
         {/* Store content */}
         {loadingState === "success" && storeData && (
           <>
+            {/* Featured Bundle */}
+            {storeData.bundle && (
+              <div
+                className="stagger-entrance mb-12"
+                style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
+              >
+                <FeaturedBundle bundle={storeData.bundle} />
+              </div>
+            )}
+
+            {/* Section separator */}
+            {storeData.bundle && (
+              <div className="h-[1px] bg-gradient-to-r from-valorant-red/50 via-white/10 to-transparent mb-8" />
+            )}
+
+            {/* Daily Store section */}
             <div
-              className="stagger-entrance"
-              style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
+              className="stagger-entrance mb-8"
+              style={{ "--stagger-delay": "200ms" } as React.CSSProperties}
             >
+              <div className="mb-6">
+                <h2 className="font-display text-3xl uppercase font-bold text-light mb-3">
+                  Daily Store
+                </h2>
+                {storeData.expiresAt && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-zinc-500 text-xs font-display uppercase tracking-wider">
+                      Resets in
+                    </span>
+                    <CountdownTimer expiresAt={storeData.expiresAt} />
+                  </div>
+                )}
+              </div>
               <StoreGrid items={storeData.items} />
             </div>
 
+            {/* Night Market */}
             {storeData.nightMarket && (
-              <div
-                className="stagger-entrance"
-                style={{ "--stagger-delay": "200ms" } as React.CSSProperties}
-              >
-                <NightMarket nightMarket={storeData.nightMarket} />
-              </div>
+              <>
+                <div className="h-[1px] bg-gradient-to-r from-valorant-red/50 via-white/10 to-transparent mb-8" />
+                <div
+                  className="stagger-entrance"
+                  style={{ "--stagger-delay": "300ms" } as React.CSSProperties}
+                >
+                  <NightMarket nightMarket={storeData.nightMarket} />
+                </div>
+              </>
             )}
           </>
         )}
