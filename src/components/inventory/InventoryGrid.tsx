@@ -2,24 +2,31 @@
 
 import { useState, useMemo } from "react";
 import { InventoryCard } from "./InventoryCard";
-import type { OwnedSkin } from "@/types/inventory";
+import type { OwnedSkin, EditionCategory } from "@/types/inventory";
 
 interface InventoryGridProps {
   skins: OwnedSkin[];
   weaponCategories: string[];
+  editionCategories: EditionCategory[];
 }
 
-export function InventoryGrid({ skins, weaponCategories }: InventoryGridProps) {
+export function InventoryGrid({ skins, weaponCategories, editionCategories }: InventoryGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string>("All");
+  const [activeWeapon, setActiveWeapon] = useState<string>("All");
+  const [activeEdition, setActiveEdition] = useState<string>("All");
 
-  // Filter skins based on search query and weapon filter
+  // Filter skins based on search query, weapon filter, and edition filter
   const filteredSkins = useMemo(() => {
     let result = skins;
 
     // Apply weapon filter
-    if (activeFilter !== "All") {
-      result = result.filter((skin) => skin.weaponName === activeFilter);
+    if (activeWeapon !== "All") {
+      result = result.filter((skin) => skin.weaponName === activeWeapon);
+    }
+
+    // Apply edition filter
+    if (activeEdition !== "All") {
+      result = result.filter((skin) => skin.tierName === activeEdition);
     }
 
     // Apply search filter
@@ -31,7 +38,15 @@ export function InventoryGrid({ skins, weaponCategories }: InventoryGridProps) {
     }
 
     return result;
-  }, [skins, activeFilter, searchQuery]);
+  }, [skins, activeWeapon, activeEdition, searchQuery]);
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setActiveWeapon("All");
+    setActiveEdition("All");
+  };
+
+  const hasActiveFilters = activeWeapon !== "All" || activeEdition !== "All" || searchQuery.trim() !== "";
 
   return (
     <div className="space-y-6">
@@ -64,37 +79,101 @@ export function InventoryGrid({ skins, weaponCategories }: InventoryGridProps) {
         </div>
 
         {/* Weapon Filter Pills */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setActiveFilter("All")}
-            className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
-              activeFilter === "All"
-                ? "bg-valorant-red text-white"
-                : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
-            }`}
-          >
-            All
-          </button>
-          {weaponCategories.map((weapon) => (
+        <div className="space-y-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Weapon</span>
+          <div className="flex flex-wrap gap-2">
             <button
-              key={weapon}
-              onClick={() => setActiveFilter(weapon)}
+              onClick={() => setActiveWeapon("All")}
               className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
-                activeFilter === weapon
+                activeWeapon === "All"
                   ? "bg-valorant-red text-white"
                   : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
               }`}
             >
-              {weapon}
+              All
             </button>
-          ))}
+            {weaponCategories.map((weapon) => (
+              <button
+                key={weapon}
+                onClick={() => setActiveWeapon(weapon)}
+                className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
+                  activeWeapon === weapon
+                    ? "bg-valorant-red text-white"
+                    : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
+                }`}
+              >
+                {weapon}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {/* Edition Filter Pills */}
+        {editionCategories.length > 0 && (
+          <div className="space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Edition</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setActiveEdition("All")}
+                className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
+                  activeEdition === "All"
+                    ? "bg-valorant-red text-white"
+                    : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
+                }`}
+              >
+                All
+              </button>
+              {editionCategories.map((edition) => (
+                <button
+                  key={edition.name}
+                  onClick={() => setActiveEdition(edition.name)}
+                  className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all flex items-center gap-2 ${
+                    activeEdition === edition.name
+                      ? "text-white"
+                      : "bg-void-deep border border-white/10 text-zinc-400 hover:text-light"
+                  }`}
+                  style={
+                    activeEdition === edition.name
+                      ? { backgroundColor: edition.color, borderColor: edition.color }
+                      : { borderColor: undefined }
+                  }
+                  onMouseEnter={(e) => {
+                    if (activeEdition !== edition.name) {
+                      e.currentTarget.style.borderColor = `${edition.color}80`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeEdition !== edition.name) {
+                      e.currentTarget.style.borderColor = "";
+                    }
+                  }}
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: edition.color }}
+                  />
+                  {edition.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Count Display */}
-        <p className="text-sm text-zinc-400">
-          Showing <span className="text-light font-semibold">{filteredSkins.length}</span> of{" "}
-          <span className="text-light font-semibold">{skins.length}</span> skins
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-zinc-400">
+            Showing <span className="text-light font-semibold">{filteredSkins.length}</span> of{" "}
+            <span className="text-light font-semibold">{skins.length}</span> skins
+          </p>
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              className="text-xs text-valorant-red hover:text-valorant-red/80 uppercase tracking-wide font-semibold transition-colors"
+            >
+              Clear All Filters
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Skins Grid */}
@@ -125,10 +204,7 @@ export function InventoryGrid({ skins, weaponCategories }: InventoryGridProps) {
             No skins match your filters.
             <br />
             <button
-              onClick={() => {
-                setSearchQuery("");
-                setActiveFilter("All");
-              }}
+              onClick={clearAllFilters}
               className="text-valorant-red hover:underline mt-2"
             >
               Clear filters

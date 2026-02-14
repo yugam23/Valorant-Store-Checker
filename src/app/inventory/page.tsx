@@ -101,6 +101,7 @@ export default function InventoryPage() {
           <InventoryGrid
             skins={inventoryData.skins}
             weaponCategories={inventoryData.weaponCategories}
+            editionCategories={inventoryData.editionCategories}
           />
         )}
       </div>
