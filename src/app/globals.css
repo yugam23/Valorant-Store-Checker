@@ -97,6 +97,30 @@ body {
   }
 }
 
+@keyframes premiumReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* ========================
    UTILITY CLASSES
    ======================== */
@@ -196,4 +220,44 @@ body {
 
 .animate-scanline {
   animation: scanline 8s linear infinite;
+}
+
+.animate-premium-reveal {
+  animation: premiumReveal 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: var(--stagger-delay, 0ms);
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.4s ease-out both;
+  animation-delay: var(--stagger-delay, 0ms);
+}
+
+/* ========================
+   REDUCED MOTION
+   ======================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger-entrance,
+  .animate-fade-slide-up,
+  .animate-premium-reveal,
+  .animate-slide-in-right {
+    animation-duration: 0.1s !important;
+    animation-delay: 0ms !important;
+  }
+
+  .animate-border-glow,
+  .animate-subtle-float,
+  .animate-scanline,
+  .glow-border {
+    animation: none !important;
+  }
+
+  .animate-shimmer {
+    animation: none !important;
+  }
+
+  .animate-pulse-glow {
+    animation: none !important;
+    opacity: 0.7;
+  }
 }
