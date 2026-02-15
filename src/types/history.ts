@@ -23,6 +23,8 @@ export interface StoreRotation {
   date: string; // YYYY-MM-DD format
   timestamp: number; // Unix timestamp in milliseconds
   puuid: string; // Player UUID
+  gameName?: string; // Riot display name (e.g. "PlayerName")
+  tagLine?: string; // Riot tag (e.g. "NA1")
   items: HistoryStoreItem[]; // The 4 daily store items
   expiresAt: number; // When this rotation expires (unix timestamp ms)
 }

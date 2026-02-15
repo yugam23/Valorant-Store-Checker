@@ -11,6 +11,7 @@ import { getStorefront, getWallet } from "@/lib/riot-store";
 import { getWeaponSkins, getContentTiers, getSkinVideo, getBundleByUuid } from "@/lib/valorant-api";
 import { getCachedStore, setCachedStore } from "@/lib/store-cache";
 import { checkWishlistInStore } from "@/lib/wishlist";
+import { getActiveAccount } from "@/lib/accounts";
 import { StoreData, StoreItem, BundleData, BundleItem, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { CURRENCY_IDS } from "@/types/riot";
 import { createLogger } from "@/lib/logger";
@@ -304,7 +305,10 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. Try fetching fresh data from Riot API
+    // 2. Look up active account for display name
+    const activeAccount = await getActiveAccount();
+
+    // 3. Try fetching fresh data from Riot API
     try {
       const storeData = await fetchAndHydrateStore(session);
       setCachedStore(session.puuid, storeData);
@@ -320,7 +324,7 @@ export async function GET() {
         .map((m) => m.skinUuid);
 
       return NextResponse.json(
-        { ...storeData, puuid: session.puuid, fromCache: false, wishlistMatches: matchedUuids },
+        { ...storeData, puuid: session.puuid, gameName: activeAccount?.gameName, tagLine: activeAccount?.tagLine, fromCache: false, wishlistMatches: matchedUuids },
         {
           headers: {
             "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -348,7 +352,7 @@ export async function GET() {
           .map((m) => m.skinUuid);
 
         return NextResponse.json(
-          { ...cached, puuid: session.puuid, fromCache: true, wishlistMatches: matchedUuids },
+          { ...cached, puuid: session.puuid, gameName: activeAccount?.gameName, tagLine: activeAccount?.tagLine, fromCache: true, wishlistMatches: matchedUuids },
           {
             headers: {
               "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",

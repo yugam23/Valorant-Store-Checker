@@ -18,7 +18,8 @@ import { StoreItem } from '@/types/store';
 export async function logStoreRotation(
   puuid: string,
   items: StoreItem[],
-  expiresAt: Date
+  expiresAt: Date,
+  account?: { gameName?: string; tagLine?: string }
 ): Promise<void> {
   // Graceful degradation when IndexedDB unavailable
   if (!db) {
@@ -53,6 +54,8 @@ export async function logStoreRotation(
     date: today,
     timestamp: Date.now(),
     puuid,
+    gameName: account?.gameName,
+    tagLine: account?.tagLine,
     items: historyItems,
     expiresAt: expiresAt.getTime(),
   };
@@ -177,6 +180,14 @@ export async function getHistoryStats(puuid: string): Promise<HistoryStats> {
     mostOfferedSkin,
     averageDailyCost,
   };
+}
+
+/**
+ * Delete a single rotation by its ID
+ */
+export async function deleteRotation(id: number): Promise<void> {
+  if (!db) return;
+  await db.storeRotations.delete(id);
 }
 
 /**
