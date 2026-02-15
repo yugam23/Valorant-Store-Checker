@@ -210,7 +210,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
   const weaponCategories = Array.from(weaponNamesSet).sort();
 
   // Build edition categories ordered by rarity hierarchy
-  const EDITION_ORDER = ["Select", "Deluxe", "Premium", "Exclusive", "Ultra"];
+  const EDITION_ORDER = ["Select Edition", "Deluxe Edition", "Premium Edition", "Exclusive Edition", "Ultra Edition"];
   const editionCategories: EditionCategory[] = EDITION_ORDER
     .filter((name) => editionMap.has(name))
     .map((name) => ({ name, color: editionMap.get(name)! }));
