@@ -17,6 +17,9 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "Valorant Store Checker",
   description: "Check your daily Valorant store offers.",
+  icons: {
+    icon: "/icons/vsc-logo.png",
+  },
 };
 
 export default function RootLayout({
