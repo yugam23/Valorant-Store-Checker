@@ -5,6 +5,7 @@ import { StoreGrid } from "@/components/store/StoreGrid";
 import { WalletDisplay } from "@/components/store/WalletDisplay";
 import { NightMarket } from "@/components/store/NightMarket";
 import { FeaturedBundle } from "@/components/store/FeaturedBundle";
+import { logStoreRotation } from "@/lib/store-history";
 import type { StoreData, StoreLoadingState } from "@/types/store";
 import type { WishlistData } from "@/types/wishlist";
 
@@ -160,6 +161,12 @@ export default function StorePage() {
         setFromCache(!!data.fromCache);
         setStoreData(data as StoreData);
         setLoadingState("success");
+
+        // Log store rotation to history (fire-and-forget, non-blocking)
+        if (data.puuid && data.items) {
+          logStoreRotation(data.puuid, data.items, new Date(data.expiresAt))
+            .catch((err) => console.debug('History logging skipped:', err));
+        }
       } catch (err) {
         console.error("Store fetch error:", err);
         setError(err instanceof Error ? err.message : "Unknown error occurred");

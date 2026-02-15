@@ -45,6 +45,7 @@ export interface StoreData {
   bundle?: BundleData; // Optional Featured Bundle data
   fromCache?: boolean; // Whether this data was served from cache (vs fresh from API)
   wishlistMatches?: string[]; // UUIDs of wishlisted skins currently in store
+  puuid?: string; // Player UUID (added for history logging)
 }
 
 /**

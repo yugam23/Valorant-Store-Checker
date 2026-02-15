@@ -320,7 +320,7 @@ export async function GET() {
         .map((m) => m.skinUuid);
 
       return NextResponse.json(
-        { ...storeData, fromCache: false, wishlistMatches: matchedUuids },
+        { ...storeData, puuid: session.puuid, fromCache: false, wishlistMatches: matchedUuids },
         {
           headers: {
             "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -348,7 +348,7 @@ export async function GET() {
           .map((m) => m.skinUuid);
 
         return NextResponse.json(
-          { ...cached, fromCache: true, wishlistMatches: matchedUuids },
+          { ...cached, puuid: session.puuid, fromCache: true, wishlistMatches: matchedUuids },
           {
             headers: {
               "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
