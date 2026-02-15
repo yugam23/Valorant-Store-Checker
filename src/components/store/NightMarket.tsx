@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { NightMarketData } from "@/types/store";
 import Image from "next/image";
+import { getEditionIconPath } from "@/lib/edition-icons";
 
 interface NightMarketProps {
   nightMarket: NightMarketData;
@@ -113,7 +114,16 @@ export function NightMarket({ nightMarket }: NightMarketProps) {
                   </h3>
 
                   {item.tierName && (
-                    <p className="text-xs text-zinc-400 font-display uppercase tracking-wider">
+                    <p className="text-xs text-zinc-400 font-display uppercase tracking-wider flex items-center gap-1.5">
+                      {getEditionIconPath(item.tierName) && (
+                        <Image
+                          src={getEditionIconPath(item.tierName)!}
+                          alt=""
+                          width={14}
+                          height={14}
+                          className="flex-shrink-0"
+                        />
+                      )}
                       {item.tierName}
                     </p>
                   )}

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import type { BundleData } from "@/types/store";
+import { getEditionIconPath } from "@/lib/edition-icons";
 
 interface FeaturedBundleProps {
   bundle: BundleData;
@@ -164,12 +165,21 @@ export function FeaturedBundle({ bundle }: FeaturedBundleProps) {
 
                             {item.tierName ? (
                               <span
-                                className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 angular-card-sm"
+                                className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 angular-card-sm flex items-center gap-1"
                                 style={{
                                   backgroundColor: `${item.tierColor}20`,
                                   color: item.tierColor,
                                 }}
                               >
+                                {getEditionIconPath(item.tierName) && (
+                                  <Image
+                                    src={getEditionIconPath(item.tierName)!}
+                                    alt=""
+                                    width={12}
+                                    height={12}
+                                    className="flex-shrink-0"
+                                  />
+                                )}
                                 {item.tierName}
                               </span>
                             ) : item.itemType && item.itemType !== "Skin" ? (

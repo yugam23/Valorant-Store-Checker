@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import type { StoreItem } from "../../types/store";
+import { getEditionIconPath } from "@/lib/edition-icons";
 
 interface StoreCardProps {
   item: StoreItem;
@@ -176,13 +177,22 @@ export function StoreCard({
 
                 {item.tierName && (
                   <span
-                    className="text-xs font-bold uppercase tracking-wider px-3 py-1 angular-card-sm"
+                    className="text-xs font-bold uppercase tracking-wider px-2 py-1 angular-card-sm flex items-center gap-1.5 whitespace-nowrap"
                     style={{
                       backgroundColor: `${item.tierColor}20`,
                       color: item.tierColor,
                     }}
                   >
-                    {item.tierName}
+                    {getEditionIconPath(item.tierName) && (
+                      <Image
+                        src={getEditionIconPath(item.tierName)!}
+                        alt=""
+                        width={14}
+                        height={14}
+                        className="flex-shrink-0"
+                      />
+                    )}
+                    {item.tierName.replace(" Edition", "")}
                   </span>
                 )}
               </div>

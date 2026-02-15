@@ -164,8 +164,10 @@ export default function StorePage() {
 
         // Log store rotation to history (fire-and-forget, non-blocking)
         if (data.puuid && data.items) {
-          logStoreRotation(data.puuid, data.items, new Date(data.expiresAt))
-            .catch((err) => console.debug('History logging skipped:', err));
+          logStoreRotation(data.puuid, data.items, new Date(data.expiresAt), {
+            gameName: data.gameName,
+            tagLine: data.tagLine,
+          }).catch((err) => console.debug('History logging skipped:', err));
         }
       } catch (err) {
         console.error("Store fetch error:", err);
