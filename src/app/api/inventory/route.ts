@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { getSessionWithRefresh } from "@/lib/session";
 import { getOwnedSkins } from "@/lib/riot-inventory";
+import { getCachedInventory } from "@/lib/inventory-cache";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Inventory API");
@@ -27,15 +28,34 @@ export async function GET() {
     try {
       const inventoryData = await getOwnedSkins(session);
 
-      return NextResponse.json(inventoryData, {
-        headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
-        },
-      });
+      return NextResponse.json(
+        { ...inventoryData, fromCache: false },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+          },
+        }
+      );
     } catch (fetchError) {
-      log.error("Failed to fetch inventory:", fetchError);
+      log.warn("Inventory fetch failed:", fetchError);
+
+      // Fall back to cache
+      const cached = getCachedInventory(session.puuid);
+      if (cached) {
+        log.info("Serving cached inventory data");
+        return NextResponse.json(
+          { ...cached, fromCache: true },
+          {
+            headers: {
+              "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+              "Pragma": "no-cache",
+              "Expires": "0",
+            },
+          }
+        );
+      }
 
       return NextResponse.json(
         {

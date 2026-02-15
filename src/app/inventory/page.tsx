@@ -10,10 +10,12 @@ export default function InventoryPage() {
   const [state, setState] = useState<LoadingState>("idle");
   const [inventoryData, setInventoryData] = useState<InventoryData | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [fromCache, setFromCache] = useState(false);
 
   const fetchInventory = async () => {
     setState("loading");
     setErrorMessage("");
+    setFromCache(false);
 
     try {
       const response = await fetch("/api/inventory");
@@ -23,8 +25,9 @@ export default function InventoryPage() {
         throw new Error(errorData.error || "Failed to fetch inventory");
       }
 
-      const data: InventoryData = await response.json();
+      const data = await response.json();
       setInventoryData(data);
+      setFromCache(!!data.fromCache);
       setState("success");
     } catch (error) {
       console.error("Failed to fetch inventory:", error);
@@ -41,19 +44,31 @@ export default function InventoryPage() {
     <div className="min-h-screen bg-void p-6 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Page Header */}
-        <div className="space-y-2">
-          <h1 className="font-display text-4xl md:text-5xl uppercase font-bold text-light tracking-wide">
-            My Collection
-          </h1>
-          {inventoryData && (
-            <div className="flex items-center gap-3">
-              <div className="px-4 py-2 bg-valorant-red/20 border border-valorant-red angular-card-sm">
-                <span className="text-valorant-red font-bold text-lg">
-                  {inventoryData.totalCount} Skins
-                </span>
-              </div>
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div className="space-y-2">
+              <h1 className="font-display text-4xl md:text-5xl uppercase font-bold text-light tracking-wide">
+                My Collection
+              </h1>
+              {state === "success" && fromCache && (
+                <div className="inline-block">
+                  <span className="text-amber-500/70 text-[10px] font-display uppercase tracking-wider border border-amber-500/20 px-2 py-0.5">
+                    Cached
+                  </span>
+                </div>
+              )}
             </div>
-          )}
+            
+            {inventoryData && (
+              <div className="flex items-center gap-3">
+                <div className="px-4 py-2 bg-valorant-red/20 border border-valorant-red angular-card-sm">
+                  <span className="text-valorant-red font-bold text-lg">
+                    {inventoryData.totalCount} Skins
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Loading State */}

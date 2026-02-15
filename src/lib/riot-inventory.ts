@@ -230,6 +230,10 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
 
   // Cache the result
   inventoryCache.set(tokens.puuid, { data: inventoryData, fetchedAt: now });
+  
+  // Persist to central cache for API fallback
+  const { setCachedInventory } = await import("./inventory-cache");
+  setCachedInventory(tokens.puuid, inventoryData);
 
   log.info(`Successfully hydrated ${ownedSkins.length} skins across ${weaponCategories.length} weapon types`);
 
