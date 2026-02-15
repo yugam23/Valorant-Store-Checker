@@ -66,7 +66,7 @@ export function HistoryStats({ stats }: HistoryStatsProps) {
         </div>
         <div className="flex items-center gap-1 font-display text-2xl text-light">
           <Image
-            src="/icons/VP.webp"
+            src="/icons/Valorant_Points.webp"
             alt="VP"
             width={20}
             height={20}

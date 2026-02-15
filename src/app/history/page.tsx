@@ -4,9 +4,10 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { HistoryCard } from "@/components/history/HistoryCard";
 import { HistoryStats } from "@/components/history/HistoryStats";
+import { deleteRotation } from "@/lib/store-history";
 import type { StoreRotation, HistoryStats as HistoryStatsType } from "@/types/history";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 export default function HistoryPage() {
   // Reactively query store rotations from IndexedDB
@@ -85,6 +86,10 @@ export default function HistoryPage() {
       averageDailyCost,
     };
   }, [rotations]);
+
+  const handleDelete = useCallback(async (id: number) => {
+    await deleteRotation(id);
+  }, []);
 
   // Handle db unavailable (private browsing mode)
   if (db === null) {
@@ -178,6 +183,7 @@ export default function HistoryPage() {
               key={rotation.id || rotation.date}
               rotation={rotation}
               staggerIndex={index}
+              onDelete={handleDelete}
             />
           ))}
         </div>
