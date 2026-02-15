@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Image from "next/image";
 import { InventoryCard } from "./InventoryCard";
 import type { OwnedSkin, EditionCategory } from "@/types/inventory";
+import { getEditionIconPath } from "@/lib/edition-icons";
 
 interface InventoryGridProps {
   skins: OwnedSkin[];
@@ -166,10 +168,20 @@ export function InventoryGrid({ skins, weaponCategories, editionCategories }: In
                       }
                     }}
                   >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: edition.color }}
-                    />
+                    {getEditionIconPath(edition.name) ? (
+                      <Image
+                        src={getEditionIconPath(edition.name)!}
+                        alt=""
+                        width={16}
+                        height={16}
+                        className="flex-shrink-0"
+                      />
+                    ) : (
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: edition.color }}
+                      />
+                    )}
                     {edition.name}
                   </button>
                 );

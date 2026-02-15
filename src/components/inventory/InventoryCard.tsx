@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import type { OwnedSkin } from "@/types/inventory";
+import { getEditionIconPath } from "@/lib/edition-icons";
 
 interface InventoryCardProps {
   skin: OwnedSkin;
@@ -108,12 +109,21 @@ export function InventoryCard({ skin }: InventoryCardProps) {
 
                 {skin.tierName && (
                   <span
-                    className="text-xs font-bold uppercase tracking-wider px-2 py-1 angular-card-sm"
+                    className="text-xs font-bold uppercase tracking-wider px-2 py-1 angular-card-sm flex items-center gap-1.5"
                     style={{
                       backgroundColor: `${skin.tierColor}20`,
                       color: skin.tierColor,
                     }}
                   >
+                    {getEditionIconPath(skin.tierName) && (
+                      <Image
+                        src={getEditionIconPath(skin.tierName)!}
+                        alt=""
+                        width={14}
+                        height={14}
+                        className="flex-shrink-0"
+                      />
+                    )}
                     {skin.tierName}
                   </span>
                 )}
