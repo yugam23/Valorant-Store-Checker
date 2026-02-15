@@ -21,7 +21,7 @@ const log = createLogger("accounts");
 const ACCOUNTS_COOKIE_NAME = "valorant_accounts";
 const SESSION_COOKIE_NAME = "valorant_session";
 const ACCOUNTS_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
+const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
 const MAX_ACCOUNTS = 5;
 
 const getSecretKey = (): Uint8Array => {

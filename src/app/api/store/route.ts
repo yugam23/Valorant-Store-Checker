@@ -6,11 +6,10 @@
  */
 
 import { NextResponse } from "next/server";
-import { getSession, createSession } from "@/lib/session";
+import { getSessionWithRefresh } from "@/lib/session";
 import { getStorefront, getWallet } from "@/lib/riot-store";
 import { getWeaponSkins, getContentTiers, getSkinVideo, getBundleByUuid } from "@/lib/valorant-api";
 import { getCachedStore, setCachedStore } from "@/lib/store-cache";
-import { refreshTokensWithCookies } from "@/lib/riot-auth";
 import { checkWishlistInStore } from "@/lib/wishlist";
 import { StoreData, StoreItem, BundleData, BundleItem, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { CURRENCY_IDS } from "@/types/riot";
@@ -299,8 +298,8 @@ async function fetchAndHydrateStore(tokens: {
 
 export async function GET() {
   try {
-    // 1. Verify Session
-    const session = await getSession();
+    // 1. Get session with automatic token refresh
+    const session = await getSessionWithRefresh();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -331,52 +330,7 @@ export async function GET() {
         }
       );
     } catch (fetchError) {
-      // Token likely expired — try refreshing with stored Riot cookies
-      log.warn("Fresh fetch failed, attempting token refresh:", fetchError);
-
-      if (session.riotCookies) {
-        const refreshResult = await refreshTokensWithCookies(session.riotCookies);
-
-        if (refreshResult.success) {
-          // Update session with fresh tokens
-          await createSession({
-            ...refreshResult.tokens,
-            riotCookies: refreshResult.riotCookies,
-          });
-
-          // Retry the store fetch with fresh tokens
-          try {
-            const storeData = await fetchAndHydrateStore(refreshResult.tokens);
-            setCachedStore(refreshResult.tokens.puuid, storeData);
-            log.info("Served fresh data after token refresh");
-
-            // Check wishlist matches
-            const storeItemUuids = storeData.items.map((item) => item.uuid);
-            const wishlistMatches = await checkWishlistInStore(
-              refreshResult.tokens.puuid,
-              storeItemUuids
-            );
-            const matchedUuids = wishlistMatches
-              .filter((m) => m.isInStore)
-              .map((m) => m.skinUuid);
-
-            return NextResponse.json(
-              { ...storeData, fromCache: false, wishlistMatches: matchedUuids },
-              {
-                headers: {
-                  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-                  "Pragma": "no-cache",
-                  "Expires": "0",
-                },
-              }
-            );
-          } catch (retryError) {
-            log.warn("Retry after refresh also failed:", retryError);
-          }
-        } else {
-          log.warn("Token refresh failed:", refreshResult.error);
-        }
-      }
+      log.warn("Store fetch failed:", fetchError);
 
       // Fall back to cache
       const cached = getCachedStore(session.puuid);

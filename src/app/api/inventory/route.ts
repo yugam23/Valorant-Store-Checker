@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSessionWithRefresh } from "@/lib/session";
 import { getOwnedSkins } from "@/lib/riot-inventory";
 import { createLogger } from "@/lib/logger";
 
@@ -14,8 +14,8 @@ const log = createLogger("Inventory API");
 
 export async function GET() {
   try {
-    // 1. Verify Session
-    const session = await getSession();
+    // 1. Get session with automatic token refresh
+    const session = await getSessionWithRefresh();
     if (!session) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },

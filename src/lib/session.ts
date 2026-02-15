@@ -12,6 +12,7 @@
  */
 
 import { SignJWT, jwtVerify } from "jose";
+import { refreshTokensWithCookies } from "./riot-auth";
 import { cookies } from "next/headers";
 import { env } from "./env";
 import { createLogger } from "./logger";
@@ -19,7 +20,8 @@ import { createLogger } from "./logger";
 const log = createLogger("session");
 
 const SESSION_COOKIE_NAME = "valorant_session";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
+const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
+const TOKEN_EXPIRY_THRESHOLD = 55 * 60 * 1000; // 55 minutes in ms (Riot tokens expire in ~1 hour)
 
 const getSecretKey = (): Uint8Array => {
   return new TextEncoder().encode(env.SESSION_SECRET);
@@ -170,4 +172,69 @@ export async function refreshSession(): Promise<boolean> {
   });
 
   return true;
+}
+
+/**
+ * Gets session with automatic token refresh.
+ * If the Riot access token is likely expired (~1 hour), attempts to
+ * refresh it using stored SSID cookies before returning the session.
+ *
+ * @returns Fresh session data, or null if no valid session / refresh failed
+ */
+export async function getSessionWithRefresh(): Promise<SessionData | null> {
+  const session = await getSession();
+
+  if (!session) {
+    return null;
+  }
+
+  // Check if access token is likely expired (Riot tokens last ~1 hour)
+  const tokenAge = Date.now() - (session.createdAt || 0);
+  const isTokenExpired = tokenAge > TOKEN_EXPIRY_THRESHOLD;
+
+  if (!isTokenExpired) {
+    return session;
+  }
+
+  log.info(
+    "Access token likely expired (age: %dmin), attempting SSID refresh",
+    Math.round(tokenAge / 60000),
+  );
+
+  // No stored cookies means we can't refresh — return stale session
+  // (caller should handle API errors if the token is truly dead)
+  if (!session.riotCookies) {
+    log.warn("No stored Riot cookies for token refresh");
+    return session;
+  }
+
+  try {
+    const refreshResult = await refreshTokensWithCookies(session.riotCookies);
+
+    if (!refreshResult.success) {
+      log.warn("Token refresh failed: %s", refreshResult.error);
+      return session; // Return stale session; caller handles API errors
+    }
+
+    // Update the session with fresh tokens
+    const freshSession: SessionData = {
+      accessToken: refreshResult.tokens.accessToken,
+      idToken: refreshResult.tokens.idToken,
+      entitlementsToken: refreshResult.tokens.entitlementsToken,
+      puuid: refreshResult.tokens.puuid,
+      region: refreshResult.tokens.region,
+      gameName: refreshResult.tokens.gameName,
+      tagLine: refreshResult.tokens.tagLine,
+      riotCookies: refreshResult.riotCookies,
+      createdAt: Date.now(),
+    };
+
+    await createSession(freshSession);
+    log.info("Session refreshed successfully");
+
+    return freshSession;
+  } catch (error) {
+    log.error("Token refresh error:", error);
+    return session; // Return stale session as fallback
+  }
 }
