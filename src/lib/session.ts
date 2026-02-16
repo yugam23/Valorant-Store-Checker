@@ -22,6 +22,7 @@ const log = createLogger("session");
 const SESSION_COOKIE_NAME = "valorant_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
 const TOKEN_EXPIRY_THRESHOLD = 55 * 60 * 1000; // 55 minutes in ms (Riot tokens expire in ~1 hour)
+const TOKEN_HARD_EXPIRY = 65 * 60 * 1000; // 65 minutes in ms — token is definitely dead past this point
 
 const getSecretKey = (): Uint8Array => {
   return new TextEncoder().encode(env.SESSION_SECRET);
@@ -55,6 +56,16 @@ export async function createSession(tokens: {
   tagLine?: string;
   riotCookies?: string;
 }): Promise<void> {
+  // Only keep essential Riot cookies (ssid, clid, csid, tdid) to prevent
+  // the session JWT from exceeding the browser's ~4 KB cookie limit.
+  const ESSENTIAL_COOKIE_NAMES = new Set(["ssid", "clid", "csid", "tdid"]);
+  const filteredCookies = tokens.riotCookies
+    ? tokens.riotCookies
+        .split("; ")
+        .filter((pair) => ESSENTIAL_COOKIE_NAMES.has(pair.split("=")[0].trim()))
+        .join("; ")
+    : undefined;
+
   const sessionData: SessionData = {
     accessToken: tokens.accessToken,
     // idToken: tokens.idToken, // Removed to save space
@@ -63,7 +74,7 @@ export async function createSession(tokens: {
     region: tokens.region,
     gameName: tokens.gameName,
     tagLine: tokens.tagLine,
-    riotCookies: tokens.riotCookies,
+    riotCookies: filteredCookies || undefined,
     createdAt: Date.now(),
   };
 
@@ -73,6 +84,11 @@ export async function createSession(tokens: {
     .setIssuedAt()
     .setExpirationTime(`${SESSION_MAX_AGE}s`)
     .sign(getSecretKey());
+
+  // Guard against browser's ~4 KB cookie limit
+  if (token.length > 3800) {
+    log.warn("Session JWT is %d bytes — approaching 4 KB cookie limit!", token.length);
+  }
 
   // Set HTTP-only cookie
   const cookieStore = await cookies();
@@ -201,10 +217,16 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
     Math.round(tokenAge / 60000),
   );
 
-  // No stored cookies means we can't refresh — return stale session
-  // (caller should handle API errors if the token is truly dead)
+  const isTokenDefinitelyDead = tokenAge > TOKEN_HARD_EXPIRY;
+
+  // No stored cookies means we can't refresh
   if (!session.riotCookies) {
     log.warn("No stored Riot cookies for token refresh");
+    if (isTokenDefinitelyDead) {
+      log.warn("Token is definitely expired and no cookies to refresh — clearing dead session");
+      await deleteSession();
+      return null;
+    }
     return session;
   }
 
@@ -213,7 +235,12 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
 
     if (!refreshResult.success) {
       log.warn("Token refresh failed: %s", refreshResult.error);
-      return session; // Return stale session; caller handles API errors
+      if (isTokenDefinitelyDead) {
+        log.warn("Token is definitely expired and refresh failed — clearing dead session");
+        await deleteSession();
+        return null;
+      }
+      return session; // Within grace period, maybe still works
     }
 
     // Update the session with fresh tokens
@@ -235,6 +262,11 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
     return freshSession;
   } catch (error) {
     log.error("Token refresh error:", error);
-    return session; // Return stale session as fallback
+    if (isTokenDefinitelyDead) {
+      log.warn("Token is definitely expired and refresh threw — clearing dead session");
+      await deleteSession();
+      return null;
+    }
+    return session; // Within grace period, maybe still works
   }
 }

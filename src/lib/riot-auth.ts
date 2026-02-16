@@ -599,9 +599,19 @@ function extractNamedCookies(cookieString: string): RiotSessionCookies {
   return result;
 }
 
-// NOTE: buildCookieString was removed — dead code.
-// Line 630 (now below) uses the raw cookie string directly to avoid
-// filtering out potentially necessary cookies like 'asid' or 'did'.
+/**
+ * Builds a minimal cookie string from only the essential Riot cookies.
+ * Keeping only ssid/clid/csid/tdid prevents the session JWT from growing
+ * past the browser's 4 KB cookie limit after repeated refreshes.
+ */
+function buildEssentialCookieString(named: RiotSessionCookies): string {
+  const parts: string[] = [];
+  if (named.ssid) parts.push(`ssid=${named.ssid}`);
+  if (named.clid) parts.push(`clid=${named.clid}`);
+  if (named.csid) parts.push(`csid=${named.csid}`);
+  if (named.tdid) parts.push(`tdid=${named.tdid}`);
+  return parts.join("; ");
+}
 
 /**
  * Refreshes Riot tokens using stored session cookies (SSID re-auth).
@@ -655,10 +665,26 @@ export async function refreshTokensWithCookies(
       return { success: false, error: `SSID re-auth failed: ${response.status}` };
     }
 
-    // Merge any updated cookies from the response
-    const newSetCookies = response.headers.getSetCookie();
-    const updatedCookies = mergeCookies(cookieStr, newSetCookies);
-    const updatedNamed = extractNamedCookies(updatedCookies);
+    // Capture updated cookies from response (Riot rotates SSID on each use)
+    let newSetCookies: string[] = [];
+    try {
+      newSetCookies = response.headers.getSetCookie();
+    } catch {
+      // Fallback: getSetCookie() may not exist in all runtimes
+      const raw = response.headers.get("set-cookie");
+      if (raw) {
+        // Split carefully — cookie values can contain commas in dates,
+        // but Set-Cookie headers are separated by actual commas between cookies
+        newSetCookies = raw.split(/,(?=\s*\w+=)/);
+      }
+    }
+
+    log.debug("SSID re-auth response Set-Cookie count: %d", newSetCookies.length);
+
+    const mergedCookies = mergeCookies(cookieStr, newSetCookies);
+    const updatedNamed = extractNamedCookies(mergedCookies);
+    // Only keep essential cookies to prevent JWT size overflow (4 KB limit)
+    const updatedCookies = buildEssentialCookieString(updatedNamed);
 
     const data: AuthResponse = await response.json();
 
