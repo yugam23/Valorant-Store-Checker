@@ -613,13 +613,92 @@ function buildEssentialCookieString(named: RiotSessionCookies): string {
   return parts.join("; ");
 }
 
+/** Helper: safely capture Set-Cookie headers from a fetch response. */
+function captureSetCookies(response: Response): string[] {
+  try {
+    return response.headers.getSetCookie();
+  } catch {
+    // Fallback: getSetCookie() may not exist in all runtimes
+    const raw = response.headers.get("set-cookie");
+    if (raw) {
+      return raw.split(/,(?=\s*\w+=)/);
+    }
+    return [];
+  }
+}
+
+/**
+ * Completes SSID re-auth by extracting tokens + entitlements + user info
+ * from a successful auth response URI.
+ *
+ * Preserves the ORIGINAL ssid cookie: Riot's auth response returns a
+ * short-lived session ssid, but the user's original "remember-me" ssid
+ * stays valid for ~30 days and must be kept for future refreshes.
+ */
+async function completeRefresh(
+  uri: string,
+  originalNamed: RiotSessionCookies,
+  responseCookies: string,
+): Promise<
+  | { success: true; tokens: AuthTokens; riotCookies: string; namedCookies: RiotSessionCookies }
+  | { success: false; error: string }
+> {
+  const tokens = extractTokensFromUri(uri);
+  if (!tokens) {
+    return { success: false, error: "Failed to extract tokens from re-auth URI" };
+  }
+
+  const entitlementsToken = await getEntitlementsToken(tokens.accessToken);
+  if (!entitlementsToken) {
+    return { success: false, error: "Failed to get entitlements after re-auth" };
+  }
+
+  const userInfo = await getUserInfo(tokens.accessToken);
+  if (!userInfo) {
+    return { success: false, error: "Failed to get user info after re-auth" };
+  }
+
+  const region = determineRegion(userInfo);
+
+  // Merge response cookies but KEEP the original ssid —
+  // Riot's POST/GET response sets a short-lived session ssid that expires
+  // quickly, while the original "remember-me" ssid is valid for ~30 days.
+  const responseNamed = extractNamedCookies(responseCookies);
+  const preservedNamed: RiotSessionCookies = {
+    ...responseNamed,
+    ssid: originalNamed.ssid, // Keep original long-lived ssid
+    raw: responseCookies,
+  };
+  const preservedCookies = buildEssentialCookieString(preservedNamed);
+
+  log.info("SSID re-auth successful (preserved original ssid)");
+
+  return {
+    success: true,
+    tokens: {
+      accessToken: tokens.accessToken,
+      idToken: tokens.idToken,
+      entitlementsToken,
+      puuid: userInfo.sub,
+      region,
+      gameName: userInfo.acct?.game_name,
+      tagLine: userInfo.acct?.tag_line,
+    },
+    riotCookies: preservedCookies,
+    namedCookies: preservedNamed,
+  };
+}
+
 /**
  * Refreshes Riot tokens using stored session cookies (SSID re-auth).
  *
- * Follows RadiantConnect's SSIDAuthManager approach:
- * 1. Build a cookie string from individual named cookies (ssid is critical)
- * 2. POST to authorization endpoint with cookies to get fresh tokens
- * 3. Extract tokens from the response redirect URI
+ * Two-method approach:
+ * 1. POST to /api/v1/authorization with SSID cookie — standard API re-auth
+ * 2. If POST returns type != "response", fall back to GET /authorize
+ *    (browser-style OAuth redirect) which Riot handles differently
+ *
+ * After success, the ORIGINAL ssid is preserved (not replaced by the
+ * response's short-lived session ssid) so future refreshes keep working.
  *
  * @param riotCookies Stored Riot session cookies from a previous login
  * @returns Fresh tokens + updated cookies, or error
@@ -644,10 +723,10 @@ export async function refreshTokensWithCookies(
       named.tdid ? "present" : "missing",
     );
 
-    // Use the full provided cookie string (see NOTE above for why)
     const cookieStr = riotCookies;
 
-    const response = await fetch(RIOT_AUTH_URL, {
+    // ── Attempt 1: POST to /api/v1/authorization ──
+    const postResponse = await fetch(RIOT_AUTH_URL, {
       method: "POST",
       headers: riotHeaders({ Cookie: cookieStr }),
       body: JSON.stringify({
@@ -656,79 +735,70 @@ export async function refreshTokensWithCookies(
         nonce: randomHex(16),
         redirect_uri: REDIRECT_URI,
         response_type: "token id_token",
-        scope: AUTH_SCOPE,
+        scope: "account openid",
       }),
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      return { success: false, error: `SSID re-auth failed: ${response.status}` };
+    if (!postResponse.ok) {
+      return { success: false, error: `SSID re-auth POST failed: ${postResponse.status}` };
     }
 
-    // Capture updated cookies from response (Riot rotates SSID on each use)
-    let newSetCookies: string[] = [];
-    try {
-      newSetCookies = response.headers.getSetCookie();
-    } catch {
-      // Fallback: getSetCookie() may not exist in all runtimes
-      const raw = response.headers.get("set-cookie");
-      if (raw) {
-        // Split carefully — cookie values can contain commas in dates,
-        // but Set-Cookie headers are separated by actual commas between cookies
-        newSetCookies = raw.split(/,(?=\s*\w+=)/);
+    const postSetCookies = captureSetCookies(postResponse);
+    const postMerged = mergeCookies(cookieStr, postSetCookies);
+
+    const postData: AuthResponse = await postResponse.json();
+
+    if (postData.type === "response") {
+      const uri = postData.response?.parameters?.uri;
+      if (uri) {
+        return await completeRefresh(uri, named, postMerged);
       }
+      return { success: false, error: "POST returned 'response' but no redirect URI" };
     }
 
-    log.debug("SSID re-auth response Set-Cookie count: %d", newSetCookies.length);
+    log.warn("SSID re-auth POST returned type '%s' instead of 'response', trying GET /authorize", postData.type);
 
-    const mergedCookies = mergeCookies(cookieStr, newSetCookies);
-    const updatedNamed = extractNamedCookies(mergedCookies);
-    // Only keep essential cookies to prevent JWT size overflow (4 KB limit)
-    const updatedCookies = buildEssentialCookieString(updatedNamed);
+    // ── Attempt 2: GET /authorize (browser-style OAuth redirect) ──
+    // Riot may honour the SSID cookie on the browser endpoint even when
+    // the JSON API endpoint doesn't. Use redirect: "manual" so we can
+    // read the Location header containing the token fragment.
+    const authorizeParams = new URLSearchParams({
+      client_id: CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      response_type: "token id_token",
+      nonce: randomHex(16),
+      scope: "account openid",
+    });
 
-    const data: AuthResponse = await response.json();
+    const getResponse = await fetch(
+      `https://auth.riotgames.com/authorize?${authorizeParams}`,
+      {
+        method: "GET",
+        headers: {
+          Cookie: postMerged, // Include session cookies from POST step
+          "User-Agent": RIOT_CLIENT_UA,
+        },
+        redirect: "manual",
+      },
+    );
 
-    if (data.type !== "response") {
-      return { success: false, error: "SSID re-auth did not return tokens (session expired — full login required)" };
+    const getSetCookies = captureSetCookies(getResponse);
+    const getMerged = mergeCookies(postMerged, getSetCookies);
+
+    if (getResponse.status === 303 || getResponse.status === 302) {
+      const location = getResponse.headers.get("location");
+      if (location?.includes("access_token")) {
+        return await completeRefresh(location, named, getMerged);
+      }
+      log.warn("GET /authorize redirected to: %s", location?.split("#")[0] || "(no location)");
+    } else {
+      log.warn("GET /authorize returned status %d (expected 302/303)", getResponse.status);
     }
-
-    const uri = data.response?.parameters?.uri;
-    if (!uri) {
-      return { success: false, error: "No redirect URI in SSID re-auth response" };
-    }
-
-    const tokens = extractTokensFromUri(uri);
-    if (!tokens) {
-      return { success: false, error: "Failed to extract tokens from re-auth URI" };
-    }
-
-    const entitlementsToken = await getEntitlementsToken(tokens.accessToken);
-    if (!entitlementsToken) {
-      return { success: false, error: "Failed to get entitlements after re-auth" };
-    }
-
-    const userInfo = await getUserInfo(tokens.accessToken);
-    if (!userInfo) {
-      return { success: false, error: "Failed to get user info after re-auth" };
-    }
-
-    const region = determineRegion(userInfo);
-
-    log.info("SSID re-auth successful");
 
     return {
-      success: true,
-      tokens: {
-        accessToken: tokens.accessToken,
-        idToken: tokens.idToken,
-        entitlementsToken,
-        puuid: userInfo.sub,
-        region,
-        gameName: userInfo.acct?.game_name,
-        tagLine: userInfo.acct?.tag_line,
-      },
-      riotCookies: updatedCookies,
-      namedCookies: updatedNamed,
+      success: false,
+      error: `SSID re-auth failed — POST type: ${postData.type}, GET status: ${getResponse.status}`,
     };
   } catch (error) {
     return {
