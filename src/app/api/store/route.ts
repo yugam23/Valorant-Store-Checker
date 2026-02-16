@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getSessionWithRefresh } from "@/lib/session";
+import { getSessionWithRefresh, deleteSession } from "@/lib/session";
 import { getStorefront, getWallet } from "@/lib/riot-store";
 import { getWeaponSkins, getContentTiers, getSkinVideo, getBundleByUuid } from "@/lib/valorant-api";
 import { getCachedStore, setCachedStore } from "@/lib/store-cache";
@@ -363,7 +363,8 @@ export async function GET() {
         );
       }
 
-      // No cache available — return the error
+      // No cache available — clear the dead session so middleware redirects to login
+      await deleteSession();
       return NextResponse.json(
         { error: "Session expired. Please log in again to refresh your store." },
         { status: 401 }
