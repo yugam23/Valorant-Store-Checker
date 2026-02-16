@@ -14,23 +14,26 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { env } from "./env";
 import { createLogger } from "./logger";
-import type { SessionData } from "./session";
+import { randomUUID } from "crypto";
+import { createSession, getSession, SessionData } from "./session";
+import { 
+  saveSessionToStore, 
+  getSessionFromStore, 
+  deleteSessionFromStore 
+} from "./session-store";
 
 const log = createLogger("accounts");
 
 const ACCOUNTS_COOKIE_NAME = "valorant_accounts";
 const SESSION_COOKIE_NAME = "valorant_session";
-const ACCOUNTS_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
-const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
+const ACCOUNTS_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 const MAX_ACCOUNTS = 5;
 
 const getSecretKey = (): Uint8Array => {
   return new TextEncoder().encode(env.SESSION_SECRET);
 };
 
-/**
- * Metadata for a stored account
- */
 export interface AccountEntry {
   puuid: string;
   region: string;
@@ -39,17 +42,11 @@ export interface AccountEntry {
   addedAt: number;
 }
 
-/**
- * Multi-account registry structure
- */
 export interface AccountsData {
   accounts: AccountEntry[];
   activePuuid: string;
 }
 
-/**
- * Session tokens stored per account
- */
 export interface SessionTokens {
   accessToken: string;
   entitlementsToken: string;
@@ -58,30 +55,19 @@ export interface SessionTokens {
   riotCookies?: string;
 }
 
-/**
- * Get short PUUID for cookie naming (first 8 characters)
- */
 function getShortPuuid(puuid: string): string {
   return puuid.substring(0, 8);
 }
 
-/**
- * Get the account registry (list of all stored accounts)
- * @returns AccountsData if registry exists, null otherwise
- */
 export async function getAccounts(): Promise<AccountsData | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(ACCOUNTS_COOKIE_NAME)?.value;
 
-    if (!token) {
-      return null;
-    }
+    if (!token) return null;
 
-    // Verify and decrypt JWT
     const { payload } = await jwtVerify(token, getSecretKey());
 
-    // Validate payload structure
     if (!payload.accounts || !Array.isArray(payload.accounts)) {
       return null;
     }
@@ -96,9 +82,6 @@ export async function getAccounts(): Promise<AccountsData | null> {
   }
 }
 
-/**
- * Save the account registry to cookie
- */
 async function saveAccounts(data: AccountsData): Promise<void> {
   const token = await new SignJWT(data as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: "HS256" })
@@ -118,13 +101,20 @@ async function saveAccounts(data: AccountsData): Promise<void> {
 }
 
 /**
- * Save session tokens to a per-account cookie
+ * Save session tokens to a per-account cookie (SERVER-SIDE STORE VERSION)
  */
 async function saveAccountSession(
   puuid: string,
   sessionData: SessionData
 ): Promise<void> {
-  const token = await new SignJWT(sessionData)
+  // 1. Generate Session ID
+  const sessionId = randomUUID();
+
+  // 2. Store Session Data Server-Side
+  await saveSessionToStore(sessionId, sessionData, SESSION_MAX_AGE);
+
+  // 3. Create Lightweight JWT Payload
+  const token = await new SignJWT({ sessionId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_MAX_AGE}s`)
@@ -152,27 +142,18 @@ async function loadAccountSession(puuid: string): Promise<SessionData | null> {
     const cookieName = `${SESSION_COOKIE_NAME}_${getShortPuuid(puuid)}`;
     const token = cookieStore.get(cookieName)?.value;
 
-    if (!token) {
-      return null;
-    }
+    if (!token) return null;
 
-    // Verify and decrypt JWT
+    // Verify JWT and extract sessionId
     const { payload } = await jwtVerify(token, getSecretKey());
+    const sessionId = (payload as any).sessionId;
 
-    // Validate payload structure
-    if (!payload.accessToken || !payload.entitlementsToken || !payload.puuid) {
-      return null;
-    }
+    if (!sessionId) return null;
 
-    return {
-      accessToken: payload.accessToken as string,
-      idToken: payload.idToken as string | undefined,
-      entitlementsToken: payload.entitlementsToken as string,
-      puuid: payload.puuid as string,
-      region: payload.region as string,
-      riotCookies: payload.riotCookies as string | undefined,
-      createdAt: payload.createdAt as number,
-    };
+    // Retrieve from store
+    const sessionData = await getSessionFromStore(sessionId);
+    return sessionData;
+    
   } catch (error) {
     log.error(`Failed to load session for account ${getShortPuuid(puuid)}:`, error);
     return null;
@@ -180,68 +161,27 @@ async function loadAccountSession(puuid: string): Promise<SessionData | null> {
 }
 
 /**
- * Delete a per-account session cookie
+ * Delete a per-account session cookie and store entry
  */
 async function deleteAccountSession(puuid: string): Promise<void> {
   const cookieStore = await cookies();
   const cookieName = `${SESSION_COOKIE_NAME}_${getShortPuuid(puuid)}`;
-  cookieStore.delete(cookieName);
-}
+  const token = cookieStore.get(cookieName)?.value;
 
-/**
- * Get the current active session from the main session cookie
- */
-async function getActiveSession(): Promise<SessionData | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-
-    if (!token) {
-      return null;
+  if (token) {
+    try {
+      const { payload } = await jwtVerify(token, getSecretKey());
+      const sessionId = (payload as any).sessionId;
+      if (sessionId) {
+        log.debug(`Deleting per-account session ${sessionId} for ${getShortPuuid(puuid)}`);
+        await deleteSessionFromStore(sessionId);
+      }
+    } catch (e) {
+      log.warn(`Failed to delete account session for ${getShortPuuid(puuid)}: invalid token`);
     }
-
-    // Verify and decrypt JWT
-    const { payload } = await jwtVerify(token, getSecretKey());
-
-    // Validate payload structure
-    if (!payload.accessToken || !payload.entitlementsToken || !payload.puuid) {
-      return null;
-    }
-
-    return {
-      accessToken: payload.accessToken as string,
-      idToken: payload.idToken as string | undefined,
-      entitlementsToken: payload.entitlementsToken as string,
-      puuid: payload.puuid as string,
-      region: payload.region as string,
-      riotCookies: payload.riotCookies as string | undefined,
-      createdAt: payload.createdAt as number,
-    };
-  } catch (error) {
-    log.error("Failed to get active session:", error);
-    return null;
   }
-}
 
-/**
- * Set the active session in the main session cookie
- */
-async function setActiveSession(sessionData: SessionData): Promise<void> {
-  const token = await new SignJWT(sessionData)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_MAX_AGE}s`)
-    .sign(getSecretKey());
-
-  const cookieStore = await cookies();
-  const isProduction = process.env.NODE_ENV === "production";
-  cookieStore.set(SESSION_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
-    maxAge: SESSION_MAX_AGE,
-    path: "/",
-  });
+  cookieStore.delete(cookieName);
 }
 
 /**
@@ -250,6 +190,7 @@ async function setActiveSession(sessionData: SessionData): Promise<void> {
  * @param entry Account metadata
  * @param sessionTokens Session tokens for this account
  */
+
 export async function addAccount(
   entry: AccountEntry,
   sessionTokens: SessionTokens
@@ -274,13 +215,13 @@ export async function addAccount(
     registry.accounts[existingIndex] = {
       ...registry.accounts[existingIndex],
       ...entry,
-      addedAt: registry.accounts[existingIndex].addedAt, // Preserve original addedAt
+      addedAt: registry.accounts[existingIndex].addedAt,
     };
     log.info(`Updated existing account ${getShortPuuid(entry.puuid)}`);
   } else {
     // Add new account
     if (registry.accounts.length >= MAX_ACCOUNTS) {
-      // Remove oldest account (first in array)
+      // Remove oldest account
       const removed = registry.accounts.shift();
       if (removed) {
         await deleteAccountSession(removed.puuid);
@@ -300,9 +241,10 @@ export async function addAccount(
   // Save the registry
   await saveAccounts(registry);
 
-  // Save the session tokens to per-account cookie
+  // Construct SessionData
   const sessionData: SessionData = {
     accessToken: sessionTokens.accessToken,
+    // idToken: sessionTokens.idToken, // if available?
     entitlementsToken: sessionTokens.entitlementsToken,
     puuid: sessionTokens.puuid,
     region: sessionTokens.region,
@@ -310,24 +252,17 @@ export async function addAccount(
     createdAt: Date.now(),
   };
 
+  // Save to per-account storage
   await saveAccountSession(entry.puuid, sessionData);
 
-  // Also set as the main active session
-  await setActiveSession(sessionData);
+  // Set as the main active session (using createSession from session.ts)
+  await createSession(sessionData);
 
   log.info(
     `Account ${getShortPuuid(entry.puuid)} is now active (total: ${registry.accounts.length})`
   );
 }
 
-/**
- * Switch to a different account by PUUID.
- * Saves the current active session to its per-account cookie,
- * loads the target account's session cookie into `valorant_session`,
- * and updates `activePuuid` in the registry.
- * @param targetPuuid PUUID of the account to switch to
- * @returns True if switch was successful, false otherwise
- */
 export async function switchAccount(targetPuuid: string): Promise<boolean> {
   const registry = await getAccounts();
 
@@ -347,7 +282,7 @@ export async function switchAccount(targetPuuid: string): Promise<boolean> {
   }
 
   // Save current active session to its per-account cookie (if exists)
-  const currentSession = await getActiveSession();
+  const currentSession = await getSession();
   if (currentSession && currentSession.puuid !== targetPuuid) {
     await saveAccountSession(currentSession.puuid, currentSession);
     log.info(
@@ -366,7 +301,7 @@ export async function switchAccount(targetPuuid: string): Promise<boolean> {
   }
 
   // Set as active session
-  await setActiveSession(targetSession);
+  await createSession(targetSession);
 
   // Update registry
   registry.activePuuid = targetPuuid;
@@ -376,11 +311,6 @@ export async function switchAccount(targetPuuid: string): Promise<boolean> {
   return true;
 }
 
-/**
- * Remove an account from the registry.
- * If removing the active account, switch to the next available or clear session.
- * @param puuid PUUID of the account to remove
- */
 export async function removeAccount(puuid: string): Promise<void> {
   const registry = await getAccounts();
 
@@ -415,7 +345,7 @@ export async function removeAccount(puuid: string): Promise<void> {
       const nextSession = await loadAccountSession(nextAccount.puuid);
 
       if (nextSession) {
-        await setActiveSession(nextSession);
+        await createSession(nextSession);
         registry.activePuuid = nextAccount.puuid;
         log.info(
           `Switched to next account ${getShortPuuid(nextAccount.puuid)}`

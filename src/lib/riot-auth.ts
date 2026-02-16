@@ -16,7 +16,8 @@ import { createLogger } from "./logger";
 const log = createLogger("riot-auth");
 
 const RIOT_AUTH_URL = "https://auth.riotgames.com/api/v1/authorization";
-const RIOT_ENTITLEMENTS_URL = "https://entitlements.auth.riotgames.com/api/token/v1";
+const RIOT_ENTITLEMENTS_URL =
+  "https://entitlements.auth.riotgames.com/api/token/v1";
 const RIOT_USERINFO_URL = "https://auth.riotgames.com/userinfo";
 
 const CLIENT_ID = "play-valorant-web-prod";
@@ -28,7 +29,8 @@ const RIOT_CLIENT_UA =
   "RiotGamesApi/24.11.0.4602 rso-auth (Windows;10;;Professional, x64) riot_client/0";
 
 // Broader scope matching RadiantConnect's SSID re-auth flow
-const AUTH_SCOPE = "account openid ban link lol_region lol summoner offline_access";
+const AUTH_SCOPE =
+  "account openid ban link lol_region lol summoner offline_access";
 
 /** Generate a random hex string for nonce / trace IDs */
 function randomHex(bytes: number): string {
@@ -48,7 +50,9 @@ function generateTraceParent(): string {
  * Common headers for Riot auth requests.
  * Matches RadiantConnect's header set: Riot Client UA + baggage + traceparent.
  */
-function riotHeaders(extra: Record<string, string> = {}): Record<string, string> {
+function riotHeaders(
+  extra: Record<string, string> = {},
+): Record<string, string> {
   return {
     "Content-Type": "application/json",
     "User-Agent": RIOT_CLIENT_UA,
@@ -155,16 +159,17 @@ export interface CompleteAuthResult {
  * Processes the redirect URL from browser login to complete authentication
  * @param url The full redirect URL containing access_token in hash
  */
-export async function completeAuthWithUrl(url: string): Promise<
-  | { success: true; tokens: AuthTokens }
-  | { success: false; error: string }
+export async function completeAuthWithUrl(
+  url: string,
+): Promise<
+  { success: true; tokens: AuthTokens } | { success: false; error: string }
 > {
   try {
     let hash = "";
     if (url.includes("#")) {
       hash = url.split("#")[1];
     } else {
-      hash = url; 
+      hash = url;
     }
 
     const params = new URLSearchParams(hash);
@@ -172,7 +177,10 @@ export async function completeAuthWithUrl(url: string): Promise<
     const idToken = params.get("id_token");
 
     if (!accessToken || !idToken) {
-      return { success: false, error: "Invalid URL: Missing access_token or id_token" };
+      return {
+        success: false,
+        error: "Invalid URL: Missing access_token or id_token",
+      };
     }
 
     const entitlementsToken = await getEntitlementsToken(accessToken);
@@ -201,18 +209,29 @@ export async function completeAuthWithUrl(url: string): Promise<
     };
   } catch (error) {
     return {
-       success: false,
-       error: error instanceof Error ? error.message : "Failed to process auth URL",
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to process auth URL",
     };
   }
 }
 
 export async function authenticateRiotAccount(
   username: string,
-  password: string
+  password: string,
 ): Promise<
-  | { success: true; tokens: AuthTokens; riotCookies: string; namedCookies: RiotSessionCookies }
-  | { success: false; type: "multifactor"; cookie: string; multifactor?: AuthResponse["multifactor"] }
+  | {
+      success: true;
+      tokens: AuthTokens;
+      riotCookies: string;
+      namedCookies: RiotSessionCookies;
+    }
+  | {
+      success: false;
+      type: "multifactor";
+      cookie: string;
+      multifactor?: AuthResponse["multifactor"];
+    }
   | { success: false; error: string }
 > {
   try {
@@ -248,11 +267,12 @@ export async function authenticateRiotAccount(
         error: "No session cookie received from auth initialization",
       };
     }
-    const cookies = setCookieHeaders
-      .map((c) => c.split(";")[0])
-      .join("; ");
+    const cookies = setCookieHeaders.map((c) => c.split(";")[0]).join("; ");
 
-    log.debug("Step 1 - Cookie names:", setCookieHeaders.map((c) => c.split("=")[0]).join(", "));
+    log.debug(
+      "Step 1 - Cookie names:",
+      setCookieHeaders.map((c) => c.split("=")[0]).join(", "),
+    );
 
     // Step 2: Submit credentials
     const authResponse = await fetch(RIOT_AUTH_URL, {
@@ -301,7 +321,8 @@ export async function authenticateRiotAccount(
 
     // Step 3b: Handle auth failure
     if (authData.type !== "response") {
-      const errorDetail = (authData as any).error || "Unknown authentication error";
+      const errorDetail =
+        (authData as any).error || "Unknown authentication error";
       const country = authData.country ? ` (Region: ${authData.country})` : "";
       return {
         success: false,
@@ -386,9 +407,14 @@ export async function authenticateRiotAccount(
  */
 export async function submitMfa(
   code: string,
-  cookie: string
+  cookie: string,
 ): Promise<
-  | { success: true; tokens: AuthTokens; riotCookies: string; namedCookies: RiotSessionCookies }
+  | {
+      success: true;
+      tokens: AuthTokens;
+      riotCookies: string;
+      namedCookies: RiotSessionCookies;
+    }
   | { success: false; error: string }
 > {
   try {
@@ -481,7 +507,9 @@ export async function submitMfa(
  * @param uri Redirect URI containing tokens in fragment
  * @returns Object with access and ID tokens, or null if extraction fails
  */
-export function extractTokensFromUri(uri: string): { accessToken: string; idToken: string } | null {
+export function extractTokensFromUri(
+  uri: string,
+): { accessToken: string; idToken: string } | null {
   try {
     const url = new URL(uri);
     const fragment = url.hash.substring(1); // Remove the # character
@@ -505,7 +533,9 @@ export function extractTokensFromUri(uri: string): { accessToken: string; idToke
  * @param accessToken Bearer token from authentication
  * @returns Entitlements token string or null if request fails
  */
-export async function getEntitlementsToken(accessToken: string): Promise<string | null> {
+export async function getEntitlementsToken(
+  accessToken: string,
+): Promise<string | null> {
   try {
     const response = await fetch(RIOT_ENTITLEMENTS_URL, {
       method: "POST",
@@ -532,7 +562,9 @@ export async function getEntitlementsToken(accessToken: string): Promise<string 
  * @param accessToken Bearer token from authentication
  * @returns User info object or null if request fails
  */
-export async function getUserInfo(accessToken: string): Promise<UserInfo | null> {
+export async function getUserInfo(
+  accessToken: string,
+): Promise<UserInfo | null> {
   try {
     const response = await fetch(RIOT_USERINFO_URL, {
       headers: {
@@ -590,10 +622,18 @@ function extractNamedCookies(cookieString: string): RiotSessionCookies {
     const name = pair.substring(0, eqIdx).trim();
     const value = pair.substring(eqIdx + 1);
     switch (name) {
-      case "ssid": result.ssid = value; break;
-      case "clid": result.clid = value; break;
-      case "csid": result.csid = value; break;
-      case "tdid": result.tdid = value; break;
+      case "ssid":
+        result.ssid = value;
+        break;
+      case "clid":
+        result.clid = value;
+        break;
+      case "csid":
+        result.csid = value;
+        break;
+      case "tdid":
+        result.tdid = value;
+        break;
     }
   }
   return result;
@@ -640,17 +680,28 @@ async function completeRefresh(
   originalNamed: RiotSessionCookies,
   responseCookies: string,
 ): Promise<
-  | { success: true; tokens: AuthTokens; riotCookies: string; namedCookies: RiotSessionCookies }
+  | {
+      success: true;
+      tokens: AuthTokens;
+      riotCookies: string;
+      namedCookies: RiotSessionCookies;
+    }
   | { success: false; error: string }
 > {
   const tokens = extractTokensFromUri(uri);
   if (!tokens) {
-    return { success: false, error: "Failed to extract tokens from re-auth URI" };
+    return {
+      success: false,
+      error: "Failed to extract tokens from re-auth URI",
+    };
   }
 
   const entitlementsToken = await getEntitlementsToken(tokens.accessToken);
   if (!entitlementsToken) {
-    return { success: false, error: "Failed to get entitlements after re-auth" };
+    return {
+      success: false,
+      error: "Failed to get entitlements after re-auth",
+    };
   }
 
   const userInfo = await getUserInfo(tokens.accessToken);
@@ -704,19 +755,28 @@ async function completeRefresh(
  * @returns Fresh tokens + updated cookies, or error
  */
 export async function refreshTokensWithCookies(
-  riotCookies: string
+  riotCookies: string,
 ): Promise<
-  | { success: true; tokens: AuthTokens; riotCookies: string; namedCookies: RiotSessionCookies }
+  | {
+      success: true;
+      tokens: AuthTokens;
+      riotCookies: string;
+      namedCookies: RiotSessionCookies;
+    }
   | { success: false; error: string }
 > {
   try {
     const named = extractNamedCookies(riotCookies);
 
     if (!named.ssid) {
-      return { success: false, error: "No SSID cookie available for re-auth — full login required" };
+      return {
+        success: false,
+        error: "No SSID cookie available for re-auth — full login required",
+      };
     }
 
-    log.info("SSID re-auth: ssid=%s, clid=%s, csid=%s, tdid=%s",
+    log.info(
+      "SSID re-auth: ssid=%s, clid=%s, csid=%s, tdid=%s",
       named.ssid ? "present" : "missing",
       named.clid ? "present" : "missing",
       named.csid ? "present" : "missing",
@@ -735,13 +795,16 @@ export async function refreshTokensWithCookies(
         nonce: randomHex(16),
         redirect_uri: REDIRECT_URI,
         response_type: "token id_token",
-        scope: "account openid",
+        scope: AUTH_SCOPE,
       }),
       cache: "no-store",
     });
 
     if (!postResponse.ok) {
-      return { success: false, error: `SSID re-auth POST failed: ${postResponse.status}` };
+      return {
+        success: false,
+        error: `SSID re-auth POST failed: ${postResponse.status}`,
+      };
     }
 
     const postSetCookies = captureSetCookies(postResponse);
@@ -754,10 +817,16 @@ export async function refreshTokensWithCookies(
       if (uri) {
         return await completeRefresh(uri, named, postMerged);
       }
-      return { success: false, error: "POST returned 'response' but no redirect URI" };
+      return {
+        success: false,
+        error: "POST returned 'response' but no redirect URI",
+      };
     }
 
-    log.warn("SSID re-auth POST returned type '%s' instead of 'response', trying GET /authorize", postData.type);
+    log.warn(
+      "SSID re-auth POST returned type '%s' instead of 'response', trying GET /authorize",
+      postData.type,
+    );
 
     // ── Attempt 2: GET /authorize (browser-style OAuth redirect) ──
     // Riot may honour the SSID cookie on the browser endpoint even when
@@ -791,9 +860,15 @@ export async function refreshTokensWithCookies(
       if (location?.includes("access_token")) {
         return await completeRefresh(location, named, getMerged);
       }
-      log.warn("GET /authorize redirected to: %s", location?.split("#")[0] || "(no location)");
+      log.warn(
+        "GET /authorize redirected to: %s",
+        location?.split("#")[0] || "(no location)",
+      );
     } else {
-      log.warn("GET /authorize returned status %d (expected 302/303)", getResponse.status);
+      log.warn(
+        "GET /authorize returned status %d (expected 302/303)",
+        getResponse.status,
+      );
     }
 
     return {
@@ -814,12 +889,20 @@ export async function refreshTokensWithCookies(
  * @returns Region identifier (na, eu, ap, kr, latam, br)
  */
 export function determineRegion(userInfo: UserInfo): string {
-  log.debug("Determining region. Country:", userInfo.country, "Affinity:", JSON.stringify(userInfo.affinity));
+  log.debug(
+    "Determining region. Country:",
+    userInfo.country,
+    "Affinity:",
+    JSON.stringify(userInfo.affinity),
+  );
 
   // Primary: use the affinity field which contains the actual shard assignment
   // The "pp" key (player platform) maps directly to the PD shard
   if (userInfo.affinity) {
-    const shard = userInfo.affinity.pp || userInfo.affinity.live || Object.values(userInfo.affinity)[0];
+    const shard =
+      userInfo.affinity.pp ||
+      userInfo.affinity.live ||
+      Object.values(userInfo.affinity)[0];
     if (shard) {
       log.info(`Using affinity shard: ${shard}`);
       return shard;
@@ -830,48 +913,84 @@ export function determineRegion(userInfo: UserInfo): string {
   // Map both 2-letter and 3-letter codes just in case
   const countryToRegion: { [key: string]: string } = {
     // North America
-    US: "na", USA: "na",
-    CA: "na", CAN: "na",
-    MX: "na", MEX: "na",
+    US: "na",
+    USA: "na",
+    CA: "na",
+    CAN: "na",
+    MX: "na",
+    MEX: "na",
 
     // Europe
-    GB: "eu", GBR: "eu",
-    DE: "eu", DEU: "eu",
-    FR: "eu", FRA: "eu",
-    IT: "eu", ITA: "eu",
-    ES: "eu", ESP: "eu",
-    RU: "eu", RUS: "eu",
-    TR: "eu", TUR: "eu",
-    PL: "eu", POL: "eu",
-    NL: "eu", NLD: "eu",
-    SE: "eu", SWE: "eu",
-    NO: "eu", NOR: "eu",
-    DK: "eu", DNK: "eu",
-    FI: "eu", FIN: "eu",
-    UA: "eu", UKR: "eu",
+    GB: "eu",
+    GBR: "eu",
+    DE: "eu",
+    DEU: "eu",
+    FR: "eu",
+    FRA: "eu",
+    IT: "eu",
+    ITA: "eu",
+    ES: "eu",
+    ESP: "eu",
+    RU: "eu",
+    RUS: "eu",
+    TR: "eu",
+    TUR: "eu",
+    PL: "eu",
+    POL: "eu",
+    NL: "eu",
+    NLD: "eu",
+    SE: "eu",
+    SWE: "eu",
+    NO: "eu",
+    NOR: "eu",
+    DK: "eu",
+    DNK: "eu",
+    FI: "eu",
+    FIN: "eu",
+    UA: "eu",
+    UKR: "eu",
 
     // Asia Pacific
-    JP: "ap", JPN: "ap",
-    KR: "kr", KOR: "kr",
-    CN: "ap", CHN: "ap",
-    TW: "ap", TWN: "ap",
-    HK: "ap", HKG: "ap",
-    SG: "ap", SGP: "ap",
-    TH: "ap", THA: "ap",
-    VN: "ap", VNM: "ap",
-    ID: "ap", IDN: "ap",
-    MY: "ap", MYS: "ap",
-    PH: "ap", PHL: "ap",
-    IN: "ap", IND: "ap",
-    AU: "ap", AUS: "ap",
-    NZ: "ap", NZL: "ap",
+    JP: "ap",
+    JPN: "ap",
+    KR: "kr",
+    KOR: "kr",
+    CN: "ap",
+    CHN: "ap",
+    TW: "ap",
+    TWN: "ap",
+    HK: "ap",
+    HKG: "ap",
+    SG: "ap",
+    SGP: "ap",
+    TH: "ap",
+    THA: "ap",
+    VN: "ap",
+    VNM: "ap",
+    ID: "ap",
+    IDN: "ap",
+    MY: "ap",
+    MYS: "ap",
+    PH: "ap",
+    PHL: "ap",
+    IN: "ap",
+    IND: "ap",
+    AU: "ap",
+    AUS: "ap",
+    NZ: "ap",
+    NZL: "ap",
 
     // Latin America
-    BR: "br", BRA: "br",
-    AR: "latam", ARG: "latam",
-    CL: "latam", CHL: "latam",
-    CO: "latam", COL: "latam",
-    PE: "latam", PER: "latam",
+    BR: "br",
+    BRA: "br",
+    AR: "latam",
+    ARG: "latam",
+    CL: "latam",
+    CHL: "latam",
+    CO: "latam",
+    COL: "latam",
+    PE: "latam",
+    PER: "latam",
   };
 
   const countryCode = userInfo.country?.toUpperCase();

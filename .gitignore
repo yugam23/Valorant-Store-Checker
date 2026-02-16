@@ -45,6 +45,7 @@ next-env.d.ts
 .gemini/
 .planning/
 .playwright-mcp/
+.session-data/
 temp-init/
 CLAUDE.md 
 rso-example-app/
