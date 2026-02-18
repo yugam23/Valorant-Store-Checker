@@ -222,6 +222,60 @@ export async function getBundleByUuid(
   return bundles.find((bundle) => bundle.uuid.toLowerCase() === uuid.toLowerCase()) || null;
 }
 
+export interface ValorantPlayerCard {
+  uuid: string;
+  displayName: string;
+  isHiddenIfNotOwned: boolean;
+  themeUuid: string | null;
+  displayIcon: string | null;
+  smallArt: string;
+  wideArt: string;
+  largeArt: string;
+  assetPath: string;
+}
+
+export interface ValorantPlayerTitle {
+  uuid: string;
+  displayName: string;
+  titleText: string | null; // null for "no title" equipped state
+  isHiddenIfNotOwned: boolean;
+  assetPath: string;
+}
+
+/**
+ * Fetch a player card by UUID from Valorant-API
+ * Uses Next.js fetch-level caching (24h) — no module-level Map needed
+ */
+export async function getPlayerCardByUuid(uuid: string): Promise<ValorantPlayerCard | null> {
+  try {
+    const response = await fetch(`${VALORANT_API_BASE}/playercards/${uuid}`, {
+      next: { revalidate: 86400 },
+    });
+    if (!response.ok) return null;
+    const result: ValorantAPIResponse<ValorantPlayerCard> = await response.json();
+    return result.status === 200 ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch a player title by UUID from Valorant-API
+ * Uses Next.js fetch-level caching (24h) — no module-level Map needed
+ */
+export async function getPlayerTitleByUuid(uuid: string): Promise<ValorantPlayerTitle | null> {
+  try {
+    const response = await fetch(`${VALORANT_API_BASE}/playertitles/${uuid}`, {
+      next: { revalidate: 86400 },
+    });
+    if (!response.ok) return null;
+    const result: ValorantAPIResponse<ValorantPlayerTitle> = await response.json();
+    return result.status === 200 ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Batch fetch weapon skins by UUIDs
  * More efficient than calling getWeaponSkinByUuid() multiple times
