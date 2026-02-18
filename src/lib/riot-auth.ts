@@ -25,7 +25,7 @@ const REDIRECT_URI = "https://playvalorant.com/opt_in";
 
 // Riot Client user-agent from RadiantConnect — mimics the actual Riot Client SDK
 // instead of a browser, which reduces bot-detection / captcha triggering.
-const RIOT_CLIENT_UA =
+export const RIOT_CLIENT_UA =
   "RiotGamesApi/24.11.0.4602 rso-auth (Windows;10;;Professional, x64) riot_client/0";
 
 // Broader scope matching RadiantConnect's SSID re-auth flow
@@ -754,9 +754,7 @@ async function completeRefresh(
  * @param riotCookies Stored Riot session cookies from a previous login
  * @returns Fresh tokens + updated cookies, or error
  */
-export async function refreshTokensWithCookies(
-  riotCookies: string,
-): Promise<
+export async function refreshTokensWithCookies(riotCookies: string): Promise<
   | {
       success: true;
       tokens: AuthTokens;
@@ -783,55 +781,13 @@ export async function refreshTokensWithCookies(
       named.tdid ? "present" : "missing",
     );
 
-    const cookieStr = riotCookies;
+    // ── Attempt: GET /authorize (Cookie Reauth) ──
+    // Documentation: https://valapidocs.techchrism.me/endpoint/cookie-reauth
+    // Use standard browser User-Agent and specific scope "account openid"
 
-    // ── Attempt 1: POST to /api/v1/authorization ──
-    const postResponse = await fetch(RIOT_AUTH_URL, {
-      method: "POST",
-      headers: riotHeaders({ Cookie: cookieStr }),
-      body: JSON.stringify({
-        acr_values: "",
-        client_id: CLIENT_ID,
-        nonce: randomHex(16),
-        redirect_uri: REDIRECT_URI,
-        response_type: "token id_token",
-        scope: AUTH_SCOPE,
-      }),
-      cache: "no-store",
-    });
+    const BROWSER_UA =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
-    if (!postResponse.ok) {
-      return {
-        success: false,
-        error: `SSID re-auth POST failed: ${postResponse.status}`,
-      };
-    }
-
-    const postSetCookies = captureSetCookies(postResponse);
-    const postMerged = mergeCookies(cookieStr, postSetCookies);
-
-    const postData: AuthResponse = await postResponse.json();
-
-    if (postData.type === "response") {
-      const uri = postData.response?.parameters?.uri;
-      if (uri) {
-        return await completeRefresh(uri, named, postMerged);
-      }
-      return {
-        success: false,
-        error: "POST returned 'response' but no redirect URI",
-      };
-    }
-
-    log.warn(
-      "SSID re-auth POST returned type '%s' instead of 'response', trying GET /authorize",
-      postData.type,
-    );
-
-    // ── Attempt 2: GET /authorize (browser-style OAuth redirect) ──
-    // Riot may honour the SSID cookie on the browser endpoint even when
-    // the JSON API endpoint doesn't. Use redirect: "manual" so we can
-    // read the Location header containing the token fragment.
     const authorizeParams = new URLSearchParams({
       client_id: CLIENT_ID,
       redirect_uri: REDIRECT_URI,
@@ -845,7 +801,7 @@ export async function refreshTokensWithCookies(
       {
         method: "GET",
         headers: {
-          Cookie: postMerged, // Include session cookies from POST step
+          Cookie: riotCookies,
           "User-Agent": RIOT_CLIENT_UA,
         },
         redirect: "manual",
@@ -853,15 +809,33 @@ export async function refreshTokensWithCookies(
     );
 
     const getSetCookies = captureSetCookies(getResponse);
-    const getMerged = mergeCookies(postMerged, getSetCookies);
+    const getMerged = mergeCookies(riotCookies, getSetCookies);
 
-    if (getResponse.status === 303 || getResponse.status === 302) {
+    // Check for correct redirect to playvalorant.com
+    if (
+      getResponse.status === 303 ||
+      getResponse.status === 302 ||
+      getResponse.status === 301
+    ) {
       const location = getResponse.headers.get("location");
+
       if (location?.includes("access_token")) {
         return await completeRefresh(location, named, getMerged);
       }
+
+      // If redirected to login page, the session is invalid
+      if (location?.includes("authenticate.riotgames.com/login")) {
+        log.warn(
+          "GET /authorize redirected to login page — session likely expired/invalid.",
+        );
+        return {
+          success: false,
+          error: "Session expired (redirected to login)",
+        };
+      }
+
       log.warn(
-        "GET /authorize redirected to: %s",
+        "GET /authorize redirected to unexpected location: %s",
         location?.split("#")[0] || "(no location)",
       );
     } else {
@@ -873,7 +847,7 @@ export async function refreshTokensWithCookies(
 
     return {
       success: false,
-      error: `SSID re-auth failed — POST type: ${postData.type}, GET status: ${getResponse.status}`,
+      error: `SSID re-auth failed with status ${getResponse.status}`,
     };
   } catch (error) {
     return {

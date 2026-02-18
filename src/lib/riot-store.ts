@@ -7,6 +7,7 @@
 
 import { RiotStorefront, RiotWallet } from "@/types/riot";
 import { createLogger } from "./logger";
+import { RIOT_CLIENT_UA } from "./riot-auth";
 
 const log = createLogger("riot-store");
 
@@ -25,7 +26,7 @@ export interface StoreTokens {
 const CLIENT_PLATFORM = btoa(JSON.stringify({
   platformType: "PC",
   platformOS: "Windows",
-  platformOSVersion: "10.0.19042.1.256.64bit",
+  platformOSVersion: "10.0.19045.1.256.64bit",
   platformChipset: "Unknown",
 }));
 
@@ -211,7 +212,9 @@ export async function fetchWithShardFallback(
         continue;
       }
 
-      throw new Error(`Request failed with status ${response.status}`);
+      // Important: catch the body for 400 errors to debug "Bad Request"
+      const errorBody = await response.text().catch(() => "No error body");
+      throw new Error(`Request failed with status ${response.status}: ${errorBody}`);
     } catch (err) {
       lastError = err as Error;
       log.warn(`Network error on ${region.toUpperCase()}:`, err);
