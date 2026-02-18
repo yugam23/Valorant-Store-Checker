@@ -19,7 +19,7 @@ import type { NextRequest } from "next/server";
 const SESSION_COOKIE_NAME = "valorant_session";
 
 // Routes that require authentication
-const PROTECTED_ROUTES = ["/store", "/api/store", "/inventory", "/api/inventory"];
+const PROTECTED_ROUTES = ["/store", "/api/store", "/inventory", "/api/inventory", "/api/profile"];
 
 // Routes that should redirect to store if already authenticated
 const AUTH_ROUTES = ["/login"];
