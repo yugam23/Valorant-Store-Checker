@@ -1,324 +1,116 @@
-"use client";
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { getSessionWithRefresh } from "@/lib/session";
+import { getStorefront, getWallet, getStoreStaticData } from "@/lib/store-service";
+import { WalletSection } from "@/components/store/server/WalletSection";
+import { DailyStoreSection } from "@/components/store/server/DailyStoreSection";
+import { BundleSection } from "@/components/store/server/BundleSection";
+import { NightMarketSection } from "@/components/store/server/NightMarketSection";
+import { LoadingSkeleton } from "@/components/store/LoadingSkeleton";
 
-import { useEffect, useState, useCallback } from "react";
-import { StoreGrid } from "@/components/store/StoreGrid";
-import { WalletDisplay } from "@/components/store/WalletDisplay";
-import { NightMarket } from "@/components/store/NightMarket";
-import { FeaturedBundle } from "@/components/store/FeaturedBundle";
-import { logStoreRotation } from "@/lib/store-history";
-import type { StoreData, StoreLoadingState } from "@/types/store";
-import type { WishlistData } from "@/types/wishlist";
 
-/** Inline countdown timer with individual digit cards */
-function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
-  const [timeLeft, setTimeLeft] = useState({ h: "00", m: "00", s: "00" });
+// Inline Logout Button for now since it needs client interactivity
+import { LogoutButtonClient } from "@/components/store/LogoutButtonClient"; 
 
-  const calcTime = useCallback(() => {
-    const diff = new Date(expiresAt).getTime() - Date.now();
-    if (diff <= 0) return { h: "00", m: "00", s: "00" };
-    const h = String(Math.floor(diff / 3600000)).padStart(2, "0");
-    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
-    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
-    return { h, m, s };
-  }, [expiresAt]);
+export const dynamic = 'force-dynamic';
 
-  useEffect(() => {
-    setTimeLeft(calcTime());
-    const id = setInterval(() => setTimeLeft(calcTime()), 1000);
-    return () => clearInterval(id);
-  }, [calcTime]);
+export default async function StorePage() {
+  const session = await getSessionWithRefresh();
+  
+  if (!session) {
+    redirect("/login");
+  }
 
-  const DigitCard = ({ value }: { value: string }) => (
-    <span className="inline-block w-10 h-12 leading-[3rem] text-center text-2xl font-mono font-bold text-light bg-void-deep angular-card-sm">
-      {value}
-    </span>
-  );
+  // Parallel data fetching
+  // We start the promises here
+  const staticDataPromise = getStoreStaticData();
+  const storefrontPromise = getStorefront(session);
+  const walletPromise = getWallet(session);
 
-  const Separator = () => (
-    <span className="text-valorant-red text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>
-  );
-
-  return (
-    <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${timeLeft.h} hours ${timeLeft.m} minutes ${timeLeft.s} seconds remaining`}>
-      <DigitCard value={timeLeft.h[0]} />
-      <DigitCard value={timeLeft.h[1]} />
-      <Separator />
-      <DigitCard value={timeLeft.m[0]} />
-      <DigitCard value={timeLeft.m[1]} />
-      <Separator />
-      <DigitCard value={timeLeft.s[0]} />
-      <DigitCard value={timeLeft.s[1]} />
-    </div>
-  );
-}
-
-export default function StorePage() {
-  const [storeData, setStoreData] = useState<StoreData | null>(null);
-  const [loadingState, setLoadingState] = useState<StoreLoadingState>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [fromCache, setFromCache] = useState(false);
-  const [wishlist, setWishlist] = useState<WishlistData>({ items: [], count: 0 });
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    } finally {
-      window.location.href = "/login";
-    }
-  };
-
-  const handleWishlistToggle = async (skinUuid: string, item: any) => {
-    const isCurrentlyWishlisted = wishlist.items.some(
-      (w) => w.skinUuid === skinUuid
-    );
-
-    try {
-      if (isCurrentlyWishlisted) {
-        // Remove from wishlist
-        const response = await fetch("/api/wishlist", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ skinUuid }),
-        });
-
-        if (response.ok) {
-          const updated: WishlistData = await response.json();
-          setWishlist(updated);
-        }
-      } else {
-        // Add to wishlist
-        const wishlistItem = {
-          skinUuid: item.uuid,
-          displayName: item.displayName,
-          displayIcon: item.displayIcon,
-          tierColor: item.tierColor,
-          addedAt: new Date().toISOString(),
-        };
-
-        const response = await fetch("/api/wishlist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(wishlistItem),
-        });
-
-        if (response.ok) {
-          const updated: WishlistData = await response.json();
-          setWishlist(updated);
-        }
-      }
-    } catch (err) {
-      console.error("Wishlist toggle error:", err);
-    }
-  };
-
-  const fetchWishlist = useCallback(async () => {
-    try {
-      const response = await fetch("/api/wishlist", {
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        const data: WishlistData = await response.json();
-        setWishlist(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch wishlist:", err);
-    }
-  }, []);
-
-  useEffect(() => {
-    async function fetchStore() {
-      setLoadingState("loading");
-      setError(null);
-
-      try {
-        // Fetch store and wishlist in parallel
-        const [storeResponse] = await Promise.all([
-          fetch("/api/store", {
-            method: "GET",
-            credentials: "include",
-          }),
-          fetchWishlist(),
-        ]);
-
-        if (!storeResponse.ok) {
-          if (storeResponse.status === 401) {
-            setError("Not authenticated. Please log in.");
-            setLoadingState("error");
-            return;
-          }
-          const errorData = await storeResponse.json().catch(() => ({}));
-          setError(errorData.error || `Failed to fetch store (${storeResponse.status})`);
-          setLoadingState("error");
-          return;
-        }
-
-        const data = await storeResponse.json();
-        setFromCache(!!data.fromCache);
-        setStoreData(data as StoreData);
-        setLoadingState("success");
-
-        // Log store rotation to history (fire-and-forget, non-blocking)
-        if (data.puuid && data.items) {
-          logStoreRotation(data.puuid, data.items, new Date(data.expiresAt), {
-            gameName: data.gameName,
-            tagLine: data.tagLine,
-          }).catch((err) => console.debug('History logging skipped:', err));
-        }
-      } catch (err) {
-        console.error("Store fetch error:", err);
-        setError(err instanceof Error ? err.message : "Unknown error occurred");
-        setLoadingState("error");
-      }
-    }
-
-    fetchStore();
-  }, [fetchWishlist]);
+  // We await storefront here because it's the base for everything?
+  // Actually, if we pass promises, the components need to be written to accept promises.
+  // But my current SCs accept *data*.
+  // So I must await *here* if I want to block the whole page? 
+  // OR I should have written the components to accept promises to use Suspense *inside* them?
+  // Current plan: Use Suspense boundaries for *each section*.
+  // So `DailyStoreSection` should be async and I call it like `<DailyStoreSection ... />`.
+  // Next.js handles async components automatically in Suspense.
+  // BUT to achieve parallelism, I need to pass the *Promise* to the component, 
+  // or the component must call the fetch function itself?
+  // If the component calls the fetch function, it can run in parallel *if* the parent doesn't block.
+  // But `getStorefront` requires `session` which is available.
+  
+  // Best pattern for Next 13+:
+  // Pass the promise to the component? No, simply rendering async components in parallel (siblings) *is* parallel?
+  // Yes, if I don't await them in the parent.
+  // But I need to pass `storefront` to multiple components.
+  // If I call `await getStorefront()` here, I block *everything* until storefront is ready.
+  // Then I pass distinct data parts to children.
+  // This means the whole page waits for `getStorefront`.
+  // Is `getStorefront` slow? It hits Riot API. Yes, it can be slow.
+  // But without storefront, I can't show Bundle or Daily or Night Market.
+  // So likely, blocking on `storefront` is acceptable for the main content.
+  // What about `wallet`? It's a separate endpoint.
+  // I can wrap Wallet in Suspense if I pass the *promise* or fetched data?
+  // If I await `storefront` here, `wallet` can be fetched in parallel?
+  // 
+  // Optimisation:
+  // const storefrontPromise = getStorefront(session);
+  // const walletPromise = getWallet(session);
+  // const staticDataPromise = getStoreStaticData();
+  //
+  // const [storefront, staticData] = await Promise.all([storefrontPromise, staticDataPromise]);
+  // 
+  // <Suspense fallback={<Skeleton />}><WalletSection session={session} /></Suspense>
+  // <DailyStore... />
+  //
+  // Wait, `WalletSection` (my impl) calls `getWallet` inside it. So it fetches independently. 
+  // So if I render `<WalletSection session={session} />` it will fetch wallet.
+  // And `DailyStoreSection` takes `storefront` (already fetched).
+  //
+  // So:
+  // 1. Initiate static data fetch (fast/cached).
+  // 2. Initiate storefront fetch.
+  // 3. Initiate wallet (inside WalletSection).
+  // 
+  // So `StorePage` awaits `storefront`. Wallet executes in parallel inside its Suspense boundary.
+  
+  const [storefront, staticData] = await Promise.all([storefrontPromise, staticDataPromise]);
 
   return (
     <div className="min-h-screen px-4 py-8 md:px-8 lg:px-16">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div
-          className="mb-8 stagger-entrance"
-          style={{ "--stagger-delay": "0ms" } as React.CSSProperties}
-        >
+        <div className="mb-8 stagger-entrance">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="font-display text-5xl md:text-6xl uppercase font-bold text-light mb-2">
                 Your Store
               </h1>
-              {loadingState === "success" && storeData?.expiresAt && fromCache && (
-                <span className="text-amber-500/70 text-[10px] font-display uppercase tracking-wider border border-amber-500/20 px-2 py-0.5">
-                  Cached
-                </span>
-              )}
             </div>
 
             <div className="flex items-center gap-4">
-              {loadingState === "success" && storeData?.wallet && (
-                <WalletDisplay wallet={storeData.wallet} />
-              )}
-              <button
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="angular-btn px-4 py-2 text-sm font-display uppercase tracking-wider text-zinc-400 bg-void-surface border border-white/5 hover:text-white hover:border-valorant-red/30 transition-all disabled:opacity-50"
-              >
-                {loggingOut ? "Logging out..." : "Logout"}
-              </button>
+              <Suspense fallback={<div className="h-10 w-32 bg-white/5 rounded animate-pulse" />}>
+                 <WalletSection session={session} />
+              </Suspense>
+              
+              <LogoutButtonClient />
             </div>
           </div>
         </div>
 
-        {/* Loading state */}
-        {loadingState === "loading" && (
-          <div
-            className="stagger-entrance"
-            style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
-          >
-            <div className="angular-card bg-void-surface/50 flex flex-col items-center justify-center py-20 space-y-4" role="status" aria-label="Loading store data">
-              <div className="relative w-12 h-12">
-                <div className="absolute inset-0 border-2 border-valorant-red/20 angular-card-sm" />
-                <div className="absolute inset-0 border-t-2 border-valorant-red animate-spin" style={{ borderRadius: "50%" }} />
-              </div>
-              <p className="text-zinc-400 font-display uppercase tracking-wider text-sm">Loading your store...</p>
-            </div>
-          </div>
-        )}
+        {/* Content */}
+        <Suspense fallback={<LoadingSkeleton text="Loading Bundle..." />}>
+             <BundleSection storefront={storefront} staticData={staticData} />
+        </Suspense>
 
-        {/* Error state */}
-        {loadingState === "error" && (
-          <div
-            className="stagger-entrance"
-            style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
-          >
-            <div className="angular-card bg-void-surface/50 flex flex-col items-center justify-center py-20 space-y-4" role="alert">
-              <div className="w-16 h-16 flex items-center justify-center border border-red-500/30 angular-card-sm" aria-hidden="true">
-                <span className="text-3xl text-red-500">!</span>
-              </div>
-              <p className="text-zinc-300 text-lg font-display uppercase">Error loading store</p>
-              <p className="text-zinc-500 text-sm">{error}</p>
-              {error?.includes("Not authenticated") ? (
-                <a
-                  href="/login"
-                  className="mt-4 angular-btn px-6 py-3 bg-valorant-red text-white font-display uppercase tracking-wider hover:bg-red-600 transition-colors"
-                >
-                  Go to Login
-                </a>
-              ) : (
-                <button
-                  onClick={() => window.location.reload()}
-                  className="mt-4 angular-btn px-6 py-3 bg-void-elevated text-white font-display uppercase tracking-wider hover:bg-void-surface transition-colors"
-                >
-                  Retry
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+        <Suspense fallback={<LoadingSkeleton text="Loading Daily Store..." />}>
+             <DailyStoreSection session={session} storefront={storefront} staticData={staticData} />
+        </Suspense>
 
-        {/* Store content */}
-        {loadingState === "success" && storeData && (
-          <>
-            {/* Featured Bundle */}
-            {storeData.bundle && (
-              <div
-                className="stagger-entrance mb-12"
-                style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
-              >
-                <FeaturedBundle bundle={storeData.bundle} />
-              </div>
-            )}
-
-            {/* Section separator */}
-            {storeData.bundle && (
-              <div className="h-[1px] bg-gradient-to-r from-valorant-red/50 via-white/10 to-transparent mb-8" />
-            )}
-
-            {/* Daily Store section */}
-            <div
-              className="stagger-entrance mb-8"
-              style={{ "--stagger-delay": "200ms" } as React.CSSProperties}
-            >
-              <div className="mb-6">
-                <h2 className="font-display text-3xl uppercase font-bold text-light mb-3">
-                  Daily Store
-                </h2>
-                {storeData.expiresAt && (
-                  <div className="flex items-center gap-3">
-                    <span className="text-zinc-500 text-xs font-display uppercase tracking-wider">
-                      Resets in
-                    </span>
-                    <CountdownTimer expiresAt={storeData.expiresAt} />
-                  </div>
-                )}
-              </div>
-              <StoreGrid
-                items={storeData.items}
-                wishlistedUuids={wishlist.items.map((w) => w.skinUuid)}
-                onWishlistToggle={handleWishlistToggle}
-                showInStoreNotifications={true}
-              />
-            </div>
-
-            {/* Night Market */}
-            {storeData.nightMarket && (
-              <>
-                <div className="h-[1px] bg-gradient-to-r from-valorant-red/50 via-white/10 to-transparent mb-8" />
-                <div
-                  className="stagger-entrance"
-                  style={{ "--stagger-delay": "300ms" } as React.CSSProperties}
-                >
-                  <NightMarket nightMarket={storeData.nightMarket} />
-                </div>
-              </>
-            )}
-          </>
-        )}
+        <Suspense fallback={<LoadingSkeleton text="Loading Night Market..." />}>
+             <NightMarketSection storefront={storefront} staticData={staticData} />
+        </Suspense>
       </div>
     </div>
   );
