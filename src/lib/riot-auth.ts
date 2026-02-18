@@ -90,6 +90,7 @@ export interface AuthTokens {
   region: string;
   gameName?: string;
   tagLine?: string;
+  country?: string;
   riotCookies?: string;
 }
 
@@ -205,6 +206,7 @@ export async function completeAuthWithUrl(
         region,
         gameName: userInfo.acct?.game_name,
         tagLine: userInfo.acct?.tag_line,
+        country: userInfo.country,
       },
     };
   } catch (error) {
@@ -387,6 +389,7 @@ export async function authenticateRiotAccount(
         region,
         gameName: userInfo.acct?.game_name,
         tagLine: userInfo.acct?.tag_line,
+        country: userInfo.country,
       },
       riotCookies: allCookies,
       namedCookies,
@@ -490,6 +493,7 @@ export async function submitMfa(
         region,
         gameName: userInfo.acct?.game_name,
         tagLine: userInfo.acct?.tag_line,
+        country: userInfo.country,
       },
       riotCookies: allCookies,
       namedCookies,
@@ -734,6 +738,7 @@ async function completeRefresh(
       region,
       gameName: userInfo.acct?.game_name,
       tagLine: userInfo.acct?.tag_line,
+      country: userInfo.country,
     },
     riotCookies: preservedCookies,
     namedCookies: preservedNamed,

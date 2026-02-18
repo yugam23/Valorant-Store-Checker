@@ -44,4 +44,7 @@ export const env = {
 
   /** Optional: override the minimum log level (debug | info | warn | error) */
   LOG_LEVEL: process.env.LOG_LEVEL as "debug" | "info" | "warn" | "error" | undefined,
+
+  /** Optional: Henrik API key for rank/level data. Profile degrades gracefully without it. */
+  HENRIK_API_KEY: process.env.HENRIK_API_KEY ?? "",
 } as const;

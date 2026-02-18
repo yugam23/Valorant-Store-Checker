@@ -6,6 +6,7 @@ export interface SessionData {
   region: string;
   gameName?: string;
   tagLine?: string;
+  country?: string;
   riotCookies?: string;
   createdAt: number;
   [key: string]: string | number | undefined;

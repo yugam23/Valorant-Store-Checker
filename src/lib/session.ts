@@ -55,6 +55,7 @@ export async function createSession(tokens: {
   region: string;
   gameName?: string;
   tagLine?: string;
+  country?: string;
   riotCookies?: string;
 }): Promise<void> {
   // 1. Filter cookies (legacy logic, still good to keep data small)
@@ -69,12 +70,13 @@ export async function createSession(tokens: {
   // 2. Prepare Session Data
   const sessionData: SessionData = {
     accessToken: tokens.accessToken,
-    // idToken: tokens.idToken, 
+    // idToken: tokens.idToken,
     entitlementsToken: tokens.entitlementsToken,
     puuid: tokens.puuid,
     region: tokens.region,
     gameName: tokens.gameName,
     tagLine: tokens.tagLine,
+    country: tokens.country,
     riotCookies: filteredCookies || undefined,
     createdAt: Date.now(),
   };
@@ -192,6 +194,7 @@ export async function refreshSession(): Promise<boolean> {
     region: session.region,
     gameName: session.gameName,
     tagLine: session.tagLine,
+    country: session.country,
     riotCookies: session.riotCookies,
   });
 
@@ -248,6 +251,7 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
       region: refreshResult.tokens.region,
       gameName: refreshResult.tokens.gameName,
       tagLine: refreshResult.tokens.tagLine,
+      country: refreshResult.tokens.country,
       riotCookies: refreshResult.riotCookies,
       createdAt: Date.now(),
     };
