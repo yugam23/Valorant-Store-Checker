@@ -42,14 +42,25 @@ export async function GET() {
       `Profile fetched — fromCache: ${profileData.fromCache}, partial: ${profileData.partial}`
     );
 
-    // 4. Return ProfileData JSON — always HTTP 200; client reads partial flag
-    return NextResponse.json(profileData, {
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0",
+    // 4. Return ProfilePageData JSON — always HTTP 200; client reads partial flag
+    //    Merge session identity fields so the profile page has gameName, tagLine,
+    //    country, and region alongside the fetched profile data in one response.
+    return NextResponse.json(
+      {
+        ...profileData,
+        gameName: session.gameName,
+        tagLine: session.tagLine,
+        country: session.country,
+        region: session.region,
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0",
+        },
+      }
+    );
   } catch (error) {
     log.error("Unhandled error:", error);
     return NextResponse.json(
