@@ -112,16 +112,16 @@ export async function createSession(tokens: {
 }
 
 /**
- * Retrieves session by reference ID from cookie
+ * Internal: retrieves session ID + data from the cookie/store.
+ * Returns both so callers can update the store in-place without touching cookies.
  */
-export async function getSession(): Promise<SessionData | null> {
+async function getSessionInternal(): Promise<{ sessionId: string; data: SessionData } | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
     if (!token) return null;
 
-    // Verify JWT
     const { payload } = await jwtVerify(token, getSecretKey());
     const sessionId = (payload as SessionTokenPayload).sessionId;
 
@@ -130,15 +130,14 @@ export async function getSession(): Promise<SessionData | null> {
       return null;
     }
 
-    // Retrieve from Store
     const sessionData = await getSessionFromStore(sessionId);
-    
+
     if (!sessionData) {
       log.warn("Session %s not found in store (expired/deleted)", sessionId);
-      return null; // Force re-login
+      return null;
     }
 
-    return sessionData;
+    return { sessionId, data: sessionData };
 
   } catch (error) {
     log.error("Session retrieval failed:", error);
@@ -147,7 +146,16 @@ export async function getSession(): Promise<SessionData | null> {
 }
 
 /**
- * Deletes session from store and cookie
+ * Retrieves session by reference ID from cookie
+ */
+export async function getSession(): Promise<SessionData | null> {
+  const result = await getSessionInternal();
+  return result?.data ?? null;
+}
+
+/**
+ * Deletes session from store AND cookie.
+ * ONLY safe to call from Route Handlers or Server Actions.
  */
 export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies();
@@ -161,7 +169,7 @@ export async function deleteSession(): Promise<void> {
         log.debug("Deleting session %s", sessionId);
         await deleteSessionFromStore(sessionId);
       }
-    } catch (e) {
+    } catch {
       log.warn("Failed to delete session from store: invalid token");
     }
   }
@@ -201,13 +209,19 @@ export async function refreshSession(): Promise<boolean> {
   return true;
 }
 
+/**
+ * Gets session and refreshes tokens if expired.
+ * Safe to call from ANY context (Server Components, Route Handlers, etc.)
+ * because it only updates server-side store data, never modifies cookies.
+ */
 export async function getSessionWithRefresh(): Promise<SessionData | null> {
-  const session = await getSession();
+  const result = await getSessionInternal();
 
-  if (!session) {
+  if (!result) {
     return null;
   }
 
+  const { sessionId, data: session } = result;
   const tokenAge = Date.now() - (session.createdAt || 0);
   const isTokenExpired = tokenAge > TOKEN_EXPIRY_THRESHOLD;
 
@@ -225,7 +239,7 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
   if (!session.riotCookies) {
     log.warn("No stored Riot cookies for token refresh");
     if (isTokenDefinitelyDead) {
-      await deleteSession();
+      await deleteSessionFromStore(sessionId);
       return null;
     }
     return session;
@@ -237,12 +251,13 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
     if (!refreshResult.success) {
       log.warn("Token refresh failed: %s", refreshResult.error);
       if (isTokenDefinitelyDead) {
-        await deleteSession();
+        await deleteSessionFromStore(sessionId);
         return null;
       }
       return session;
     }
 
+    // Update store in-place with refreshed data (no cookie change needed)
     const freshSession: SessionData = {
       accessToken: refreshResult.tokens.accessToken,
       idToken: refreshResult.tokens.idToken,
@@ -256,14 +271,14 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
       createdAt: Date.now(),
     };
 
-    await createSession(freshSession);
-    log.info("Session refreshed successfully");
+    await saveSessionToStore(sessionId, freshSession, SESSION_MAX_AGE);
+    log.info("Session refreshed successfully (in-place update)");
 
     return freshSession;
   } catch (error) {
     log.error("Token refresh error:", error);
     if (isTokenDefinitelyDead) {
-      await deleteSession();
+      await deleteSessionFromStore(sessionId);
       return null;
     }
     return session;

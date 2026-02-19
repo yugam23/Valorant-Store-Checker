@@ -48,8 +48,8 @@ export async function GET() {
     return NextResponse.json(
       {
         ...profileData,
-        gameName: session.gameName,
-        tagLine: session.tagLine,
+        gameName: session.gameName ?? profileData.henrikName,
+        tagLine: session.tagLine ?? profileData.henrikTag,
         country: session.country,
         region: session.region,
       },

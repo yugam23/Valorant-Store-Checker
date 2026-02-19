@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/session";
 import { LoginForm } from "@/components/auth/LoginForm";
 
 export const metadata = {
@@ -5,7 +7,21 @@ export const metadata = {
   description: "Sign in with your Riot Games account to check your Valorant store.",
 };
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ addAccount?: string }>;
+}) {
+  const params = await searchParams;
+
+  // If user has a valid session (cookie + store), redirect to /store
+  // Skip this check for multi-account flow
+  if (!params.addAccount) {
+    const session = await getSession();
+    if (session) {
+      redirect("/store");
+    }
+  }
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 relative overflow-hidden">
       {/* Animated scan line */}

@@ -44,6 +44,9 @@ export async function GET() {
             entitlementsToken: session.entitlementsToken,
             puuid: session.puuid,
             region: session.region,
+            gameName: session.gameName,
+            tagLine: session.tagLine,
+            country: session.country,
             riotCookies: session.riotCookies,
           }
         );

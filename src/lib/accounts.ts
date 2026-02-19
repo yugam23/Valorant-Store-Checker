@@ -52,6 +52,9 @@ export interface SessionTokens {
   entitlementsToken: string;
   puuid: string;
   region: string;
+  gameName?: string;
+  tagLine?: string;
+  country?: string;
   riotCookies?: string;
 }
 
@@ -244,10 +247,12 @@ export async function addAccount(
   // Construct SessionData
   const sessionData: SessionData = {
     accessToken: sessionTokens.accessToken,
-    // idToken: sessionTokens.idToken, // if available?
     entitlementsToken: sessionTokens.entitlementsToken,
     puuid: sessionTokens.puuid,
     region: sessionTokens.region,
+    gameName: sessionTokens.gameName ?? entry.gameName,
+    tagLine: sessionTokens.tagLine ?? entry.tagLine,
+    country: sessionTokens.country,
     riotCookies: sessionTokens.riotCookies,
     createdAt: Date.now(),
   };

@@ -8,8 +8,9 @@
  * - /api/store - Store API endpoints
  *
  * Logic:
- * - If session exists and user tries to access /login -> redirect to /store
- * - If no session and user tries to access protected routes -> redirect to /login
+ * - If no session cookie and user tries to access protected routes -> redirect to /login
+ * - Login page redirect (authenticated -> /store) is handled by the login page itself
+ *   via getSession(), which properly validates both cookie AND server-side store.
  * - All other routes pass through
  */
 
@@ -21,9 +22,6 @@ const SESSION_COOKIE_NAME = "valorant_session";
 // Routes that require authentication
 const PROTECTED_ROUTES = ["/store", "/api/store", "/inventory", "/api/inventory", "/api/profile", "/profile"];
 
-// Routes that should redirect to store if already authenticated
-const AUTH_ROUTES = ["/login"];
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -31,14 +29,9 @@ export function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
   const hasSession = !!sessionCookie;
 
-  // If user is authenticated and tries to access login page
-  // Allow access with ?addAccount=true for multi-account flow
-  if (hasSession && AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
-    if (!request.nextUrl.searchParams.has("addAccount")) {
-      const storeUrl = new URL("/store", request.url);
-      return NextResponse.redirect(storeUrl);
-    }
-  }
+  // Note: We do NOT redirect authenticated users away from /login in middleware,
+  // because middleware can only check cookie existence, not session store validity.
+  // The login page itself checks getSession() and redirects to /store if truly valid.
 
   // If user is not authenticated and tries to access protected route
   if (!hasSession && PROTECTED_ROUTES.some((route) => pathname.startsWith(route))) {

@@ -38,7 +38,9 @@ export interface ProfileData {
   playerCardLargeArt?: string;
   playerTitleText?: string;         // null-safe: titleText can be null from API
 
-  // From Henrik
+  // From Henrik account
+  henrikName?: string;
+  henrikTag?: string;
   henrikAccountLevel?: number;
   competitiveTier?: number;
   competitiveTierName?: string;     // e.g. "Gold 1"
@@ -129,6 +131,8 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     playerTitleText: titleData?.titleText ?? undefined,
 
     // Henrik data
+    henrikName: account?.name,
+    henrikTag: account?.tag,
     henrikAccountLevel: account?.account_level,
     competitiveTier: mmr?.currenttier,
     competitiveTierName: mmr?.currenttier_patched,

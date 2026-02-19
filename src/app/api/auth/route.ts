@@ -81,7 +81,10 @@ export async function POST(request: NextRequest) {
           entitlementsToken: result.tokens.entitlementsToken,
           puuid: result.tokens.puuid,
           region: result.tokens.region,
-          riotCookies: result.tokens.riotCookies, // Should use the ones from token set
+          gameName: result.tokens.gameName,
+          tagLine: result.tokens.tagLine,
+          country: result.tokens.country,
+          riotCookies: result.tokens.riotCookies,
         }
       );
 
@@ -133,6 +136,9 @@ export async function POST(request: NextRequest) {
           entitlementsToken: result.tokens.entitlementsToken,
           puuid: result.tokens.puuid,
           region: result.tokens.region,
+          gameName: result.tokens.gameName,
+          tagLine: result.tokens.tagLine,
+          country: result.tokens.country,
           riotCookies: result.riotCookies,
         }
       );
@@ -184,6 +190,9 @@ export async function POST(request: NextRequest) {
           entitlementsToken: result.tokens.entitlementsToken,
           puuid: result.tokens.puuid,
           region: result.tokens.region,
+          gameName: result.tokens.gameName,
+          tagLine: result.tokens.tagLine,
+          country: result.tokens.country,
           riotCookies: result.riotCookies ?? "",
         }
       );
@@ -298,6 +307,9 @@ export async function POST(request: NextRequest) {
           entitlementsToken: tokens.entitlementsToken,
           puuid: tokens.puuid,
           region: tokens.region,
+          gameName: tokens.gameName,
+          tagLine: tokens.tagLine,
+          country: tokens.country,
           riotCookies,
         }
       );

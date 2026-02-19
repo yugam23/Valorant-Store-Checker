@@ -6,8 +6,9 @@ const REGION_LABELS: Record<string, string> = {
 };
 
 function countryCodeToFlag(code: string): string {
+  const twoLetter = code.slice(0, 2).toUpperCase();
   const base = 0x1f1e6 - 65;
-  return [...code.toUpperCase()]
+  return [...twoLetter]
     .map((char) => String.fromCodePoint(base + char.charCodeAt(0)))
     .join("");
 }
