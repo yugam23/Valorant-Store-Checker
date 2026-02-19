@@ -47,6 +47,10 @@ export async function Header() {
             History
             <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />
           </Link>
+          <Link href="/profile" className="group relative py-1 text-sm font-medium text-zinc-400 hover:text-white transition-colors">
+            Profile
+            <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />
+          </Link>
           {isLoggedIn ? (
             <>
               <WishlistButton />
