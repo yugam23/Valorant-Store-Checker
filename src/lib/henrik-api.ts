@@ -55,6 +55,20 @@ export interface HenrikMMRCurrentData {
   old: boolean;
 }
 
+/** Peak rank data nested inside Henrik /v2/by-puuid/mmr response.
+ * Note: images field is NOT reliably present in v2 — omitted intentionally.
+ */
+export interface HenrikMMRHighestRank {
+  tier?: number;
+  patched?: string;
+}
+
+/** Full MMR response data from Henrik /v2/by-puuid/mmr */
+export interface HenrikMMRData {
+  current_data: HenrikMMRCurrentData;
+  highest_rank?: HenrikMMRHighestRank;
+}
+
 // ---------------------------------------------------------------------------
 // Cache
 // ---------------------------------------------------------------------------
@@ -65,7 +79,7 @@ interface CacheEntry<T> {
 }
 
 const accountCache = new Map<string, CacheEntry<HenrikAccount>>();
-const mmrCache = new Map<string, CacheEntry<HenrikMMRCurrentData>>();
+const mmrCache = new Map<string, CacheEntry<HenrikMMRData>>();
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -128,7 +142,7 @@ export async function getHenrikAccount(puuid: string, region: string): Promise<H
  * Results are cached for 5 minutes. On failure, stale cache is returned.
  * Never throws — returns null if both live fetch and stale cache are unavailable.
  */
-export async function getHenrikMMR(puuid: string, region: string): Promise<HenrikMMRCurrentData | null> {
+export async function getHenrikMMR(puuid: string, region: string): Promise<HenrikMMRData | null> {
   const cached = mmrCache.get(puuid);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
     log.info("Returning cached Henrik MMR for PUUID:", puuid.substring(0, 8));
@@ -136,6 +150,8 @@ export async function getHenrikMMR(puuid: string, region: string): Promise<Henri
   }
 
   try {
+    // NOTE: Henrik v2 MMR is deprecated in favour of v3 — stay on v2 until
+    // v3 is stable. Update to /valorant/v3/by-puuid/mmr when v3 is confirmed.
     const response = await fetch(
       `${HENRIK_API_BASE}/valorant/v2/by-puuid/mmr/${region}/${puuid}`,
       {
@@ -150,7 +166,10 @@ export async function getHenrikMMR(puuid: string, region: string): Promise<Henri
     }
 
     const json = await response.json();
-    const mmrData = json.data.current_data as HenrikMMRCurrentData;
+    const mmrData: HenrikMMRData = {
+      current_data: json.data.current_data as HenrikMMRCurrentData,
+      highest_rank: json.data.highest_rank as HenrikMMRHighestRank | undefined,
+    };
     mmrCache.set(puuid, { data: mmrData, fetchedAt: Date.now() });
     log.info("Henrik MMR fetched successfully for PUUID:", puuid.substring(0, 8));
     return mmrData;
