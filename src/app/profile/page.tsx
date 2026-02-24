@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { PlayerCardBanner } from "@/components/profile/PlayerCardBanner";
 import { IdentityInfo } from "@/components/profile/IdentityInfo";
+import { AccountLevelBadge } from "@/components/profile/AccountLevelBadge";
+import { RankDisplay } from "@/components/profile/RankDisplay";
+import { RRProgressBar } from "@/components/profile/RRProgressBar";
 import type { ProfilePageData } from "@/types/profile";
+
+function formatCachedAt(cachedAt: number): string {
+  const date = new Date(cachedAt);
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 type LoadingState = "idle" | "loading" | "success" | "error";
 
@@ -56,6 +64,15 @@ export default function ProfilePage() {
               <div className="h-8 w-64 bg-void-surface rounded" />
               <div className="h-4 w-48 bg-void-surface rounded" />
             </div>
+            {/* Level skeleton */}
+            <div className="h-16 w-32 bg-void-surface rounded" />
+            {/* Rank skeleton */}
+            <div className="flex gap-4">
+              <div className="h-20 flex-1 bg-void-surface rounded" />
+              <div className="h-20 flex-1 bg-void-surface rounded" />
+            </div>
+            {/* Progress bar skeleton */}
+            <div className="h-6 w-full bg-void-surface rounded" />
           </div>
         )}
 
@@ -142,6 +159,45 @@ export default function ProfilePage() {
                 region={profileData.region}
               />
             </div>
+
+            {/* Section 2: Account Level */}
+            <div
+              className="stagger-entrance px-1"
+              style={{ "--stagger-delay": "200ms" } as React.CSSProperties}
+            >
+              <AccountLevelBadge
+                accountLevel={profileData.accountLevel}
+                henrikAccountLevel={profileData.henrikAccountLevel}
+                hideAccountLevel={profileData.hideAccountLevel}
+              />
+            </div>
+
+            {/* Section 3: Competitive Rank */}
+            <div
+              className="stagger-entrance px-1"
+              style={{ "--stagger-delay": "300ms" } as React.CSSProperties}
+            >
+              <RankDisplay
+                competitiveTierName={profileData.competitiveTierName}
+                competitiveTierIcon={profileData.competitiveTierIcon}
+                peakTierName={profileData.peakTierName}
+              />
+            </div>
+
+            {/* Section 4: RR Progress Bar */}
+            <div
+              className="stagger-entrance px-1"
+              style={{ "--stagger-delay": "400ms" } as React.CSSProperties}
+            >
+              <RRProgressBar rankingInTier={profileData.rankingInTier} />
+            </div>
+
+            {/* Last updated timestamp — shown when data is from cache */}
+            {profileData.fromCache && profileData.cachedAt && (
+              <p className="text-zinc-500 text-[10px] font-display uppercase tracking-wider px-1">
+                Last updated {formatCachedAt(profileData.cachedAt)}
+              </p>
+            )}
           </div>
         )}
       </div>
