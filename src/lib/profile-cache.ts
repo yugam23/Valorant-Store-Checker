@@ -66,6 +66,7 @@ interface ProfileCacheEntry {
 }
 
 const cache = new Map<string, ProfileCacheEntry>();
+const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -81,11 +82,19 @@ const cache = new Map<string, ProfileCacheEntry>();
  * and image URLs via valorant-api.ts.
  *
  * Fallback behavior:
+ * - Cache hit (< 5 min old) → return with fromCache: true (INFR-03)
  * - Any real data obtained → cache and return (partial: false)
  * - All APIs failed + stale cache → return stale with fromCache: true
  * - All APIs failed + no cache → return partial profile (partial: true)
  */
 export async function getProfileData(tokens: StoreTokens, region: string): Promise<ProfileData> {
+  // Tier 0: Fresh cache hit — serve without hitting any APIs (INFR-03)
+  const cached = cache.get(tokens.puuid);
+  if (cached && Date.now() - cached.cachedAt < PROFILE_CACHE_TTL) {
+    log.info("Profile served from cache for PUUID:", tokens.puuid.substring(0, 8));
+    return { ...cached.data, fromCache: true, cachedAt: cached.cachedAt };
+  }
+
   // Tier 1: Fetch all sources in parallel; individual failures are tolerated
   const [loadoutResult, accountResult, mmrResult] = await Promise.allSettled([
     getPlayerLoadout(tokens),
