@@ -8,8 +8,8 @@
 import { getStorefront, getWallet } from "@/lib/riot-store";
 import { getWeaponSkins, getContentTiers, getSkinVideo, getBundleByUuid } from "@/lib/valorant-api";
 import { getCachedStore, setCachedStore } from "@/lib/store-cache";
-import { StoreData, StoreItem, BundleItem, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
-import { CURRENCY_IDS, RiotStorefront, RiotWallet } from "@/types/riot";
+import { StoreData, StoreItem, BundleItem, BundleData, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
+import { CURRENCY_IDS, RiotStorefront, RiotBundle, RiotWallet } from "@/types/riot";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Store Service");
@@ -188,28 +188,29 @@ export async function hydrateNightMarket(
 }
 
 /**
- * Hydrate Featured Bundle (if available)
+ * Hydrate a single bundle from the Riot storefront response.
+ * Gracefully handles bundles/items not yet indexed by valorant-api.com.
  */
-export async function hydrateBundle(
-  storefront: RiotStorefront,
+async function hydrateSingleBundle(
+  rawBundle: RiotBundle,
   staticData: StaticData
-): Promise<StoreData['bundle']> {
-  if (!storefront.FeaturedBundle?.Bundle) return undefined;
-
+): Promise<BundleData | null> {
   const { skins, tiers } = staticData;
-  const featuredBundle = storefront.FeaturedBundle.Bundle;
 
-  // Fetch bundle metadata from Valorant-API
-  const bundleMetadata = await getBundleByUuid(featuredBundle.DataAssetID);
+  // Fetch bundle metadata from Valorant-API (may return null for new bundles)
+  const bundleMetadata = await getBundleByUuid(rawBundle.DataAssetID);
+  if (!bundleMetadata) {
+    log.warn("Bundle %s not found in valorant-api.com — using fallback display data", rawBundle.DataAssetID);
+  }
 
   // Hydrate bundle items
   const bundleItems: BundleItem[] = (await Promise.all(
-    featuredBundle.Items.map(async (item): Promise<BundleItem | null> => {
+    rawBundle.Items.map(async (item): Promise<BundleItem | null> => {
       const itemTypeId = item.Item.ItemTypeID;
       const itemId = item.Item.ItemID;
       const itemTypeName = getItemTypeName(itemTypeId) ?? "Unknown";
 
-      let displayName = "Unknown Item";
+      let displayName = itemTypeName !== "Unknown" ? `New ${itemTypeName}` : "Unknown Item";
       let displayIcon = "";
       let tierUuid: string | null = null;
       let tierName: string | null = null;
@@ -218,16 +219,31 @@ export async function hydrateBundle(
       if (itemTypeId === ITEM_TYPE_WEAPON_SKIN) {
         // ── Weapon Skin ──
         const skin = findSkin(itemId, skins);
-        if (!skin) return null;
-
-        const tier = skin.contentTierUuid ? findTier(skin.contentTierUuid, tiers) : null;
-        tierColor = tier
-          ? (TIER_COLORS[tier.displayName] || `#${tier.highlightColor.slice(0, 6)}`)
-          : DEFAULT_TIER_COLOR;
-        tierUuid = tier?.uuid || null;
-        tierName = tier?.displayName || null;
-        displayName = skin.displayName;
-        displayIcon = skin.levels?.[0]?.displayIcon || skin.displayIcon || "";
+        if (skin) {
+          const tier = skin.contentTierUuid ? findTier(skin.contentTierUuid, tiers) : null;
+          tierColor = tier
+            ? (TIER_COLORS[tier.displayName] || `#${tier.highlightColor.slice(0, 6)}`)
+            : DEFAULT_TIER_COLOR;
+          tierUuid = tier?.uuid || null;
+          tierName = tier?.displayName || null;
+          displayName = skin.displayName;
+          displayIcon = skin.levels?.[0]?.displayIcon || skin.displayIcon || "";
+        } else {
+          // New skin not yet in static data — try fetching directly
+          displayName = "New Skin";
+          try {
+            const res = await fetch(`https://valorant-api.com/v1/weapons/skinlevels/${itemId}`);
+            if (res.ok) {
+              const json = await res.json();
+              if (json.status === 200 && json.data) {
+                displayName = json.data.displayName || displayName;
+                displayIcon = json.data.displayIcon || "";
+              }
+            }
+          } catch {
+            log.warn("Failed to fetch skin level asset for %s", itemId);
+          }
+        }
       } else {
         // ── Non-skin item: fetch from Valorant-API ──
         const endpointMap: Record<string, string> = {
@@ -277,26 +293,67 @@ export async function hydrateBundle(
     })
   )).filter((item): item is BundleItem => item !== null);
 
-  if (bundleItems.length > 0 && bundleMetadata) {
-    const totalBasePrice = bundleItems.reduce((sum, item) => sum + item.basePrice, 0);
-    const totalDiscountedPrice = bundleItems.reduce((sum, item) => sum + item.discountedPrice, 0);
+  if (bundleItems.length === 0) return null;
 
-    return {
-      bundleUuid: featuredBundle.ID,
-      dataAssetID: featuredBundle.DataAssetID,
-      displayName: bundleMetadata.displayName,
-      displayIcon: bundleMetadata.displayIcon,
-      displayIcon2: bundleMetadata.displayIcon2,
-      items: bundleItems,
-      totalBasePrice,
-      totalDiscountedPrice,
-      durationRemainingInSeconds: featuredBundle.DurationRemainingInSeconds,
-      expiresAt: new Date(Date.now() + featuredBundle.DurationRemainingInSeconds * 1000),
-      wholesaleOnly: featuredBundle.WholesaleOnly,
-    };
+  // Derive bundle display name
+  let displayName = "Featured Bundle";
+  if (bundleMetadata?.displayName) {
+    displayName = bundleMetadata.displayName;
+  } else {
+    const firstSkinItem = bundleItems.find(i => i.itemType === "Skin");
+    if (firstSkinItem && firstSkinItem.displayName !== "New Skin") {
+      const parts = firstSkinItem.displayName.split(" ");
+      if (parts.length > 1) {
+        displayName = parts.slice(0, -1).join(" ") + " Bundle";
+      }
+    }
   }
-  
-  return undefined;
+
+  // Use v3 API pricing fields if available, otherwise compute from items
+  const vpCurrencyId = CURRENCY_IDS.VP;
+  const totalBasePrice = rawBundle.TotalBaseCost?.[vpCurrencyId]
+    ?? bundleItems.reduce((sum, item) => sum + item.basePrice, 0);
+  const totalDiscountedPrice = rawBundle.TotalDiscountedCost?.[vpCurrencyId]
+    ?? bundleItems.reduce((sum, item) => sum + item.discountedPrice, 0);
+
+  return {
+    bundleUuid: rawBundle.ID,
+    dataAssetID: rawBundle.DataAssetID,
+    displayName,
+    displayIcon: bundleMetadata?.displayIcon || null,
+    displayIcon2: bundleMetadata?.displayIcon2 || null,
+    items: bundleItems,
+    totalBasePrice,
+    totalDiscountedPrice,
+    durationRemainingInSeconds: rawBundle.DurationRemainingInSeconds,
+    expiresAt: new Date(Date.now() + rawBundle.DurationRemainingInSeconds * 1000),
+    wholesaleOnly: rawBundle.WholesaleOnly,
+  };
+}
+
+/**
+ * Hydrate ALL featured bundles from the storefront.
+ * Returns an array of BundleData — one per active bundle.
+ */
+export async function hydrateBundles(
+  storefront: RiotStorefront,
+  staticData: StaticData
+): Promise<BundleData[]> {
+  // v3 API: use Bundles[] array which contains all active bundles
+  const rawBundles = storefront.FeaturedBundle?.Bundles;
+  if (!rawBundles || rawBundles.length === 0) {
+    // Fallback: try the singular Bundle field
+    const singleBundle = storefront.FeaturedBundle?.Bundle;
+    if (!singleBundle) return [];
+    const hydrated = await hydrateSingleBundle(singleBundle, staticData);
+    return hydrated ? [hydrated] : [];
+  }
+
+  const results = await Promise.all(
+    rawBundles.map(bundle => hydrateSingleBundle(bundle, staticData))
+  );
+
+  return results.filter((b): b is BundleData => b !== null);
 }
 
 export { getStorefront, getWallet };

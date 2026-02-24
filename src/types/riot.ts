@@ -10,46 +10,54 @@
 /**
  * Player's storefront containing daily offers and bonus store
  */
+/** Shape of individual bundle items in the Riot storefront response */
+export interface RiotBundleItem {
+  Item: {
+    ItemTypeID: string;
+    ItemID: string;
+    Amount: number;
+  };
+  BasePrice: number;
+  CurrencyID: string;
+  DiscountPercent: number;
+  DiscountedPrice: number;
+  IsPromoItem: boolean;
+}
+
+/** Shape of a bundle object from the Riot v3 storefront */
+export interface RiotBundle {
+  ID: string;
+  DataAssetID: string;
+  CurrencyID: string;
+  Items: RiotBundleItem[];
+  ItemOffers?: Array<{
+    BundleItemOfferID: string;
+    Offer: {
+      OfferID: string;
+      IsDirectPurchase: boolean;
+      StartDate: string;
+      Cost: Record<string, number>;
+      Rewards: Array<{
+        ItemTypeID: string;
+        ItemID: string;
+        Quantity: number;
+      }>;
+    };
+    DiscountPercent: number;
+    DiscountedCost: Record<string, number>;
+  }>;
+  TotalBaseCost?: Record<string, number>;
+  TotalDiscountedCost?: Record<string, number>;
+  TotalDiscountPercent?: number;
+  DurationRemainingInSeconds: number;
+  WholesaleOnly: boolean;
+  IsGiftable?: boolean;
+}
+
 export interface RiotStorefront {
   FeaturedBundle: {
-    Bundle: {
-      ID: string;
-      DataAssetID: string;
-      CurrencyID: string;
-      Items: Array<{
-        Item: {
-          ItemTypeID: string;
-          ItemID: string;
-          Amount: number;
-        };
-        BasePrice: number;
-        CurrencyID: string;
-        DiscountPercent: number;
-        DiscountedPrice: number;
-        IsPromoItem: boolean;
-      }>;
-      DurationRemainingInSeconds: number;
-      WholesaleOnly: boolean;
-    };
-    Bundles: Array<{
-      ID: string;
-      DataAssetID: string;
-      CurrencyID: string;
-      Items: Array<{
-        Item: {
-          ItemTypeID: string;
-          ItemID: string;
-          Amount: number;
-        };
-        BasePrice: number;
-        CurrencyID: string;
-        DiscountPercent: number;
-        DiscountedPrice: number;
-        IsPromoItem: boolean;
-      }>;
-      DurationRemainingInSeconds: number;
-      WholesaleOnly: boolean;
-    }>;
+    Bundle: RiotBundle;
+    Bundles: RiotBundle[];
     BundleRemainingDurationInSeconds: number;
   };
   SkinsPanelLayout: {

@@ -42,7 +42,7 @@ export interface StoreData {
   expiresAt: Date; // When the store resets
   wallet?: WalletBalance; // Optional wallet data
   nightMarket?: NightMarketData; // Optional Night Market data
-  bundle?: BundleData; // Optional Featured Bundle data
+  bundles?: BundleData[]; // Featured Bundles (may be multiple)
   fromCache?: boolean; // Whether this data was served from cache (vs fresh from API)
   wishlistMatches?: string[]; // UUIDs of wishlisted skins currently in store
   puuid?: string; // Player UUID (added for history logging)
@@ -101,11 +101,11 @@ export interface BundleData {
   bundleUuid: string;
   dataAssetID: string;
   displayName: string;
-  displayIcon: string; // from Valorant-API bundle lookup
-  displayIcon2: string; // secondary image from Valorant-API
+  displayIcon: string | null; // from Valorant-API bundle lookup (null if not indexed yet)
+  displayIcon2: string | null; // secondary image from Valorant-API (null if not indexed yet)
   items: BundleItem[];
-  totalBasePrice: number; // sum of all item base prices
-  totalDiscountedPrice: number; // sum of all discounted prices (if any)
+  totalBasePrice: number;
+  totalDiscountedPrice: number;
   durationRemainingInSeconds: number;
   expiresAt: Date;
   wholesaleOnly: boolean;

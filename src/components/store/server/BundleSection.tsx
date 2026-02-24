@@ -1,5 +1,5 @@
-import { FeaturedBundle } from "@/components/store/FeaturedBundle";
-import { hydrateBundle, getStoreStaticData } from "@/lib/store-service";
+import { FeaturedBundleCarousel } from "@/components/store/FeaturedBundle";
+import { hydrateBundles, getStoreStaticData } from "@/lib/store-service";
 import { RiotStorefront } from "@/types/riot";
 
 interface BundleSectionProps {
@@ -8,13 +8,13 @@ interface BundleSectionProps {
 }
 
 export async function BundleSection({ storefront, staticData }: BundleSectionProps) {
-  const bundle = await hydrateBundle(storefront, staticData);
+  const bundles = await hydrateBundles(storefront, staticData);
 
-  if (!bundle) return null;
+  if (bundles.length === 0) return null;
 
   return (
     <div className="mb-12">
-      <FeaturedBundle bundle={bundle} />
+      <FeaturedBundleCarousel bundles={bundles} />
       <div className="h-[1px] bg-gradient-to-r from-valorant-red/50 via-white/10 to-transparent mt-8" />
     </div>
   );
