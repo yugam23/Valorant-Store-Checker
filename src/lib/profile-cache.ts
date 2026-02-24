@@ -14,7 +14,7 @@
 
 import { StoreTokens } from "./riot-store";
 import { getPlayerLoadout } from "./riot-loadout";
-import { getHenrikAccount, getHenrikMMR } from "./henrik-api";
+import { getHenrikAccount, getHenrikMMR, type HenrikMMRData } from "./henrik-api";
 import { getPlayerCardByUuid, getPlayerTitleByUuid } from "./valorant-api";
 import { createLogger } from "./logger";
 
@@ -47,7 +47,8 @@ export interface ProfileData {
   competitiveTierIcon?: string;     // rank icon URL
   rankingInTier?: number;           // RR in current tier (0-100)
   mmrChangeToLastGame?: number;
-  peakTier?: number;                // Note: Henrik v2 doesn't provide peak rank directly — defer to Phase 8
+  peakTier?: number;                // highest_rank.tier from Henrik v2 MMR
+  peakTierName?: string;            // highest_rank.patched from Henrik v2 MMR (e.g. "Gold 3")
 
   // Metadata
   fromCache: boolean;
@@ -134,11 +135,13 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     henrikName: account?.name,
     henrikTag: account?.tag,
     henrikAccountLevel: account?.account_level,
-    competitiveTier: mmr?.currenttier,
-    competitiveTierName: mmr?.currenttier_patched,
-    competitiveTierIcon: mmr?.images.large,
-    rankingInTier: mmr?.ranking_in_tier,
-    mmrChangeToLastGame: mmr?.mmr_change_to_last_game,
+    competitiveTier: mmr?.current_data.currenttier,
+    competitiveTierName: mmr?.current_data.currenttier_patched,
+    competitiveTierIcon: mmr?.current_data.images.large,
+    rankingInTier: mmr?.current_data.ranking_in_tier,
+    mmrChangeToLastGame: mmr?.current_data.mmr_change_to_last_game,
+    peakTier: mmr?.highest_rank?.tier,
+    peakTierName: mmr?.highest_rank?.patched,
 
     // Metadata — partial if we got nothing useful from either primary source
     fromCache: false,
