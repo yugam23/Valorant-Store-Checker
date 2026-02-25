@@ -29,10 +29,9 @@ function NightMarketTimer({ expiresAt }: { expiresAt: string | Date }) {
     return `${minutes}m ${seconds}s remaining`;
   }, [expiresAt]);
 
-  const [timeRemaining, setTimeRemaining] = useState(calcTime());
+  const [timeRemaining, setTimeRemaining] = useState(calcTime);
 
   useEffect(() => {
-    setTimeRemaining(calcTime());
     const id = setInterval(() => setTimeRemaining(calcTime()), 1000);
     return () => clearInterval(id);
   }, [calcTime]);

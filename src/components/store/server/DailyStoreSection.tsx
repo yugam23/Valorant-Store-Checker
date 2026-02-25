@@ -29,6 +29,7 @@ export async function DailyStoreSection({ session, storefront, staticData }: Dai
   // Get active account for history logging context
   const activeAccount = await getActiveAccount();
 
+  // eslint-disable-next-line react-hooks/purity -- server component; Date.now() is stable per request
   const expiresAt = new Date(Date.now() + storefront.SkinsPanelLayout.SingleItemOffersRemainingDurationInSeconds * 1000).toISOString();
 
   return (

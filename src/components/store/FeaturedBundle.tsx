@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import type { BundleData } from "@/types/store";
 import { getEditionIconPath } from "@/lib/edition-icons";
@@ -13,10 +13,20 @@ interface FeaturedBundleProps {
   bundle: BundleData;
 }
 
+function BundleDigitCard({ value }: { value: string }) {
+  return (
+    <span className="inline-block w-10 h-12 leading-[3rem] text-center text-2xl font-mono font-bold text-light bg-void-deep angular-card-sm">
+      {value}
+    </span>
+  );
+}
+
+function BundleSeparator() {
+  return <span className="text-[#F0B232] text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>;
+}
+
 /** Countdown timer for bundle expiration */
 function BundleCountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
-  const [timeLeft, setTimeLeft] = useState({ h: "00", m: "00", s: "00" });
-
   const calcTime = useCallback(() => {
     const diff = new Date(expiresAt).getTime() - Date.now();
     if (diff <= 0) return { h: "00", m: "00", s: "00" };
@@ -26,32 +36,23 @@ function BundleCountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
     return { h, m, s };
   }, [expiresAt]);
 
+  const [timeLeft, setTimeLeft] = useState(calcTime);
+
   useEffect(() => {
-    setTimeLeft(calcTime());
     const id = setInterval(() => setTimeLeft(calcTime()), 1000);
     return () => clearInterval(id);
   }, [calcTime]);
 
-  const DigitCard = ({ value }: { value: string }) => (
-    <span className="inline-block w-10 h-12 leading-[3rem] text-center text-2xl font-mono font-bold text-light bg-void-deep angular-card-sm">
-      {value}
-    </span>
-  );
-
-  const Separator = () => (
-    <span className="text-[#F0B232] text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>
-  );
-
   return (
     <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${timeLeft.h} hours ${timeLeft.m} minutes ${timeLeft.s} seconds remaining`}>
-      <DigitCard value={timeLeft.h[0]} />
-      <DigitCard value={timeLeft.h[1]} />
-      <Separator />
-      <DigitCard value={timeLeft.m[0]} />
-      <DigitCard value={timeLeft.m[1]} />
-      <Separator />
-      <DigitCard value={timeLeft.s[0]} />
-      <DigitCard value={timeLeft.s[1]} />
+      <BundleDigitCard value={timeLeft.h[0]} />
+      <BundleDigitCard value={timeLeft.h[1]} />
+      <BundleSeparator />
+      <BundleDigitCard value={timeLeft.m[0]} />
+      <BundleDigitCard value={timeLeft.m[1]} />
+      <BundleSeparator />
+      <BundleDigitCard value={timeLeft.s[0]} />
+      <BundleDigitCard value={timeLeft.s[1]} />
     </div>
   );
 }
@@ -287,11 +288,13 @@ function FeaturedBundle({ bundle }: FeaturedBundleProps) {
 /** Carousel wrapper for multiple featured bundles */
 export function FeaturedBundleCarousel({ bundles }: FeaturedBundleCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const prevLengthRef = useRef(bundles.length);
 
-  // Reset if bundles change
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [bundles.length]);
+  // Reset to first slide when the number of bundles changes
+  if (prevLengthRef.current !== bundles.length) {
+    prevLengthRef.current = bundles.length;
+    if (activeIndex !== 0) setActiveIndex(0);
+  }
 
   if (bundles.length === 0) return null;
 

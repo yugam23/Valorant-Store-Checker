@@ -13,10 +13,20 @@ interface DailyStoreClientProps {
   account?: { gameName?: string; tagLine?: string };
 }
 
+function DigitCard({ value }: { value: string }) {
+  return (
+    <span className="inline-block w-10 h-12 leading-[3rem] text-center text-2xl font-mono font-bold text-light bg-void-deep angular-card-sm">
+      {value}
+    </span>
+  );
+}
+
+function Separator() {
+  return <span className="text-valorant-red text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>;
+}
+
 /** Inline countdown timer with individual digit cards */
 function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
-  const [timeLeft, setTimeLeft] = useState({ h: "00", m: "00", s: "00" });
-
   const calcTime = useCallback(() => {
     const diff = new Date(expiresAt).getTime() - Date.now();
     if (diff <= 0) return { h: "00", m: "00", s: "00" };
@@ -26,21 +36,12 @@ function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
     return { h, m, s };
   }, [expiresAt]);
 
+  const [timeLeft, setTimeLeft] = useState(calcTime);
+
   useEffect(() => {
-    setTimeLeft(calcTime());
     const id = setInterval(() => setTimeLeft(calcTime()), 1000);
     return () => clearInterval(id);
   }, [calcTime]);
-
-  const DigitCard = ({ value }: { value: string }) => (
-    <span className="inline-block w-10 h-12 leading-[3rem] text-center text-2xl font-mono font-bold text-light bg-void-deep angular-card-sm">
-      {value}
-    </span>
-  );
-
-  const Separator = () => (
-    <span className="text-valorant-red text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>
-  );
 
   return (
     <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${timeLeft.h} hours ${timeLeft.m} minutes ${timeLeft.s} seconds remaining`}>

@@ -8,11 +8,6 @@ export function WishlistButton() {
   const [wishlistCount, setWishlistCount] = useState(0);
   const [hasStoreMatches] = useState(false);
 
-  useEffect(() => {
-    // Fetch wishlist count on mount
-    fetchWishlistCount();
-  }, []);
-
   const fetchWishlistCount = async () => {
     try {
       const response = await fetch("/api/wishlist", {
@@ -31,6 +26,11 @@ export function WishlistButton() {
       console.error("Failed to fetch wishlist count:", err);
     }
   };
+
+  useEffect(() => {
+    // Fetch wishlist count on mount
+    fetchWishlistCount();
+  }, []);
 
   const handlePanelClose = () => {
     setIsPanelOpen(false);
