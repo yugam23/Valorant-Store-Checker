@@ -4,6 +4,8 @@
 
 import Dexie, { Table } from 'dexie';
 import { StoreRotation } from '@/types/history';
+import { createLogger } from "@/lib/logger";
+const log = createLogger("db");
 
 /**
  * ValorantDB - IndexedDB database for storing historical store rotations
@@ -33,6 +35,6 @@ export let db: ValorantDB | null = null;
 try {
   db = new ValorantDB();
 } catch (error) {
-  console.warn('IndexedDB unavailable - store history will not be persisted:', error);
+  log.warn('IndexedDB unavailable - store history will not be persisted:', error);
   db = null;
 }
