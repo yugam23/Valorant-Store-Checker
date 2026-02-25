@@ -71,6 +71,14 @@ function extractWeaponName(displayName: string): string {
 }
 
 /**
+ * Clears the in-memory inventory cache for a specific user.
+ * Call this to force a fresh fetch on the next request.
+ */
+export function clearInventoryCache(puuid: string): void {
+  inventoryCache.delete(puuid);
+}
+
+/**
  * Fetches player's owned weapon skins from Riot PD entitlements API
  * and hydrates them with asset data from Valorant-API
  */
@@ -147,6 +155,30 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
 
     if (!skin) {
       log.warn(`Skin not found in Valorant-API: ${uuid}`);
+
+      // Don't drop unknown skins — create a fallback entry so the user
+      // can still see them in the collection (e.g. brand-new releases
+      // not yet indexed by valorant-api.com).
+      if (!seenSkinUuids.has(uuid.toLowerCase())) {
+        seenSkinUuids.add(uuid.toLowerCase());
+        const fallbackWeapon = "Unknown";
+        weaponNamesSet.add(fallbackWeapon);
+
+        ownedSkins.push({
+          uuid,
+          displayName: "New Skin",
+          displayIcon: "",
+          streamedVideo: null,
+          wallpaper: null,
+          tierUuid: null,
+          tierName: null,
+          tierColor: DEFAULT_TIER_COLOR,
+          chromaCount: 0,
+          levelCount: 1,
+          assetPath: "",
+          weaponName: fallbackWeapon,
+        });
+      }
       continue;
     }
 
