@@ -49,9 +49,7 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
       headers: {
         "Content-Type": "application/json",
       },
-      next: {
-        revalidate: 86400, // Next.js cache: 24 hours
-      },
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -102,9 +100,7 @@ export async function getContentTiers(): Promise<ValorantContentTier[]> {
       headers: {
         "Content-Type": "application/json",
       },
-      next: {
-        revalidate: 86400, // Next.js cache: 24 hours
-      },
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -155,9 +151,7 @@ export async function getBundles(): Promise<ValorantBundle[]> {
       headers: {
         "Content-Type": "application/json",
       },
-      next: {
-        revalidate: 86400, // Next.js cache: 24 hours
-      },
+      cache: "no-store",
     });
 
     if (!response.ok) {
