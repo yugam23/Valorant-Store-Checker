@@ -100,8 +100,8 @@ export interface BundleData {
   bundleUuid: string;
   dataAssetID: string;
   displayName: string;
-  displayIcon: string | null; // from Valorant-API bundle lookup (null if not indexed yet)
-  displayIcon2: string | null; // secondary image from Valorant-API (null if not indexed yet)
+  displayIcon: string; // from Valorant-API bundle lookup, or CDN fallback URL
+  displayIcon2: string; // secondary image from Valorant-API, or CDN fallback URL
   items: BundleItem[];
   totalBasePrice: number;
   totalDiscountedPrice: number;
