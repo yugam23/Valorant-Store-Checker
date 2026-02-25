@@ -47,7 +47,6 @@ next-env.d.ts
 .planning/
 .playwright-mcp/
 .session-data/
-temp-init/
 CLAUDE.md 
 rso-example-app/
 ROADMAP_ENCYCLOPEDIA.md
