@@ -3,8 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { StoreGrid } from "./StoreGrid";
 import type { StoreItem } from "@/types/store";
-import type { WishlistData } from "@/types/wishlist";
-
 import { logStoreRotation } from "@/lib/store-history";
 
 interface DailyStoreClientProps {

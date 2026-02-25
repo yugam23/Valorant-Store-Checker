@@ -287,7 +287,7 @@ export async function authenticateRiotAccount(
     // Step 3b: Handle auth failure
     if (authData.type !== "response") {
       const errorDetail =
-        (authData as any).error || "Unknown authentication error";
+        (authData as AuthResponse & { error?: string }).error || "Unknown authentication error";
       const country = authData.country ? ` (Region: ${authData.country})` : "";
       return {
         success: false,

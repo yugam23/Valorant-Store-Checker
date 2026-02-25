@@ -6,7 +6,7 @@ import { WishlistPanel } from "../wishlist/WishlistPanel";
 export function WishlistButton() {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [wishlistCount, setWishlistCount] = useState(0);
-  const [hasStoreMatches, setHasStoreMatches] = useState(false);
+  const [hasStoreMatches] = useState(false);
 
   useEffect(() => {
     // Fetch wishlist count on mount

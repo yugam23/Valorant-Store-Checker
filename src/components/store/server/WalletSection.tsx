@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { WalletDisplay } from "@/components/store/WalletDisplay";
 import { getWallet } from "@/lib/store-service";
 import { StoreTokens } from "@/lib/riot-store";

@@ -33,8 +33,8 @@ export async function launchBasicBrowser(): Promise<{ success: boolean; error?: 
 }
 
 export async function authenticateWithBrowser(
-  username: string,
-  pass: string
+  _username: string,
+  _pass: string
 ) {
   return { success: false as const, error: "Automated browser login is deprecated. Please use the 'Launch Riot Login' button." };
 }

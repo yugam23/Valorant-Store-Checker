@@ -149,7 +149,7 @@ async function loadAccountSession(puuid: string): Promise<SessionData | null> {
 
     // Verify JWT and extract sessionId
     const { payload } = await jwtVerify(token, getSecretKey());
-    const sessionId = (payload as any).sessionId;
+    const sessionId = (payload as { sessionId?: string }).sessionId;
 
     if (!sessionId) return null;
 
@@ -174,12 +174,12 @@ async function deleteAccountSession(puuid: string): Promise<void> {
   if (token) {
     try {
       const { payload } = await jwtVerify(token, getSecretKey());
-      const sessionId = (payload as any).sessionId;
+      const sessionId = (payload as { sessionId?: string }).sessionId;
       if (sessionId) {
         log.debug(`Deleting per-account session ${sessionId} for ${getShortPuuid(puuid)}`);
         await deleteSessionFromStore(sessionId);
       }
-    } catch (e) {
+    } catch {
       log.warn(`Failed to delete account session for ${getShortPuuid(puuid)}: invalid token`);
     }
   }

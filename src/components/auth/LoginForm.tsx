@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Loader2, Info } from "lucide-react";
 
@@ -15,8 +14,6 @@ interface AuthResponse {
 }
 
 export function LoginForm() {
-  const router = useRouter();
-
   // State
   const [pastedValue, setPastedValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);

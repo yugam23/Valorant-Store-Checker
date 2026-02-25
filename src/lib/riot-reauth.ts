@@ -13,7 +13,6 @@ import {
   getUserInfo,
   determineRegion,
   randomHex,
-  RIOT_AUTH_URL,
   CLIENT_ID,
   REDIRECT_URI,
   RIOT_CLIENT_UA,

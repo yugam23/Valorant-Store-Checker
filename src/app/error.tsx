@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 /**
  * Root Error Boundary
@@ -48,12 +49,12 @@ export default function GlobalError({
           >
             Try Again
           </button>
-          <a
+          <Link
             href="/"
             className="angular-btn px-6 py-3 bg-void-elevated text-zinc-300 font-display uppercase tracking-wider text-sm hover:bg-void-surface transition-colors"
           >
             Go Home
-          </a>
+          </Link>
         </div>
       </div>
     </div>

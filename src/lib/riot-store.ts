@@ -166,7 +166,7 @@ export async function fetchWithShardFallback(
   
   // Determine the order of regions to try
   const cachedShard = cachedShardByPuuid.get(tokens.puuid);
-  let attempts = [cachedShard || tokens.region];
+  const attempts = [cachedShard || tokens.region];
   for (const r of regions) {
     if (!attempts.includes(r)) attempts.push(r);
   }

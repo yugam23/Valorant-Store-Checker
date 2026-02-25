@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 interface RankDisplayProps {
   competitiveTierName?: string;
   competitiveTierIcon?: string;
@@ -24,7 +26,7 @@ export function RankDisplay({
         <span className="text-xs uppercase tracking-wider text-zinc-400">Current Rank</span>
         <div className="flex items-center gap-3">
           {competitiveTierIcon && (
-            <img src={competitiveTierIcon} alt={competitiveTierName} className="w-10 h-10 object-contain" />
+            <Image src={competitiveTierIcon} alt={competitiveTierName} width={40} height={40} className="object-contain" />
           )}
           <p className="font-display text-xl text-light">{competitiveTierName}</p>
         </div>

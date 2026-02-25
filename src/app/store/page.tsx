@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getSessionWithRefresh } from "@/lib/session";
-import { getStorefront, getWallet, getStoreStaticData } from "@/lib/store-service";
+import { getStorefront, getStoreStaticData } from "@/lib/store-service";
 import { WalletSection } from "@/components/store/server/WalletSection";
 import { DailyStoreSection } from "@/components/store/server/DailyStoreSection";
 import { BundleSection } from "@/components/store/server/BundleSection";
@@ -25,8 +25,6 @@ export default async function StorePage() {
   // We start the promises here
   const staticDataPromise = getStoreStaticData();
   const storefrontPromise = getStorefront(session);
-  const walletPromise = getWallet(session);
-
   // We await storefront here because it's the base for everything?
   // Actually, if we pass promises, the components need to be written to accept promises.
   // But my current SCs accept *data*.
