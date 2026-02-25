@@ -13,6 +13,8 @@
 
 import { cookies } from "next/headers";
 import type { WishlistData, WishlistItem, WishlistMatchResult } from "@/types/wishlist";
+import { createLogger } from "@/lib/logger";
+const log = createLogger("wishlist");
 
 const WISHLIST_COOKIE_PREFIX = "valorant_wishlist_";
 const WISHLIST_MAX_ITEMS = 50;
@@ -48,7 +50,7 @@ export async function getWishlist(puuid: string): Promise<WishlistData> {
       count: items.length,
     };
   } catch (error) {
-    console.error("Error reading wishlist cookie:", error);
+    log.error("Error reading wishlist cookie:", error);
     return { items: [], count: 0 };
   }
 }

@@ -19,6 +19,8 @@ import path from 'path';
 import fs from 'fs';
 
 import type { SessionData } from './session-types';
+import { createLogger } from "./logger";
+const log = createLogger("session-db");
 
 // ---------------------------------------------------------------------------
 // Connection resolution
@@ -109,7 +111,7 @@ async function migrateFromJsonIfNeeded(client: Client): Promise<void> {
     sessions = JSON.parse(raw) as JsonSession[];
   } catch {
     // Malformed JSON — skip migration, don't crash startup
-    console.warn('[session-db] Failed to parse sessions.json — skipping migration');
+    log.warn('Failed to parse sessions.json — skipping migration');
     return;
   }
 
@@ -126,8 +128,8 @@ async function migrateFromJsonIfNeeded(client: Client): Promise<void> {
   // Rename the source file so migration doesn't run again
   fs.renameSync(jsonPath, jsonPath + '.migrated');
 
-  console.log(
-    `[session-db] Migrated ${valid.length} session(s) from sessions.json → sessions.json.migrated`
+  log.info(
+    `Migrated ${valid.length} session(s) from sessions.json → sessions.json.migrated`
   );
 }
 
