@@ -28,7 +28,7 @@ export function WishlistButton() {
   };
 
   useEffect(() => {
-    // Fetch wishlist count on mount
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch; setState is in an awaited callback, not synchronous
     fetchWishlistCount();
   }, []);
 

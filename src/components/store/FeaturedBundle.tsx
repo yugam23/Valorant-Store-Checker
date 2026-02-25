@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import type { BundleData } from "@/types/store";
 import { getEditionIconPath } from "@/lib/edition-icons";
@@ -288,13 +288,8 @@ function FeaturedBundle({ bundle }: FeaturedBundleProps) {
 /** Carousel wrapper for multiple featured bundles */
 export function FeaturedBundleCarousel({ bundles }: FeaturedBundleCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const prevLengthRef = useRef(bundles.length);
-
-  // Reset to first slide when the number of bundles changes
-  if (prevLengthRef.current !== bundles.length) {
-    prevLengthRef.current = bundles.length;
-    if (activeIndex !== 0) setActiveIndex(0);
-  }
+  // Clamp to valid range in case bundles array shrinks
+  const safeIndex = bundles.length > 0 ? Math.min(activeIndex, bundles.length - 1) : 0;
 
   if (bundles.length === 0) return null;
 
@@ -324,7 +319,7 @@ export function FeaturedBundleCarousel({ bundles }: FeaturedBundleCarouselProps)
             Featured Bundles
           </h2>
           <span className="text-xs text-zinc-600 font-mono">
-            {activeIndex + 1} / {bundles.length}
+            {safeIndex + 1} / {bundles.length}
           </span>
         </div>
 
@@ -367,7 +362,7 @@ export function FeaturedBundleCarousel({ bundles }: FeaturedBundleCarouselProps)
       <div className="relative overflow-hidden">
         <div
           className="flex transition-transform duration-500 ease-out"
-          style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+          style={{ transform: `translateX(-${safeIndex * 100}%)` }}
         >
           {bundles.map((bundle) => (
             <div key={bundle.bundleUuid} className="w-full flex-shrink-0">
@@ -384,7 +379,7 @@ export function FeaturedBundleCarousel({ bundles }: FeaturedBundleCarouselProps)
             key={bundle.bundleUuid}
             onClick={() => setActiveIndex(index)}
             className={`h-1.5 rounded-full transition-all duration-300 ${
-              index === activeIndex
+              index === safeIndex
                 ? "w-8 bg-[#F0B232]"
                 : "w-3 bg-zinc-600 hover:bg-zinc-500"
             }`}
