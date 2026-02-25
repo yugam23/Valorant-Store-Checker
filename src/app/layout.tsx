@@ -3,6 +3,10 @@ import { Teko, Outfit } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 
+// Every page in this app reads session cookies, so static pre-rendering
+// at build time always fails. This single export opts the entire app out.
+export const dynamic = "force-dynamic";
+
 const teko = Teko({
   subsets: ["latin"],
   variable: "--font-teko",
