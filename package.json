@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@libsql/client": "^0.17.0",
     "@radix-ui/react-slot": "^1.2.4",
     "axios": "^1.13.5",
     "ccusage": "^18.0.5",

@@ -47,4 +47,7 @@ export const env = {
 
   /** Optional: Henrik API key for rank/level data. Profile degrades gracefully without it. */
   HENRIK_API_KEY: process.env.HENRIK_API_KEY ?? "",
+
+  /** Optional: path to SQLite session database file (relative to cwd). Falls back to .session-data/sessions.db */
+  SESSION_DB_PATH: process.env.SESSION_DB_PATH,
 } as const;
