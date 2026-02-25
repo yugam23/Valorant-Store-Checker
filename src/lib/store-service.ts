@@ -7,9 +7,8 @@
 
 import { getStorefront, getWallet } from "@/lib/riot-store";
 import { getWeaponSkins, getContentTiers, getSkinVideo, getBundleByUuid } from "@/lib/valorant-api";
-import { getCachedStore, setCachedStore } from "@/lib/store-cache";
 import { StoreData, StoreItem, BundleItem, BundleData, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
-import { CURRENCY_IDS, RiotStorefront, RiotBundle, RiotWallet } from "@/types/riot";
+import { CURRENCY_IDS, RiotStorefront, RiotBundle } from "@/types/riot";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Store Service");

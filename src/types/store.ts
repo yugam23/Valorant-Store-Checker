@@ -3,7 +3,6 @@
  * These are hydrated versions combining Riot API data with Valorant-API assets
  */
 
-import { CURRENCY_IDS } from "./riot";
 
 /**
  * Hydrated store item ready for display

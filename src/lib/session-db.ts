@@ -51,7 +51,6 @@ if (isRemote) {
 // ---------------------------------------------------------------------------
 
 declare global {
-  // eslint-disable-next-line no-var
   var __sessionDb: Client | undefined;
 }
 

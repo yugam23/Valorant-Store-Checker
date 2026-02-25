@@ -140,9 +140,6 @@ export async function refreshTokensWithCookies(riotCookies: string): Promise<
     // Documentation: https://valapidocs.techchrism.me/endpoint/cookie-reauth
     // Use standard browser User-Agent and specific scope "account openid"
 
-    const BROWSER_UA =
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
-
     const authorizeParams = new URLSearchParams({
       client_id: CLIENT_ID,
       redirect_uri: REDIRECT_URI,
