@@ -21,16 +21,28 @@ import fs from 'fs';
 import type { SessionData } from './session-types';
 
 // ---------------------------------------------------------------------------
-// Path resolution
+// Connection resolution
+// ---------------------------------------------------------------------------
+// In production (Vercel), set TURSO_DATABASE_URL + TURSO_AUTH_TOKEN env vars.
+// In development, falls back to a local SQLite file.
 // ---------------------------------------------------------------------------
 
-const dbRelPath = process.env.SESSION_DB_PATH ?? '.session-data/sessions.db';
-const dbAbsPath = path.join(process.cwd(), dbRelPath);
-// CRITICAL for Windows: backslashes in file: URLs break libsql
-const dbUrl = 'file:' + dbAbsPath.replace(/\\/g, '/');
+const tursoUrl = process.env.TURSO_DATABASE_URL;
+const tursoToken = process.env.TURSO_AUTH_TOKEN;
 
-// Ensure the parent directory exists before creating the client
-fs.mkdirSync(path.dirname(dbAbsPath), { recursive: true });
+const isRemote = !!tursoUrl;
+
+let dbUrl: string;
+if (isRemote) {
+  dbUrl = tursoUrl!;
+} else {
+  const dbRelPath = process.env.SESSION_DB_PATH ?? '.session-data/sessions.db';
+  const dbAbsPath = path.join(process.cwd(), dbRelPath);
+  // CRITICAL for Windows: backslashes in file: URLs break libsql
+  dbUrl = 'file:' + dbAbsPath.replace(/\\/g, '/');
+  // Only create the directory when using a local file (Vercel FS is read-only)
+  fs.mkdirSync(path.dirname(dbAbsPath), { recursive: true });
+}
 
 // ---------------------------------------------------------------------------
 // Global singleton (Next.js hot-reload safe)
@@ -43,7 +55,10 @@ declare global {
 
 function getOrCreateClient(): Client {
   if (!global.__sessionDb) {
-    global.__sessionDb = createClient({ url: dbUrl });
+    global.__sessionDb = createClient({
+      url: dbUrl,
+      ...(isRemote && tursoToken ? { authToken: tursoToken } : {}),
+    });
   }
   return global.__sessionDb;
 }
