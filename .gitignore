@@ -47,8 +47,7 @@ next-env.d.ts
 .planning/
 .playwright-mcp/
 .session-data/
-CLAUDE.md 
-rso-example-app/
+CLAUDE.md
 ROADMAP_ENCYCLOPEDIA.md
 Improvements.md
 Refactoring Plan.md
