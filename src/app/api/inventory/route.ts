@@ -5,15 +5,15 @@
  * Fetches entitlements from Riot PD API and hydrates with Valorant-API data.
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSessionWithRefresh } from "@/lib/session";
-import { getOwnedSkins } from "@/lib/riot-inventory";
-import { getCachedInventory } from "@/lib/inventory-cache";
+import { getOwnedSkins, clearInventoryCache } from "@/lib/riot-inventory";
+import { getCachedInventory, clearCachedInventory } from "@/lib/inventory-cache";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Inventory API");
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // 1. Get session with automatic token refresh
     const session = await getSessionWithRefresh();
@@ -22,6 +22,16 @@ export async function GET() {
         { error: "Unauthorized", code: "UNAUTHORIZED" },
         { status: 401 }
       );
+    }
+
+    // If ?refresh=true, clear all caches to force a fresh fetch from Riot and Valorant-API
+    const refresh = request.nextUrl.searchParams.get("refresh") === "true";
+    if (refresh) {
+      clearInventoryCache(session.puuid);
+      clearCachedInventory(session.puuid);
+      // Note: Valorant-API static skin data is NOT cleared here — purchasing a skin
+      // only changes *your entitlements*, not the global skin definitions list.
+      log.info(`Inventory caches cleared for PUUID: ${session.puuid.substring(0, 8)} (manual refresh)`);
     }
 
     // 2. Fetch owned skins

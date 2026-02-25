@@ -12,13 +12,14 @@ export default function InventoryPage() {
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [fromCache, setFromCache] = useState(false);
 
-  const fetchInventory = async () => {
+  const fetchInventory = async (forceRefresh = false) => {
     setState("loading");
     setErrorMessage("");
     setFromCache(false);
 
     try {
-      const response = await fetch("/api/inventory");
+      const url = forceRefresh ? "/api/inventory?refresh=true" : "/api/inventory";
+      const response = await fetch(url);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -37,7 +38,8 @@ export default function InventoryPage() {
   };
 
   useEffect(() => {
-    fetchInventory();
+    // Always force-refresh on page load so newly purchased skins appear immediately
+    fetchInventory(true);
   }, []);
 
   return (
@@ -59,15 +61,27 @@ export default function InventoryPage() {
               )}
             </div>
             
-            {inventoryData && (
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
+              {inventoryData && (
                 <div className="px-4 py-2 bg-valorant-red/20 border border-valorant-red angular-card-sm">
                   <span className="text-valorant-red font-bold text-lg">
                     {inventoryData.totalCount} Skins
                   </span>
                 </div>
-              </div>
-            )}
+              )}
+              {state !== "loading" && (
+                <button
+                  onClick={() => fetchInventory(true)}
+                  className="px-4 py-2 bg-void-deep border border-white/10 angular-card-sm text-zinc-400 hover:border-valorant-red/50 hover:text-light transition-all flex items-center gap-2"
+                  title="Refresh collection"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span className="text-sm font-semibold uppercase tracking-wide">Refresh</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -103,7 +117,7 @@ export default function InventoryPage() {
               {errorMessage || "Failed to load inventory"}
             </p>
             <button
-              onClick={fetchInventory}
+              onClick={() => fetchInventory()}
               className="px-6 py-3 bg-valorant-red hover:bg-valorant-red/90 text-white font-semibold uppercase tracking-wide angular-card transition-all"
             >
               Retry
