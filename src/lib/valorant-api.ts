@@ -20,11 +20,13 @@ const VALORANT_API_BASE = "https://valorant-api.com/v1";
 let weaponSkinsCache: ValorantWeaponSkin[] | null = null;
 let contentTiersCache: ValorantContentTier[] | null = null;
 let bundlesCache: ValorantBundle[] | null = null;
+let competitiveTiersCache: Array<{ tiers: Array<{ tier: number; largeIcon: string | null }> }> | null = null;
 
 let lastFetchTime = {
   skins: 0,
   tiers: 0,
   bundles: 0,
+  competitiveTiers: 0,
 };
 
 // Cache expiration: 24 hours (static data changes rarely)
@@ -332,13 +334,45 @@ export async function getWeaponSkinsByLevelUuids(
 }
 
 /**
+ * Look up the large rank icon URL for a competitive tier ID.
+ * Uses the latest competitive season tier table from valorant-api.com.
+ * Tier IDs: 0=Unranked, 3-5=Iron 1-3, 6-8=Bronze, ..., 24=Radiant.
+ * Returns null if the icon cannot be fetched.
+ */
+export async function getCompetitiveTierIconByTier(tierId: number): Promise<string | null> {
+  const now = Date.now();
+
+  if (!competitiveTiersCache || now - lastFetchTime.competitiveTiers > CACHE_TTL) {
+    try {
+      const response = await fetch(`${VALORANT_API_BASE}/competitivetiers`, {
+        next: { revalidate: 86400 },
+      });
+      if (!response.ok) return null;
+      const result = await response.json();
+      competitiveTiersCache = result.data;
+      lastFetchTime.competitiveTiers = now;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!competitiveTiersCache || competitiveTiersCache.length === 0) return null;
+
+  // The last entry in the array is the most recent competitive season
+  const latestSeason = competitiveTiersCache[competitiveTiersCache.length - 1];
+  const tier = latestSeason?.tiers?.find((t) => t.tier === tierId);
+  return tier?.largeIcon ?? null;
+}
+
+/**
  * Clear all caches (useful for testing or manual refresh)
  */
 export function clearCache(): void {
   weaponSkinsCache = null;
   contentTiersCache = null;
   bundlesCache = null;
-  lastFetchTime = { skins: 0, tiers: 0, bundles: 0 };
+  competitiveTiersCache = null;
+  lastFetchTime = { skins: 0, tiers: 0, bundles: 0, competitiveTiers: 0 };
 }
 
 /**

@@ -14,8 +14,8 @@
 
 import { StoreTokens } from "./riot-store";
 import { getPlayerLoadout } from "./riot-loadout";
-import { getHenrikAccount, getHenrikMMR, type HenrikMMRData } from "./henrik-api";
-import { getPlayerCardByUuid, getPlayerTitleByUuid } from "./valorant-api";
+import { getHenrikAccount, getHenrikMMR } from "./henrik-api";
+import { getPlayerCardByUuid, getPlayerTitleByUuid, getCompetitiveTierIconByTier } from "./valorant-api";
 import { createLogger } from "./logger";
 
 const log = createLogger("profile-cache");
@@ -144,19 +144,25 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     henrikName: account?.name,
     henrikTag: account?.tag,
     henrikAccountLevel: account?.account_level,
-    competitiveTier: mmr?.current_data.currenttier,
-    competitiveTierName: mmr?.current_data.currenttier_patched,
-    competitiveTierIcon: mmr?.current_data.images.large,
-    rankingInTier: mmr?.current_data.ranking_in_tier,
-    mmrChangeToLastGame: mmr?.current_data.mmr_change_to_last_game,
-    peakTier: mmr?.highest_rank?.tier,
-    peakTierName: mmr?.highest_rank?.patched,
+    competitiveTier: mmr?.current?.tier?.id,
+    competitiveTierName: mmr?.current?.tier?.name,
+    competitiveTierIcon: undefined,          // hydrated below after assembly
+    rankingInTier: mmr?.current?.rr,
+    mmrChangeToLastGame: mmr?.current?.last_change,
+    peakTier: mmr?.peak?.tier?.id,
+    peakTierName: mmr?.peak?.tier?.name,
 
     // Metadata — partial if we got nothing useful from either primary source
     fromCache: false,
     partial: !loadout && !account,
     cachedAt: Date.now(),
   };
+
+  // Hydrate competitive tier icon from valorant-api.com (v3 MMR no longer provides images)
+  if (profile.competitiveTier !== undefined) {
+    const tierIcon = await getCompetitiveTierIconByTier(profile.competitiveTier);
+    if (tierIcon) profile.competitiveTierIcon = tierIcon;
+  }
 
   // Tier 1 success: at least some real data was obtained
   if (!profile.partial) {
