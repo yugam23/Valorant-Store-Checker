@@ -7,7 +7,7 @@
 
 import { RiotStorefront, RiotWallet } from "@/types/riot";
 import { createLogger } from "./logger";
-import { RIOT_CLIENT_UA } from "./riot-auth";
+import { RIOT_CLIENT_UA } from "./riot-tokens";
 
 const log = createLogger("riot-store");
 

@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const { refreshTokensWithCookies } = await import("@/lib/riot-auth");
+      const { refreshTokensWithCookies } = await import("@/lib/riot-reauth");
       const result = await refreshTokensWithCookies(body.cookie);
 
       if (!result.success) {

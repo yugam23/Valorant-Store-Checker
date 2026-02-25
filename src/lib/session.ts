@@ -13,7 +13,7 @@
  */
 
 import { SignJWT, jwtVerify } from "jose";
-import { refreshTokensWithCookies } from "./riot-auth";
+import { refreshTokensWithCookies } from "./riot-reauth";
 import { cookies } from "next/headers";
 import { env } from "./env";
 import { createLogger } from "./logger";
