@@ -1,104 +1,52 @@
-import fs from 'fs/promises';
-import path from 'path';
+import { initSessionDb } from './session-db';
 import { SessionData } from './session-types';
 
-const SESSION_DIR = path.join(process.cwd(), '.session-data');
-const SESSION_FILE = path.join(SESSION_DIR, 'sessions.json');
-
-// Interface for the detailed session object stored on disk
-interface StoredSession {
-  id: string;
-  data: SessionData;
-  expiresAt: number;
-}
-
-// In-memory cache to reduce file I/O
-let sessionCache: Map<string, StoredSession> | null = null;
-
-async function ensureSessionDir() {
-  try {
-    await fs.access(SESSION_DIR);
-  } catch {
-    await fs.mkdir(SESSION_DIR, { recursive: true });
-  }
-}
-
-async function loadSessions(): Promise<Map<string, StoredSession>> {
-  // if (sessionCache) return sessionCache; // FORCE DISK READ FOR DEBUGGING
-  sessionCache = null; // Always reload from disk to ensure consistency across multiple processes/restarts/API calls during development
-
-  await ensureSessionDir();
-  try {
-    const data = await fs.readFile(SESSION_FILE, 'utf-8');
-    const sessions = JSON.parse(data) as StoredSession[];
-    sessionCache = new Map(sessions.map(s => [s.id, s]));
-  } catch (error) {
-    // If file doesn't exist or is corrupt, start fresh
-    sessionCache = new Map();
-  }
-  return sessionCache;
-}
-
-async function saveSessions(): Promise<void> {
-  if (!sessionCache) return;
-  await ensureSessionDir();
-  const sessions = Array.from(sessionCache.values());
-  await fs.writeFile(SESSION_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
-}
-
 export async function saveSessionToStore(sessionId: string, data: SessionData, maxAgeSeconds: number): Promise<void> {
-  const sessions = await loadSessions();
+  const db = await initSessionDb();
   const expiresAt = Date.now() + (maxAgeSeconds * 1000);
-  
-  sessions.set(sessionId, {
-    id: sessionId,
-    data,
-    expiresAt
+  await db.execute({
+    sql: 'INSERT OR REPLACE INTO sessions (id, data, expires_at) VALUES (?, ?, ?)',
+    args: [sessionId, JSON.stringify(data), expiresAt],
   });
-  
-  await saveSessions();
 }
 
 export async function getSessionFromStore(sessionId: string): Promise<SessionData | null> {
-  // Always load fresh data to handle multi-tab/process updates
-  sessionCache = null; 
-  const sessions = await loadSessions();
-  const session = sessions.get(sessionId);
+  const db = await initSessionDb();
+  const result = await db.execute({
+    sql: 'SELECT data, expires_at FROM sessions WHERE id = ?',
+    args: [sessionId],
+  });
 
-  if (!session) return null;
-
-  // Check expiration
-  if (Date.now() > session.expiresAt) {
-    sessions.delete(sessionId);
-    await saveSessions();
+  if (result.rows.length === 0) {
     return null;
   }
 
-  return session.data;
+  const row = result.rows[0];
+  const expiresAt = row.expires_at as number;
+
+  if (expiresAt < Date.now()) {
+    await db.execute({
+      sql: 'DELETE FROM sessions WHERE id = ?',
+      args: [sessionId],
+    });
+    return null;
+  }
+
+  return JSON.parse(row.data as string) as SessionData;
 }
 
 export async function deleteSessionFromStore(sessionId: string): Promise<void> {
-  const sessions = await loadSessions();
-  if (sessions.has(sessionId)) {
-    sessions.delete(sessionId);
-    await saveSessions();
-  }
+  const db = await initSessionDb();
+  await db.execute({
+    sql: 'DELETE FROM sessions WHERE id = ?',
+    args: [sessionId],
+  });
 }
 
-// Optional: Clean up expired sessions periodically
 export async function cleanupExpiredSessions(): Promise<void> {
-  const sessions = await loadSessions();
-  const now = Date.now();
-  let changed = false;
-
-  for (const [id, session] of sessions.entries()) {
-    if (now > session.expiresAt) {
-      sessions.delete(id);
-      changed = true;
-    }
-  }
-
-  if (changed) {
-    await saveSessions();
-  }
+  const db = await initSessionDb();
+  await db.execute({
+    sql: 'DELETE FROM sessions WHERE expires_at < ?',
+    args: [Date.now()],
+  });
 }
