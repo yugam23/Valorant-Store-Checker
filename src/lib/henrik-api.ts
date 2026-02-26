@@ -12,6 +12,8 @@
 
 import { env } from "./env";
 import { createLogger } from "./logger";
+import { parseWithLog } from "@/lib/schemas/parse";
+import { HenrikAccountSchema, HenrikMMRSchema } from "@/lib/schemas/henrik";
 
 const log = createLogger("henrik-api");
 
@@ -146,7 +148,8 @@ export async function getHenrikAccount(puuid: string, region: string): Promise<H
     }
 
     const json = await response.json();
-    const account = json.data as HenrikAccount;
+    const account = parseWithLog(HenrikAccountSchema, json.data, "HenrikAccount");
+    if (!account) { return cached?.data ?? null; }
     accountCache.set(puuid, { data: account, fetchedAt: Date.now() });
     log.info("Henrik account fetched successfully for PUUID:", puuid.substring(0, 8));
     return account;
@@ -186,10 +189,9 @@ export async function getHenrikMMR(puuid: string, region: string): Promise<Henri
     }
 
     const json = await response.json();
-    const mmrData: HenrikMMRData = {
-      current: json.data.current as HenrikMMRCurrent | undefined,
-      peak: json.data.peak as HenrikMMRPeak | undefined,
-    };
+    const rawMmr = { current: json.data.current, peak: json.data.peak };
+    const mmrData = parseWithLog(HenrikMMRSchema, rawMmr, "HenrikMMR");
+    if (!mmrData) { return cached?.data ?? null; }
     mmrCache.set(puuid, { data: mmrData, fetchedAt: Date.now() });
     log.info("Henrik MMR fetched successfully for PUUID:", puuid.substring(0, 8));
     return mmrData;

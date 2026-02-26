@@ -1,5 +1,7 @@
 import { initSessionDb } from './session-db';
 import { SessionData } from './session-types';
+import { parseWithLog } from '@/lib/schemas/parse';
+import { StoredSessionSchema } from '@/lib/schemas/session';
 
 export async function saveSessionToStore(sessionId: string, data: SessionData, maxAgeSeconds: number): Promise<void> {
   const db = await initSessionDb();
@@ -32,7 +34,8 @@ export async function getSessionFromStore(sessionId: string): Promise<SessionDat
     return null;
   }
 
-  return JSON.parse(row.data as string) as SessionData;
+  const raw = JSON.parse(row.data as string);
+  return parseWithLog(StoredSessionSchema, raw, "StoredSession") as SessionData | null;
 }
 
 export async function deleteSessionFromStore(sessionId: string): Promise<void> {

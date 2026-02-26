@@ -7,6 +7,8 @@
 
 import { createLogger } from "./logger";
 import { UserInfo } from "./riot-auth";
+import { parseWithLog } from "@/lib/schemas/parse";
+import { EntitlementsResponseSchema, UserInfoSchema } from "@/lib/schemas/riot-auth";
 
 const log = createLogger("riot-tokens");
 
@@ -109,7 +111,8 @@ export async function getEntitlementsToken(
     }
 
     const data = await response.json();
-    return data.entitlements_token || null;
+    const parsed = parseWithLog(EntitlementsResponseSchema, data, "EntitlementsResponse");
+    return parsed?.entitlements_token ?? null;
   } catch {
     return null;
   }
@@ -134,8 +137,8 @@ export async function getUserInfo(
       return null;
     }
 
-    const data: UserInfo = await response.json();
-    return data;
+    const data = await response.json();
+    return parseWithLog(UserInfoSchema, data, "UserInfo") as UserInfo | null;
   } catch {
     return null;
   }

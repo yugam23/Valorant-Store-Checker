@@ -13,6 +13,8 @@
 
 import { createLogger } from "./logger";
 import { mergeCookies, extractNamedCookies } from "./riot-cookies";
+import { parseWithLog } from "@/lib/schemas/parse";
+import { AuthResponseSchema } from "@/lib/schemas/riot-auth";
 import {
   randomHex,
   riotHeaders,
@@ -270,7 +272,11 @@ export async function authenticateRiotAccount(
     const authSetCookies = authResponse.headers.getSetCookie();
     const allCookies = mergeCookies(cookies, authSetCookies);
 
-    const authData: AuthResponse = await authResponse.json();
+    const raw = await authResponse.json();
+    const authData = parseWithLog(AuthResponseSchema, raw, "AuthResponse") as AuthResponse | null;
+    if (!authData) {
+      return { success: false, error: "Invalid auth response from Riot" };
+    }
 
     log.debug("Step 2 - Full response:", JSON.stringify(authData));
 
@@ -406,7 +412,11 @@ export async function submitMfa(
     const mfaSetCookies = mfaResponse.headers.getSetCookie();
     const allCookies = mergeCookies(cookie, mfaSetCookies);
 
-    const mfaData: AuthResponse = await mfaResponse.json();
+    const mfaRaw = await mfaResponse.json();
+    const mfaData = parseWithLog(AuthResponseSchema, mfaRaw, "AuthResponse") as AuthResponse | null;
+    if (!mfaData) {
+      return { success: false, error: "Invalid MFA response from Riot" };
+    }
 
     // Extract tokens from redirect URI
     const uri = mfaData.response?.parameters?.uri;
