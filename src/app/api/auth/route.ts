@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { authenticateRiotAccount, submitMfa } from "@/lib/riot-auth";
 import { authenticateWithBrowser } from "@/lib/browser-auth";
 import { createSession } from "@/lib/session";
@@ -22,37 +23,50 @@ import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Auth API");
 
-interface LoginRequestBody {
-  username?: string;
-  password?: string;
-  type?: "auth" | "multifactor" | "url" | "cookie" | "launch_browser";
-  code?: string;
-  cookie?: string;
-  url?: string;
-  useBrowser?: boolean;
-}
+const AuthBodySchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("auth"),
+    username: z.string(),
+    password: z.string(),
+    useBrowser: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal("multifactor"),
+    code: z.string(),
+    cookie: z.string(),
+  }),
+  z.object({
+    type: z.literal("url"),
+    url: z.string(),
+  }),
+  z.object({
+    type: z.literal("cookie"),
+    cookie: z.string(),
+  }),
+  z.object({
+    type: z.literal("launch_browser"),
+  }),
+]);
 
 export async function POST(request: NextRequest) {
   try {
-    const body: LoginRequestBody = await request.json();
-
-    // Validate request type
-    if (!body.type || (body.type !== "auth" && body.type !== "multifactor" && body.type !== "url" && body.type !== "cookie" && body.type !== "launch_browser")) {
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    const parseResult = AuthBodySchema.safeParse(rawBody);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Invalid request type" },
+        { error: "Invalid request: " + parseResult.error.issues[0]?.message },
         { status: 400 }
       );
     }
+    const body = parseResult.data;
 
     // Handle Browser Auth (Paste URL)
     if (body.type === "url") {
-      if (!body.url) {
-        return NextResponse.json(
-          { error: "Redirect URL is required" },
-          { status: 400 }
-        );
-      }
-
       // Import dynamically to avoid circular deps if any
       const { completeAuthWithUrl } = await import("@/lib/riot-auth");
       const result = await completeAuthWithUrl(body.url);
@@ -99,13 +113,6 @@ export async function POST(request: NextRequest) {
 
     // Handle Cookie Auth (Paste Cookies)
     if (body.type === "cookie") {
-      if (!body.cookie) {
-        return NextResponse.json(
-          { error: "Cookie string is required" },
-          { status: 400 }
-        );
-      }
-
       const { refreshTokensWithCookies } = await import("@/lib/riot-reauth");
       const result = await refreshTokensWithCookies(body.cookie);
 
@@ -154,13 +161,6 @@ export async function POST(request: NextRequest) {
 
     // Handle MFA submission
     if (body.type === "multifactor") {
-      if (!body.code || !body.cookie) {
-        return NextResponse.json(
-          { error: "MFA code and session cookie are required" },
-          { status: 400 }
-        );
-      }
-
       const result = await submitMfa(body.code, body.cookie);
 
       if (!result.success) {
@@ -226,14 +226,6 @@ export async function POST(request: NextRequest) {
 
     // Handle initial authentication
     if (body.type === "auth") {
-
-      if (!body.username || !body.password) {
-        return NextResponse.json(
-          { error: "Username and password are required" },
-          { status: 400 }
-        );
-      }
-
       let result;
       
       if (body.useBrowser) {
