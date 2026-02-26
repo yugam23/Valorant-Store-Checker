@@ -75,6 +75,17 @@ export default async function StorePage() {
   
   const [storefront, staticData] = await Promise.all([storefrontPromise, staticDataPromise]);
 
+  if (!storefront) {
+    return (
+      <div className="min-h-screen px-4 py-8 md:px-8 lg:px-16">
+        <div className="max-w-7xl mx-auto text-center py-20">
+          <h1 className="font-display text-4xl uppercase font-bold text-light mb-4">Store Unavailable</h1>
+          <p className="text-zinc-400">Failed to load store data. Please try again later.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen px-4 py-8 md:px-8 lg:px-16">
       <div className="max-w-7xl mx-auto">

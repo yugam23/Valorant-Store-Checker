@@ -7,6 +7,8 @@
 
 import { RiotStorefront, RiotWallet } from "@/types/riot";
 import { createLogger } from "./logger";
+import { parseWithLog } from "@/lib/schemas/parse";
+import { RiotStorefrontSchema } from "@/lib/schemas/storefront";
 
 const log = createLogger("riot-store");
 
@@ -223,13 +225,13 @@ export async function fetchWithShardFallback(
   throw lastError || new Error("Failed to find correct shard for user data");
 }
 
-export async function getStorefront(tokens: StoreTokens): Promise<RiotStorefront> {
-  const response = await fetchWithShardFallback(tokens, (pdUrl) => 
+export async function getStorefront(tokens: StoreTokens): Promise<RiotStorefront | null> {
+  const response = await fetchWithShardFallback(tokens, (pdUrl) =>
     `${pdUrl}/store/v3/storefront/${tokens.puuid}`
   );
 
   const data = await response.json();
-  return data as RiotStorefront;
+  return parseWithLog(RiotStorefrontSchema, data, "RiotStorefront") as RiotStorefront | null;
 }
 
 /**
