@@ -170,7 +170,9 @@ Plans:
 5. `RiotStorefrontSchema` applied (top-level, `.passthrough()` on nested); store degrades gracefully
 6. `/api/auth/route.ts` uses `z.discriminatedUnion` for request body; invalid requests return 400
 
-## Phase 12: Test Suite
+## Phase 12: Test Suite ✓
+
+_Completed: 2026-02-27_
 
 **Goal:** Add Vitest with full unit and integration coverage for auth, session, and schemas. All critical paths protected against regression.
 
@@ -179,8 +181,8 @@ Plans:
 **Requirements Covered:** TEST-01, TEST-02, TEST-03, TEST-04, TEST-05, TEST-06, TEST-07, TEST-08
 
 Plans:
-- [ ] 12-01-PLAN.md — Install Vitest and testing dependencies; write `vitest.config.ts` and `vitest.setup.ts`; write unit tests for `riot-cookies.ts` and `riot-tokens.ts`
-- [ ] 12-02-PLAN.md — Write MSW integration tests for auth flow; session-store tests with in-memory SQLite; session.ts branching logic tests; Zod schema fixture tests
+- [x] 12-01-PLAN.md — Install Vitest and testing dependencies; write `vitest.config.ts` and `vitest.setup.ts`; write unit tests for `riot-cookies.ts` and `riot-tokens.ts`
+- [x] 12-02-PLAN.md — Write MSW integration tests for auth flow; session-store tests with in-memory SQLite; session.ts branching logic tests; Zod schema fixture tests
 
 **Success Criteria:**
 1. `vitest.config.ts` with `resolve.alias`, `environment: 'node'`, `setupFiles`, `env: { LOG_LEVEL: 'warn' }`
@@ -208,8 +210,8 @@ Plans:
 | 9 - SQLite Session Store | Complete | 2026-02-25 |
 | 10 - Code Quality | Complete | 2026-02-25 |
 | 11 - Zod Validation | Complete | 2026-02-26 |
-| 12 - Test Suite | Pending | — |
+| 12 - Test Suite | Complete | 2026-02-27 |
 
 ---
 
-_Last Updated: 2026-02-26 (Phase 11 complete; Phase 12 next)_
+_Last Updated: 2026-02-27 (Phase 12 complete; v1.2 milestone done)_
