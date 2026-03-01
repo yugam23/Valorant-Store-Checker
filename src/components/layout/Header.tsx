@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 import { hasValidSession } from "@/lib/session";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { WishlistButton } from "./WishlistButton";
+import { NAV_LINKS } from "@/lib/nav";
 
 export async function Header() {
   const isLoggedIn = await hasValidSession();
@@ -30,27 +31,17 @@ export async function Header() {
           </div>
         </Link>
 
-        <nav className="flex items-center gap-6" aria-label="Main navigation">
-          <Link href="/" className="group relative py-1 text-sm font-medium text-zinc-400 hover:text-white transition-colors">
-            Home
-            <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />
-          </Link>
-          <Link href="/store" className="group relative py-1 text-sm font-medium text-zinc-400 hover:text-white transition-colors">
-            Store
-            <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />
-          </Link>
-          <Link href="/inventory" className="group relative py-1 text-sm font-medium text-zinc-400 hover:text-white transition-colors">
-            Collection
-            <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />
-          </Link>
-          <Link href="/history" className="group relative py-1 text-sm font-medium text-zinc-400 hover:text-white transition-colors">
-            History
-            <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />
-          </Link>
-          <Link href="/profile" className="group relative py-1 text-sm font-medium text-zinc-400 hover:text-white transition-colors">
-            Profile
-            <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />
-          </Link>
+        <nav className="hidden md:flex items-center gap-6" aria-label="Main navigation">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="group relative py-1 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+            >
+              {link.label}
+              <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />
+            </Link>
+          ))}
           {isLoggedIn ? (
             <>
               <WishlistButton />
@@ -62,6 +53,7 @@ export async function Header() {
             </Button>
           )}
         </nav>
+        {/* MobileNav will be added here in Plan 13-02 */}
       </div>
     </header>
   );
