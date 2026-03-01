@@ -15,6 +15,7 @@ interface MobileNavProps {
 export function MobileNav({ isLoggedIn }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
 
   // Close on route change
@@ -47,6 +48,13 @@ export function MobileNav({ isLoggedIn }: MobileNavProps) {
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
+  // Return focus to hamburger button when drawer closes (NAV-06)
+  useEffect(() => {
+    if (!isOpen) {
+      hamburgerRef.current?.focus();
+    }
   }, [isOpen]);
 
   // Focus trap: Tab key cycles only through focusable elements inside drawer
@@ -87,6 +95,7 @@ export function MobileNav({ isLoggedIn }: MobileNavProps) {
     <div className="md:hidden">
       {/* Hamburger button — always visible on mobile */}
       <button
+        ref={hamburgerRef}
         onClick={() => setIsOpen(true)}
         className="flex items-center justify-center w-10 h-10 text-zinc-400 hover:text-white transition-colors"
         aria-label="Open navigation menu"
