@@ -5,6 +5,7 @@ import { hasValidSession } from "@/lib/session";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { WishlistButton } from "./WishlistButton";
 import { NAV_LINKS } from "@/lib/nav";
+import { MobileNav } from "./MobileNav";
 
 export async function Header() {
   const isLoggedIn = await hasValidSession();
@@ -53,7 +54,8 @@ export async function Header() {
             </Button>
           )}
         </nav>
-        {/* MobileNav will be added here in Plan 13-02 */}
+        {/* Mobile nav — hidden on desktop */}
+        <MobileNav isLoggedIn={isLoggedIn} />
       </div>
     </header>
   );

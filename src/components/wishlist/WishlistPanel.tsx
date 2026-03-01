@@ -89,6 +89,23 @@ export function WishlistPanel({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
+  // iOS-safe scroll lock when panel is open
+  // overflow:hidden alone does not stop scroll on iOS Safari
+  useEffect(() => {
+    if (isOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+      return () => {
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.width = "";
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen]);
+
   // Check if a skin is currently in the store
   const isInStore = (skinUuid: string) => {
     return storeItemUuids.some(
