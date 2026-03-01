@@ -13,7 +13,7 @@ export const UserInfoSchema = z
     account_verified: z.boolean(),
     age: z.number(),
     jti: z.string(),
-    player_plocale: z.string().optional(),
+    player_plocale: z.string().nullish(),
     country_at: z.number().optional(),
     pw: z
       .object({
@@ -22,7 +22,7 @@ export const UserInfoSchema = z
         must_reset: z.boolean(),
       })
       .optional(),
-    ppid: z.string().optional(),
+    ppid: z.string().nullish(),
     player_locale: z.string().optional(),
     acct: z
       .object({
