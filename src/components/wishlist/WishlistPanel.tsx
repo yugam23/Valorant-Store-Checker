@@ -102,14 +102,14 @@ export function WishlistPanel({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-void-deep/80 backdrop-blur-sm z-40"
+        className="fixed inset-0 bg-void-deep/80 backdrop-blur-sm z-50"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Panel */}
       <div
-        className="fixed top-0 right-0 h-full w-full md:w-[480px] bg-void-deep border-l border-valorant-red/30 z-50 shadow-2xl overflow-y-auto"
+        className="fixed top-0 right-0 h-full w-full md:w-[480px] bg-void-deep border-l border-valorant-red/30 z-60 shadow-2xl overflow-y-auto"
         role="dialog"
         aria-labelledby="wishlist-panel-title"
         aria-modal="true"
