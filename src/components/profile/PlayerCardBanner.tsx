@@ -7,7 +7,7 @@ interface PlayerCardBannerProps {
 
 export function PlayerCardBanner({ wideArt, displayName }: PlayerCardBannerProps) {
   return (
-    <div className="angular-card relative w-[452px] h-[128px] overflow-hidden">
+    <div className="angular-card relative w-full max-w-[452px] h-[128px] overflow-hidden">
       <Image
         src={wideArt}
         alt={`${displayName} player card`}

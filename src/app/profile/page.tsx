@@ -58,7 +58,7 @@ export default function ProfilePage() {
         {state === "loading" && (
           <div className="space-y-4 animate-pulse">
             {/* Banner skeleton */}
-            <div className="w-[452px] h-[128px] bg-void-surface angular-card" />
+            <div className="w-full max-w-[452px] h-[128px] bg-void-surface angular-card" />
             {/* Name skeleton */}
             <div className="space-y-2 px-1">
               <div className="h-8 w-64 bg-void-surface rounded" />
@@ -138,7 +138,7 @@ export default function ProfilePage() {
                   displayName={profileData.gameName ?? "Player"}
                 />
               ) : (
-                <div className="w-[452px] h-[128px] bg-void-surface angular-card flex items-center justify-center">
+                <div className="w-full max-w-[452px] h-[128px] bg-void-surface angular-card flex items-center justify-center">
                   <span className="text-zinc-600 font-display uppercase tracking-wider">
                     No Player Card
                   </span>
