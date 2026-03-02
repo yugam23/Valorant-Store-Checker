@@ -20,7 +20,10 @@ export default function Home() {
 
       {/* Floating orbs */}
       <div className="absolute top-1/4 -left-32 w-64 h-64 rounded-full bg-valorant-red/10 blur-3xl animate-subtle-float" />
-      <div className="absolute bottom-1/4 -right-32 w-80 h-80 rounded-full bg-valorant-red/5 blur-3xl animate-subtle-float" style={{ animationDelay: "3s" }} />
+      <div
+        className="absolute bottom-1/4 -right-32 w-80 h-80 rounded-full bg-valorant-red/5 blur-3xl animate-subtle-float"
+        style={{ animationDelay: "3s" }}
+      />
 
       {/* Hero content */}
       <div className="relative z-10">
@@ -45,18 +48,21 @@ export default function Home() {
           className="stagger-entrance max-w-2xl mx-auto text-lg text-white/50 mb-10"
           style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
         >
-          Login with your Riot ID to see your personalized offers, Night Market, and more without launching the game.
+          Login with your Riot ID to see your personalized offers, Night Market,
+          and more without launching the game.
         </p>
 
         <div
           className="stagger-entrance flex gap-4 justify-center"
           style={{ "--stagger-delay": "200ms" } as React.CSSProperties}
         >
-          <Button size="lg" variant="valorant" className="text-lg px-8 py-6 h-auto" asChild>
+          <Button
+            size="lg"
+            variant="valorant"
+            className="text-lg px-8 py-6 h-auto"
+            asChild
+          >
             <Link href="/login">Login with Riot</Link>
-          </Button>
-          <Button size="lg" variant="angular-outline" className="text-lg px-8 py-6 h-auto">
-            View Demo
           </Button>
         </div>
       </div>
@@ -64,16 +70,23 @@ export default function Home() {
       {/* Feature cards */}
       <div className="relative z-10 mt-20 grid grid-cols-1 gap-6 sm:grid-cols-3 text-left w-full max-w-5xl">
         {[
-          { title: "Daily Store", desc: "View your 4 daily skins with prices." },
+          {
+            title: "Daily Store",
+            desc: "View your 4 daily skins with prices.",
+          },
           { title: "Night Market", desc: "Check your Night Market discounts." },
           { title: "Bundle Info", desc: "See current detailed bundle info." },
         ].map((f, i) => (
           <div
             key={f.title}
             className="stagger-entrance angular-card bg-void-surface/50 border border-white/5 p-6 hover:border-valorant-red/30 hover:shadow-[0_0_20px_rgba(255,70,85,0.1)] transition-all duration-300"
-            style={{ "--stagger-delay": `${300 + i * 100}ms` } as React.CSSProperties}
+            style={
+              { "--stagger-delay": `${300 + i * 100}ms` } as React.CSSProperties
+            }
           >
-            <h3 className="font-display text-xl uppercase font-semibold mb-2 text-white">{f.title}</h3>
+            <h3 className="font-display text-xl uppercase font-semibold mb-2 text-white">
+              {f.title}
+            </h3>
             <p className="text-white/40 text-sm">{f.desc}</p>
           </div>
         ))}
