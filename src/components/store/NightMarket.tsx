@@ -56,7 +56,7 @@ export function NightMarket({ nightMarket }: NightMarketProps) {
   return (
     <section className="mt-12" aria-label="Night Market">
       {/* Section Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="font-display text-4xl md:text-5xl font-bold uppercase text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]">
             Night Market
