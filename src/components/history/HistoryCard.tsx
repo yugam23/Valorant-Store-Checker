@@ -32,9 +32,9 @@ export function HistoryCard({ rotation, staggerIndex, onDelete }: HistoryCardPro
     >
       <div className="p-6 space-y-4">
         {/* Date header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h3 className="font-display text-2xl uppercase text-light">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <h3 className="font-display text-xl sm:text-2xl uppercase text-light truncate">
               {formattedDate}
             </h3>
             {rotation.gameName && (
