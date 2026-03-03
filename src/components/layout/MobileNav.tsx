@@ -104,24 +104,26 @@ export function MobileNav({ isLoggedIn }: MobileNavProps) {
         <Menu size={24} />
       </button>
 
-      {/* Full-screen overlay — rendered when open */}
-      {isOpen && (
-        <>
-          {/* Backdrop — click to close */}
-          <div
-            className="fixed inset-0 z-50 bg-black/60"
-            onClick={() => setIsOpen(false)}
-            aria-hidden="true"
-          />
+      {/* Backdrop — always mounted, opacity-toggled */}
+      <div
+        className={`fixed inset-0 z-50 bg-black/60 transition-opacity duration-300 ease-in-out motion-reduce:duration-0 ${
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={() => setIsOpen(false)}
+        aria-hidden="true"
+      />
 
-          {/* Drawer panel */}
-          <div
-            ref={drawerRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mobile navigation"
-            className="fixed inset-0 z-50 flex flex-col bg-void-deep/95 overflow-y-auto"
-          >
+      {/* Drawer panel — always mounted, slide-toggled from right */}
+      <div
+        ref={drawerRef}
+        role="dialog"
+        aria-modal={isOpen}
+        aria-label="Mobile navigation"
+        inert={!isOpen}
+        className={`fixed inset-y-0 right-0 z-50 w-full flex flex-col bg-void-deep/95 overflow-y-auto transition-transform duration-300 ease-in-out motion-reduce:duration-0 ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
             {/* Header row with title and close button */}
             <div className="flex items-center justify-between px-4 h-16 border-b border-white/10">
               <span className="text-lg font-display uppercase tracking-wider text-white">
@@ -187,9 +189,7 @@ export function MobileNav({ isLoggedIn }: MobileNavProps) {
                 </Link>
               )}
             </div>
-          </div>
-        </>
-      )}
+      </div>
     </div>
   );
 }
