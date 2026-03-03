@@ -17,11 +17,13 @@ export function MobileNav({ isLoggedIn }: MobileNavProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
+  const [prevPathname, setPrevPathname] = useState(pathname);
 
-  // Close on route change
-  useEffect(() => {
+  // Close on route change without useEffect
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setIsOpen(false);
-  }, [pathname]);
+  }
 
   // iOS-safe scroll lock: position:fixed + top:-scrollY pattern
   // overflow:hidden alone does not stop scroll on iOS Safari
