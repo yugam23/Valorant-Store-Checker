@@ -8,7 +8,7 @@
 import { RiotStorefront, RiotWallet } from "@/types/riot";
 import { createLogger } from "./logger";
 import { parseWithLog } from "@/lib/schemas/parse";
-import { RiotStorefrontSchema } from "@/lib/schemas/storefront";
+import { RiotStorefrontSchema, RiotWalletSchema } from "@/lib/schemas/storefront";
 
 const log = createLogger("riot-store");
 
@@ -238,11 +238,11 @@ export async function getStorefront(tokens: StoreTokens): Promise<RiotStorefront
  * Fetches the player's wallet balance (VP, RP, KC)
  * Endpoint: /store/v1/wallet/{puuid}
  */
-export async function getWallet(tokens: StoreTokens): Promise<RiotWallet> {
+export async function getWallet(tokens: StoreTokens): Promise<RiotWallet | null> {
   const response = await fetchWithShardFallback(tokens, (pdUrl) => 
     `${pdUrl}/store/v1/wallet/${tokens.puuid}`
   );
 
   const data = await response.json();
-  return data as RiotWallet;
+  return parseWithLog(RiotWalletSchema, data, "RiotWallet") as RiotWallet | null;
 }

@@ -7,7 +7,7 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     rules: {
-      "@typescript-eslint/no-unused-vars": ["warn", {
+      "@typescript-eslint/no-unused-vars": ["error", {
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_",
         caughtErrorsIgnorePattern: "^_",
@@ -21,6 +21,16 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+
+    // External tooling & agent configuration (CommonJS, GSD, skills):
+    ".claude/**",
+    ".gemini/**",
+    ".agents/**",
+    ".agent/**",
+    ".planning/**",
+
+    // Auto-generated coverage instrumentation:
+    "coverage/**",
   ]),
 ]);
 

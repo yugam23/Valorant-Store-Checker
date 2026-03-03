@@ -6,7 +6,7 @@ import {
   EntitlementsResponseSchema,
   UserInfoSchema,
 } from "@/lib/schemas/riot-auth";
-import { RiotStorefrontSchema } from "@/lib/schemas/storefront";
+import { RiotStorefrontSchema, RiotWalletSchema } from "@/lib/schemas/storefront";
 import { parseWithLog } from "@/lib/schemas/parse";
 
 // ---------------------------------------------------------------------------
@@ -205,18 +205,40 @@ describe("UserInfoSchema", () => {
 // ---------------------------------------------------------------------------
 
 describe("RiotStorefrontSchema", () => {
+  const validOffer = {
+    OfferID: "skin-uuid-1",
+    IsDirectPurchase: true,
+    StartDate: "2024-01-01T00:00:00Z",
+    Cost: { "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741": 1775 },
+    Rewards: [{ ItemTypeID: "e7c63390-eda7-46e0-bb7a-a6abdacd2433", ItemID: "skin-uuid-1", Quantity: 1 }],
+  };
+
+  const validBundle = {
+    ID: "bundle-uuid",
+    DataAssetID: "data-uuid",
+    CurrencyID: "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741",
+    Items: [{
+      Item: { ItemTypeID: "e7c63390-eda7-46e0-bb7a-a6abdacd2433", ItemID: "skin-1", Amount: 1 },
+      BasePrice: 1775,
+      CurrencyID: "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741",
+      DiscountPercent: 0,
+      DiscountedPrice: 1775,
+      IsPromoItem: false,
+    }],
+    DurationRemainingInSeconds: 86400,
+    WholesaleOnly: false,
+  };
+
   const validStorefront = {
     FeaturedBundle: {
-      Bundle: { ID: "bundle-uuid", DataAssetID: "data-uuid" },
-      Bundles: [{ ID: "bundle-uuid", DataAssetID: "data-uuid" }],
+      Bundle: validBundle,
+      Bundles: [validBundle],
       BundleRemainingDurationInSeconds: 86400,
     },
     SkinsPanelLayout: {
       SingleItemOffers: ["skin-uuid-1", "skin-uuid-2", "skin-uuid-3", "skin-uuid-4"],
       SingleItemOffersRemainingDurationInSeconds: 86400,
-      SingleItemStoreOffers: [
-        { OfferID: "skin-uuid-1", IsDirectPurchase: true },
-      ],
+      SingleItemStoreOffers: [validOffer],
     },
   };
 
@@ -230,7 +252,7 @@ describe("RiotStorefrontSchema", () => {
       ...validStorefront,
       FeaturedBundle: {
         ...validStorefront.FeaturedBundle,
-        Bundle: { ...validStorefront.FeaturedBundle.Bundle, ExtraField: "ignored" },
+        Bundle: { ...validBundle, ExtraField: "ignored" },
       },
       UnknownTopLevel: "extra-value",
     };
@@ -248,6 +270,81 @@ describe("RiotStorefrontSchema", () => {
     // validStorefront has no BonusStore — should still pass
     const result = RiotStorefrontSchema.safeParse(validStorefront);
     expect(result.success).toBe(true);
+  });
+
+  it("BonusStore with valid offers: parses successfully", () => {
+    const withBonus = {
+      ...validStorefront,
+      BonusStore: {
+        BonusStoreOffers: [{
+          BonusOfferID: "bonus-1",
+          Offer: validOffer,
+          DiscountPercent: 33,
+          DiscountCosts: { "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741": 1189 },
+          IsSeen: false,
+        }],
+        BonusStoreRemainingDurationInSeconds: 172800,
+      },
+    };
+    const result = RiotStorefrontSchema.safeParse(withBonus);
+    expect(result.success).toBe(true);
+  });
+
+  it("offer missing Cost field: fails validation", () => {
+    const badOffer = { ...validOffer, Cost: undefined };
+    const badStorefront = {
+      ...validStorefront,
+      SkinsPanelLayout: {
+        ...validStorefront.SkinsPanelLayout,
+        SingleItemStoreOffers: [badOffer],
+      },
+    };
+    const result = RiotStorefrontSchema.safeParse(badStorefront);
+    expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RiotWalletSchema
+// ---------------------------------------------------------------------------
+
+describe("RiotWalletSchema", () => {
+  it("valid wallet with VP/RP/KC balances: parses successfully", () => {
+    const wallet = {
+      Balances: {
+        "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741": 3850,
+        "e59aa87c-4cbf-517a-5983-6e81511be9b7": 44,
+        "85ca954a-41f2-ce94-9b45-8ca3dd39a00d": 115,
+      },
+    };
+    const result = RiotWalletSchema.safeParse(wallet);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.Balances["85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741"]).toBe(3850);
+    }
+  });
+
+  it("empty Balances object: parses successfully", () => {
+    const result = RiotWalletSchema.safeParse({ Balances: {} });
+    expect(result.success).toBe(true);
+  });
+
+  it("extra fields: passes through", () => {
+    const result = RiotWalletSchema.safeParse({
+      Balances: { "some-id": 100 },
+      SomeExtraField: "test",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("missing Balances field: fails validation", () => {
+    const result = RiotWalletSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it("wrong Balances type (string values): fails validation", () => {
+    const result = RiotWalletSchema.safeParse({ Balances: { key: "not-a-number" } });
+    expect(result.success).toBe(false);
   });
 });
 

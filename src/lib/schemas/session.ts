@@ -1,3 +1,14 @@
+/**
+ * Zod schema for stored session data.
+ *
+ * This is the single source of truth for the SessionData shape.
+ * The `SessionData` type is inferred from this schema, eliminating
+ * the need for a separate TypeScript interface.
+ *
+ * Using `.passthrough()` for forward-compatibility: if a newer
+ * version of the auth flow stores extra fields in the DB, existing
+ * code won't reject them during validation.
+ */
 import { z } from "zod";
 
 export const StoredSessionSchema = z.object({
@@ -12,3 +23,6 @@ export const StoredSessionSchema = z.object({
   riotCookies: z.string().optional(),
   createdAt: z.number(),
 }).passthrough();
+
+/** Inferred type from the session schema — replaces the manual SessionData interface */
+export type StoredSession = z.infer<typeof StoredSessionSchema>;
