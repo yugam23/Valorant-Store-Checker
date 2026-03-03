@@ -5,7 +5,7 @@
  * Isolates Riot API calls and data hydration logic.
  */
 
-import { getStorefront, getWallet } from "@/lib/riot-store";
+import { getStorefront, getWallet, type StoreTokens } from "@/lib/riot-store";
 import { getWeaponSkins, getContentTiers, getSkinVideo, getBundleByUuid } from "@/lib/valorant-api";
 import { StoreData, StoreItem, BundleItem, BundleData, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { CURRENCY_IDS, RiotStorefront, RiotBundle } from "@/types/riot";
@@ -36,7 +36,7 @@ function getItemTypeName(itemTypeId: string): string | null {
  * Fetch static data required for hydration (Skins, Tiers).
  * Can be cached heavily or fetched once per request context.
  */
-export async function getStoreStaticData() {
+export async function fetchStoreStaticData() {
   const [skins, tiers] = await Promise.all([
     getWeaponSkins(),
     getContentTiers(),
@@ -44,7 +44,10 @@ export async function getStoreStaticData() {
   return { skins, tiers };
 }
 
-type StaticData = Awaited<ReturnType<typeof getStoreStaticData>>;
+/** @deprecated Use `fetchStoreStaticData` instead */
+export const getStoreStaticData = fetchStoreStaticData;
+
+type StaticData = Awaited<ReturnType<typeof fetchStoreStaticData>>;
 
 /** 
  * Helper to find skin in static data 
@@ -353,6 +356,50 @@ export async function hydrateBundles(
   );
 
   return results.filter((b): b is BundleData => b !== null);
+}
+
+// ---------------------------------------------------------------------------
+// High-level orchestration
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch and hydrate a complete user store in one call.
+ *
+ * Combines: storefront fetch → static data fetch → hydration of daily items,
+ * bundles, and night market into a single `StoreData` result.
+ *
+ * Designed for Server Components that need everything in one shot:
+ * ```ts
+ * const storeData = await fetchUserStore(session);
+ * ```
+ */
+export async function fetchUserStore(
+  tokens: StoreTokens,
+): Promise<StoreData | null> {
+  const [storefront, staticData] = await Promise.all([
+    getStorefront(tokens),
+    fetchStoreStaticData(),
+  ]);
+
+  if (!storefront) return null;
+
+  const [items, nightMarket, bundles] = await Promise.all([
+    hydrateDailyItems(storefront, staticData),
+    hydrateNightMarket(storefront, staticData),
+    hydrateBundles(storefront, staticData),
+  ]);
+
+  const expiresAt = new Date(
+    Date.now() +
+    storefront.SkinsPanelLayout.SingleItemOffersRemainingDurationInSeconds * 1000,
+  );
+
+  return {
+    items,
+    expiresAt,
+    nightMarket: nightMarket ?? undefined,
+    bundles,
+  };
 }
 
 export { getStorefront, getWallet };
