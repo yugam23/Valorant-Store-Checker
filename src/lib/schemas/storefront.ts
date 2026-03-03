@@ -16,6 +16,12 @@ import { z } from "zod";
 /** UUID-keyed cost map: { "85ad13f7-...": 1775 } */
 const CostMapSchema = z.record(z.string(), z.number());
 
+/**
+ * Riot inconsistently returns boolean fields as `true/false` or `0/1`.
+ * This schema accepts both and keeps the raw value (no coercion).
+ */
+const RiotBool = z.union([z.boolean(), z.number()]);
+
 /** Reward item within an offer */
 const RewardSchema = z.object({
   ItemTypeID: z.string(),
@@ -27,7 +33,7 @@ const RewardSchema = z.object({
 const StoreOfferSchema = z
   .object({
     OfferID: z.string(),
-    IsDirectPurchase: z.boolean(),
+    IsDirectPurchase: RiotBool,
     StartDate: z.string(),
     Cost: CostMapSchema,
     Rewards: z.array(RewardSchema),
@@ -50,7 +56,7 @@ const BundleItemSchema = z
     CurrencyID: z.string(),
     DiscountPercent: z.number(),
     DiscountedPrice: z.number(),
-    IsPromoItem: z.boolean(),
+    IsPromoItem: RiotBool,
   })
   .passthrough();
 
@@ -76,8 +82,8 @@ const BundleSchema = z
     TotalDiscountedCost: CostMapSchema.optional(),
     TotalDiscountPercent: z.number().optional(),
     DurationRemainingInSeconds: z.number(),
-    WholesaleOnly: z.boolean(),
-    IsGiftable: z.boolean().optional(),
+    WholesaleOnly: RiotBool,
+    IsGiftable: RiotBool.optional(),
   })
   .passthrough();
 
@@ -92,7 +98,7 @@ const BonusStoreOfferSchema = z
     Offer: StoreOfferSchema,
     DiscountPercent: z.number(),
     DiscountCosts: CostMapSchema,
-    IsSeen: z.boolean(),
+    IsSeen: RiotBool,
   })
   .passthrough();
 
