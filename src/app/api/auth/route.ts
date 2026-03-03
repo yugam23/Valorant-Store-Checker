@@ -48,6 +48,46 @@ const AuthBodySchema = z.discriminatedUnion("type", [
   }),
 ]);
 
+/**
+ * Create a session cookie and register the account in the multi-account registry.
+ *
+ * Centralises the repeated `createSession` + `addAccount` pattern so every
+ * auth branch (credentials, MFA, URL, cookie) goes through a single path.
+ */
+async function registerAuthenticatedSession(
+  tokens: {
+    accessToken: string;
+    entitlementsToken: string;
+    puuid: string;
+    region: string;
+    gameName?: string;
+    tagLine?: string;
+    country?: string;
+  },
+  riotCookies: string,
+) {
+  await createSession({ ...tokens, riotCookies });
+  await addAccount(
+    {
+      puuid: tokens.puuid,
+      region: tokens.region,
+      gameName: tokens.gameName,
+      tagLine: tokens.tagLine,
+      addedAt: Date.now(),
+    },
+    {
+      accessToken: tokens.accessToken,
+      entitlementsToken: tokens.entitlementsToken,
+      puuid: tokens.puuid,
+      region: tokens.region,
+      gameName: tokens.gameName,
+      tagLine: tokens.tagLine,
+      country: tokens.country,
+      riotCookies,
+    },
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     let rawBody: unknown;
@@ -78,29 +118,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create session with tokens
-      await createSession(result.tokens);
-
-      // Add account to multi-account registry
-      await addAccount(
-        {
-          puuid: result.tokens.puuid,
-          region: result.tokens.region,
-          gameName: result.tokens.gameName,
-          tagLine: result.tokens.tagLine,
-          addedAt: Date.now(),
-        },
-        {
-          accessToken: result.tokens.accessToken,
-          entitlementsToken: result.tokens.entitlementsToken,
-          puuid: result.tokens.puuid,
-          region: result.tokens.region,
-          gameName: result.tokens.gameName,
-          tagLine: result.tokens.tagLine,
-          country: result.tokens.country,
-          riotCookies: result.tokens.riotCookies,
-        }
-      );
+      await registerAuthenticatedSession(result.tokens, result.tokens.riotCookies ?? "");
 
       return NextResponse.json({
         success: true,
@@ -123,32 +141,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create session with tokens + updated Riot cookies
-      await createSession({
-        ...result.tokens,
-        riotCookies: result.riotCookies,
-      });
-
-      // Add account to multi-account registry
-      await addAccount(
-        {
-          puuid: result.tokens.puuid,
-          region: result.tokens.region,
-          gameName: result.tokens.gameName,
-          tagLine: result.tokens.tagLine,
-          addedAt: Date.now(),
-        },
-        {
-          accessToken: result.tokens.accessToken,
-          entitlementsToken: result.tokens.entitlementsToken,
-          puuid: result.tokens.puuid,
-          region: result.tokens.region,
-          gameName: result.tokens.gameName,
-          tagLine: result.tokens.tagLine,
-          country: result.tokens.country,
-          riotCookies: result.riotCookies,
-        }
-      );
+      await registerAuthenticatedSession(result.tokens, result.riotCookies ?? "");
 
       return NextResponse.json({
         success: true,
@@ -170,32 +163,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Create session with tokens + Riot cookies for SSID re-auth
-      await createSession({
-        ...result.tokens,
-        riotCookies: result.riotCookies ?? "",
-      });
-
-      // Add account to multi-account registry
-      await addAccount(
-        {
-          puuid: result.tokens.puuid,
-          region: result.tokens.region,
-          gameName: result.tokens.gameName,
-          tagLine: result.tokens.tagLine,
-          addedAt: Date.now(),
-        },
-        {
-          accessToken: result.tokens.accessToken,
-          entitlementsToken: result.tokens.entitlementsToken,
-          puuid: result.tokens.puuid,
-          region: result.tokens.region,
-          gameName: result.tokens.gameName,
-          tagLine: result.tokens.tagLine,
-          country: result.tokens.country,
-          riotCookies: result.riotCookies ?? "",
-        }
-      );
+      await registerAuthenticatedSession(result.tokens, result.riotCookies ?? "");
 
       return NextResponse.json({
         success: true,
@@ -280,31 +248,7 @@ export async function POST(request: NextRequest) {
 
       const riotCookies = "riotCookies" in result ? (result as { riotCookies: string }).riotCookies : "";
 
-      await createSession({
-        ...tokens,
-        riotCookies,
-      });
-
-      // Add account to multi-account registry
-      await addAccount(
-        {
-          puuid: tokens.puuid,
-          region: tokens.region,
-          gameName: tokens.gameName,
-          tagLine: tokens.tagLine,
-          addedAt: Date.now(),
-        },
-        {
-          accessToken: tokens.accessToken,
-          entitlementsToken: tokens.entitlementsToken,
-          puuid: tokens.puuid,
-          region: tokens.region,
-          gameName: tokens.gameName,
-          tagLine: tokens.tagLine,
-          country: tokens.country,
-          riotCookies,
-        }
-      );
+      await registerAuthenticatedSession(tokens, riotCookies);
 
       return NextResponse.json({
         success: true,
