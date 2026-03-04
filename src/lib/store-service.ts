@@ -235,7 +235,7 @@ async function hydrateSingleBundle(
           // New skin not yet in static data — try fetching directly
           displayName = "New Skin";
           try {
-            const res = await fetch(`https://valorant-api.com/v1/weapons/skinlevels/${itemId}`);
+            const res = await fetch(`https://valorant-api.com/v1/weapons/skinlevels/${itemId}`, { signal: AbortSignal.timeout(30_000) });
             if (res.ok) {
               const json = await res.json();
               if (json.status === 200 && json.data) {
@@ -264,7 +264,7 @@ async function hydrateSingleBundle(
 
         for (const ep of endpointsToTry) {
           try {
-            const res = await fetch(`https://valorant-api.com/v1/${ep}/${itemId}`);
+            const res = await fetch(`https://valorant-api.com/v1/${ep}/${itemId}`, { signal: AbortSignal.timeout(30_000) });
             if (res.ok) {
               const json = await res.json();
               if (json.status === 200 && json.data) {

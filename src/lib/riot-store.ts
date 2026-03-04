@@ -62,15 +62,10 @@ async function getClientVersion(): Promise<string> {
 
   while (attempts < maxAttempts) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-
       const response = await fetch("https://valorant-api.com/v1/version", {
         next: { revalidate: 3600 },
-        signal: controller.signal,
+        signal: AbortSignal.timeout(5_000),
       });
-      
-      clearTimeout(timeoutId);
 
       if (response.ok) {
         const data = await response.json();
@@ -195,6 +190,7 @@ export async function fetchWithShardFallback(
         headers,
         body,
         cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
       });
 
       if (response.ok) {

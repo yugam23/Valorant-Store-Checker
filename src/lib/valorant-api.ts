@@ -50,6 +50,7 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
         "Content-Type": "application/json",
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
@@ -101,6 +102,7 @@ export async function getContentTiers(): Promise<ValorantContentTier[]> {
         "Content-Type": "application/json",
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
@@ -152,6 +154,7 @@ export async function getBundles(): Promise<ValorantBundle[]> {
         "Content-Type": "application/json",
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
@@ -246,6 +249,7 @@ export async function getPlayerCardByUuid(uuid: string): Promise<ValorantPlayerC
   try {
     const response = await fetch(`${VALORANT_API_BASE}/playercards/${uuid}`, {
       next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantPlayerCard> = await response.json();
@@ -263,6 +267,7 @@ export async function getPlayerTitleByUuid(uuid: string): Promise<ValorantPlayer
   try {
     const response = await fetch(`${VALORANT_API_BASE}/playertitles/${uuid}`, {
       next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantPlayerTitle> = await response.json();
@@ -340,6 +345,7 @@ export async function getCompetitiveTierIconByTier(tierId: number): Promise<stri
     try {
       const response = await fetch(`${VALORANT_API_BASE}/competitivetiers`, {
         next: { revalidate: 86400 },
+        signal: AbortSignal.timeout(30_000),
       });
       if (!response.ok) return null;
       const result = await response.json();
