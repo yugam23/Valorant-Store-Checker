@@ -50,4 +50,10 @@ export const env = {
 
   /** Optional: path to SQLite session database file (relative to cwd). Falls back to .session-data/sessions.db */
   SESSION_DB_PATH: process.env.SESSION_DB_PATH,
+
+  /** Optional: 64-char hex string (32 bytes). Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   *  When set, riotCookies are encrypted at rest using AES-256-GCM before being written to SQLite.
+   *  When absent, cookies are stored as plaintext and a one-time warning is logged.
+   */
+  ENCRYPTION_KEY: process.env.ENCRYPTION_KEY as string | undefined,
 } as const;
