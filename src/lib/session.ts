@@ -12,6 +12,7 @@
  * - SameSite=Lax
  */
 
+import { cache } from "react";
 import { SignJWT, jwtVerify } from "jose";
 import { refreshTokensWithCookies } from "./riot-reauth";
 import { cookies } from "next/headers";
@@ -146,10 +147,20 @@ async function getSessionInternal(): Promise<{ sessionId: string; data: SessionD
 }
 
 /**
+ * Cached version of getSessionInternal for RSC render-pass dedup.
+ * React.cache() ensures only ONE SQLite read per render pass,
+ * even when Header, Layout, and Page all call getSession().
+ *
+ * Scope: per-request (per RSC render pass). Does NOT persist across requests.
+ * Does NOT deduplicate Route Handler calls (only RSC tree).
+ */
+const getCachedSessionInternal = cache(getSessionInternal);
+
+/**
  * Retrieves session by reference ID from cookie
  */
 export async function getSession(): Promise<SessionData | null> {
-  const result = await getSessionInternal();
+  const result = await getCachedSessionInternal();
   return result?.data ?? null;
 }
 
@@ -215,7 +226,7 @@ export async function refreshSession(): Promise<boolean> {
  * because it only updates server-side store data, never modifies cookies.
  */
 export async function getSessionWithRefresh(): Promise<SessionData | null> {
-  const result = await getSessionInternal();
+  const result = await getCachedSessionInternal();
 
   if (!result) {
     return null;
