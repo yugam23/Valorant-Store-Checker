@@ -7,7 +7,7 @@
  * Session verification ensures each account has isolated wishlist data.
  */
 
-import { NextResponse, NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withSession, parseBody } from "@/lib/api-validate";
 import {
