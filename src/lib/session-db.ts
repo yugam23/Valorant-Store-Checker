@@ -43,6 +43,7 @@ if (isRemote) {
   // CRITICAL for Windows: backslashes in file: URLs break libsql
   dbUrl = 'file:' + dbAbsPath.replace(/\\/g, '/');
   // Only create the directory when using a local file (Vercel FS is read-only)
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- path derived from server-controlled env var with safe hardcoded default; not user input
   fs.mkdirSync(path.dirname(dbAbsPath), { recursive: true });
 }
 

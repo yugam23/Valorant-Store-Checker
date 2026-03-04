@@ -18,6 +18,7 @@ export async function launchBasicBrowser(): Promise<{ success: boolean; error?: 
           : `xdg-open "${RIOT_LOGIN_URL}"`;
 
     await new Promise<void>((resolve, reject) => {
+      // eslint-disable-next-line security/detect-child-process -- command is assembled from hardcoded RIOT_LOGIN_URL constant + platform string literals; no user input involved
       exec(command, (err) => {
         if (err) reject(err);
         else resolve();
