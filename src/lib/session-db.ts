@@ -48,11 +48,18 @@ if (isRemote) {
 }
 
 // ---------------------------------------------------------------------------
+// Cleanup interval
+// ---------------------------------------------------------------------------
+
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
+// ---------------------------------------------------------------------------
 // Global singleton (Next.js hot-reload safe)
 // ---------------------------------------------------------------------------
 
 declare global {
   var __sessionDb: Client | undefined;
+  var __cleanupInterval: ReturnType<typeof setInterval> | undefined;
 }
 
 function getOrCreateClient(): Client {
@@ -159,13 +166,45 @@ export function initSessionDb(): Promise<Client> {
       );
 
       // 2. Expired-session cleanup (SQLITE-06)
-      await client.execute({
+      const cleanupResult = await client.execute({
         sql: 'DELETE FROM sessions WHERE expires_at < ?',
         args: [Date.now()],
       });
+      if (cleanupResult.rowsAffected > 0) {
+        log.info(
+          'Startup cleanup removed %d expired session(s)',
+          cleanupResult.rowsAffected,
+        );
+      }
 
       // 3. Migration from sessions.json (SQLITE-04)
       await migrateFromJsonIfNeeded(client);
+
+      // 4. Schedule periodic cleanup (hot-reload safe)
+      if (global.__cleanupInterval) {
+        clearInterval(global.__cleanupInterval);
+      }
+      global.__cleanupInterval = setInterval(async () => {
+        try {
+          const count = await client.execute({
+            sql: 'DELETE FROM sessions WHERE expires_at < ?',
+            args: [Date.now()],
+          });
+          if (count.rowsAffected > 0) {
+            log.info(
+              'Periodic cleanup removed %d expired session(s)',
+              count.rowsAffected,
+            );
+          }
+        } catch (err) {
+          log.warn('Periodic session cleanup failed:', err);
+        }
+      }, CLEANUP_INTERVAL_MS);
+
+      // Prevent setInterval from keeping the process alive during shutdown
+      if (global.__cleanupInterval.unref) {
+        global.__cleanupInterval.unref();
+      }
 
       return client;
     })();
