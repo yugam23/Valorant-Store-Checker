@@ -215,6 +215,7 @@ export async function authenticateRiotAccount(
         scope: AUTH_SCOPE,
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
     });
 
     log.info("Step 1 - Init status:", initResponse.status);
@@ -254,6 +255,7 @@ export async function authenticateRiotAccount(
         remember: true,
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
     });
 
     log.info("Step 2 - Auth status:", authResponse.status);
@@ -399,6 +401,7 @@ export async function submitMfa(
         rememberDevice: true,
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!mfaResponse.ok) {

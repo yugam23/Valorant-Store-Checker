@@ -157,6 +157,7 @@ export async function refreshTokensWithCookies(riotCookies: string): Promise<
           "User-Agent": RIOT_CLIENT_UA,
         },
         redirect: "manual",
+        signal: AbortSignal.timeout(30_000),
       },
     );
 

@@ -104,6 +104,7 @@ export async function getEntitlementsToken(
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({}),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
@@ -131,6 +132,7 @@ export async function getUserInfo(
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
