@@ -1,14 +1,12 @@
 import { NightMarket } from "@/components/store/NightMarket";
-import { hydrateNightMarket, getStoreStaticData } from "@/lib/store-service";
-import { RiotStorefront } from "@/types/riot";
+import type { StoreData } from "@/types/store";
 
 interface NightMarketSectionProps {
-  storefront: RiotStorefront;
-  staticData: Awaited<ReturnType<typeof getStoreStaticData>>;
+  storeData: StoreData;
 }
 
-export async function NightMarketSection({ storefront, staticData }: NightMarketSectionProps) {
-  const nightMarket = await hydrateNightMarket(storefront, staticData);
+export async function NightMarketSection({ storeData }: NightMarketSectionProps) {
+  const { nightMarket } = storeData;
 
   if (!nightMarket) return null;
 

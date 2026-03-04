@@ -49,6 +49,9 @@ export const getStoreStaticData = fetchStoreStaticData;
 
 type StaticData = Awaited<ReturnType<typeof fetchStoreStaticData>>;
 
+/** Exported type alias for use in Server Component props */
+export type { StaticData as StoreStaticData };
+
 /** 
  * Helper to find skin in static data 
  */

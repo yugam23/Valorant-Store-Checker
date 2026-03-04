@@ -1,16 +1,14 @@
 import { FeaturedBundleCarousel } from "@/components/store/FeaturedBundle";
-import { hydrateBundles, getStoreStaticData } from "@/lib/store-service";
-import { RiotStorefront } from "@/types/riot";
+import type { StoreData } from "@/types/store";
 
 interface BundleSectionProps {
-  storefront: RiotStorefront;
-  staticData: Awaited<ReturnType<typeof getStoreStaticData>>;
+  storeData: StoreData;
 }
 
-export async function BundleSection({ storefront, staticData }: BundleSectionProps) {
-  const bundles = await hydrateBundles(storefront, staticData);
+export async function BundleSection({ storeData }: BundleSectionProps) {
+  const { bundles } = storeData;
 
-  if (bundles.length === 0) return null;
+  if (!bundles || bundles.length === 0) return null;
 
   return (
     <div className="mb-12">
