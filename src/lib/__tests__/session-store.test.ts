@@ -1,5 +1,5 @@
 import { createClient, type Client } from "@libsql/client";
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { SessionData } from "@/lib/session-types";
 
 // ---------------------------------------------------------------------------
@@ -21,6 +21,8 @@ const {
   deleteSessionFromStore,
   cleanupExpiredSessions,
 } = await import("@/lib/session-store");
+
+const { initSessionDb } = await import("@/lib/session-db");
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -129,5 +131,67 @@ describe("cleanupExpiredSessions", () => {
       args: ["exp-session"],
     });
     expect(expired.rows.length).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Defensive error-handling tests (ERR-01, ERR-03)
+// ---------------------------------------------------------------------------
+
+describe("getSessionFromStore — defensive error handling", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("ERR-01: corrupt JSON returns null and logs a warning", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    vi.mocked(initSessionDb).mockResolvedValueOnce({
+      execute: vi.fn().mockResolvedValueOnce({
+        rows: [{ data: "NOT VALID JSON{{{", expires_at: Date.now() + 60_000 }],
+      }),
+    } as unknown as Awaited<ReturnType<typeof initSessionDb>>);
+
+    const result = await getSessionFromStore("corrupt-id");
+
+    expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[session-store]"),
+      expect.stringContaining("corrupt session data"),
+      "corrupt-id",
+    );
+  });
+
+  it("ERR-03: DB error returns null and logs an error", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    vi.mocked(initSessionDb).mockResolvedValueOnce({
+      execute: vi.fn().mockRejectedValueOnce(new Error("SQLITE_CANTOPEN")),
+    } as unknown as Awaited<ReturnType<typeof initSessionDb>>);
+
+    const result = await getSessionFromStore("db-error-id");
+
+    expect(result).toBeNull();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[session-store]"),
+      expect.stringContaining("database error"),
+      "db-error-id",
+      expect.any(Error),
+    );
+  });
+
+  it("ERR-03: missing session returns null silently (no warn, no error)", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    vi.mocked(initSessionDb).mockResolvedValueOnce({
+      execute: vi.fn().mockResolvedValueOnce({ rows: [] }),
+    } as unknown as Awaited<ReturnType<typeof initSessionDb>>);
+
+    const result = await getSessionFromStore("missing-id");
+
+    expect(result).toBeNull();
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 });
