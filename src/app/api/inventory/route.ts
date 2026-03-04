@@ -6,24 +6,15 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionWithRefresh } from "@/lib/session";
+import { withSession } from "@/lib/api-validate";
 import { getOwnedSkins, clearInventoryCache } from "@/lib/riot-inventory";
 import { getCachedInventory, clearCachedInventory } from "@/lib/inventory-cache";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Inventory API");
 
-export async function GET(request: NextRequest) {
+export const GET = withSession(async (request: NextRequest, session) => {
   try {
-    // 1. Get session with automatic token refresh
-    const session = await getSessionWithRefresh();
-    if (!session) {
-      return NextResponse.json(
-        { error: "Unauthorized", code: "UNAUTHORIZED" },
-        { status: 401 }
-      );
-    }
-
     // If ?refresh=true, clear all caches to force a fresh fetch from Riot and Valorant-API
     const refresh = request.nextUrl.searchParams.get("refresh") === "true";
     if (refresh) {
@@ -34,7 +25,7 @@ export async function GET(request: NextRequest) {
       log.info(`Inventory caches cleared for PUUID: ${session.puuid.substring(0, 8)} (manual refresh)`);
     }
 
-    // 2. Fetch owned skins
+    // Fetch owned skins
     try {
       const inventoryData = await getOwnedSkins(session);
 
@@ -86,4 +77,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { refresh: true });

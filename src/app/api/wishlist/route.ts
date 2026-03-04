@@ -8,29 +8,36 @@
  */
 
 import { NextResponse, NextRequest } from "next/server";
-import { getSession } from "@/lib/session";
+import { z } from "zod";
+import { withSession, parseBody } from "@/lib/api-validate";
 import {
   getWishlist,
   addToWishlist,
   removeFromWishlist,
 } from "@/lib/wishlist";
-import type { WishlistItem } from "@/types/wishlist";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Wishlist API");
+
+const WishlistItemSchema = z.object({
+  skinUuid: z.string(),
+  displayName: z.string(),
+  displayIcon: z.string(),
+  tierColor: z.string(),
+  cost: z.number().optional(),
+  addedAt: z.string().optional(),
+});
+
+const WishlistDeleteSchema = z.object({
+  skinUuid: z.string(),
+});
 
 /**
  * GET /api/wishlist
  * Returns the full wishlist for the active account
  */
-export async function GET() {
+export const GET = withSession(async (_request, session) => {
   try {
-    // Verify session
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const wishlist = await getWishlist(session.puuid);
     return NextResponse.json(wishlist);
   } catch (error) {
@@ -40,41 +47,20 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * POST /api/wishlist
  * Adds an item to the wishlist
  * Body: WishlistItem
  */
-export async function POST(request: NextRequest) {
+export const POST = withSession(async (request, session) => {
   try {
-    // Verify session
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Parse request body
-    const item: WishlistItem = await request.json();
-
-    // Validate required fields
-    if (
-      !item.skinUuid ||
-      !item.displayName ||
-      !item.displayIcon ||
-      !item.tierColor
-    ) {
-      return NextResponse.json(
-        { error: "Invalid wishlist item. Missing required fields." },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(request, WishlistItemSchema);
+    if (!parsed.success) return parsed.response;
 
     // Add addedAt timestamp if not present
-    if (!item.addedAt) {
-      item.addedAt = new Date().toISOString();
-    }
+    const item = { ...parsed.data, addedAt: parsed.data.addedAt ?? new Date().toISOString() };
 
     // Add to wishlist
     const updated = await addToWishlist(session.puuid, item);
@@ -99,30 +85,19 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * DELETE /api/wishlist
  * Removes an item from the wishlist
  * Body: { skinUuid: string }
  */
-export async function DELETE(request: NextRequest) {
+export const DELETE = withSession(async (request, session) => {
   try {
-    // Verify session
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const parsed = await parseBody(request, WishlistDeleteSchema);
+    if (!parsed.success) return parsed.response;
 
-    // Parse request body
-    const { skinUuid }: { skinUuid: string } = await request.json();
-
-    if (!skinUuid) {
-      return NextResponse.json(
-        { error: "skinUuid is required" },
-        { status: 400 }
-      );
-    }
+    const { skinUuid } = parsed.data;
 
     // Remove from wishlist
     const updated = await removeFromWishlist(session.puuid, skinUuid);
@@ -138,4 +113,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

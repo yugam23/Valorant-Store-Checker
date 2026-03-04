@@ -9,25 +9,16 @@
  */
 
 import { NextResponse } from "next/server";
-import { getSessionWithRefresh } from "@/lib/session";
+import { withSession } from "@/lib/api-validate";
 import { getProfileData } from "@/lib/profile-cache";
 import { type StoreTokens } from "@/lib/riot-store";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Profile API");
 
-export async function GET() {
+export const GET = withSession(async (_request, session) => {
   try {
-    // 1. Get session with automatic token refresh
-    const session = await getSessionWithRefresh();
-    if (!session) {
-      return NextResponse.json(
-        { error: "Unauthorized", code: "UNAUTHORIZED" },
-        { status: 401 }
-      );
-    }
-
-    // 2. Build StoreTokens inline from session fields
+    // 1. Build StoreTokens inline from session fields
     const tokens: StoreTokens = {
       accessToken: session.accessToken,
       entitlementsToken: session.entitlementsToken,
@@ -35,14 +26,14 @@ export async function GET() {
       region: session.region,
     };
 
-    // 3. Fetch profile data — never throws; returns ProfileData with partial flag
+    // 2. Fetch profile data — never throws; returns ProfileData with partial flag
     const profileData = await getProfileData(tokens, session.region);
 
     log.info(
       `Profile fetched — fromCache: ${profileData.fromCache}, partial: ${profileData.partial}`
     );
 
-    // 4. Return ProfilePageData JSON — always HTTP 200; client reads partial flag
+    // 3. Return ProfilePageData JSON — always HTTP 200; client reads partial flag
     //    Merge session identity fields so the profile page has gameName, tagLine,
     //    country, and region alongside the fetched profile data in one response.
     return NextResponse.json(
@@ -71,4 +62,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+}, { refresh: true });

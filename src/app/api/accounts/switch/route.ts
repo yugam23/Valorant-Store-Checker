@@ -10,14 +10,16 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { parseBody } from "@/lib/api-validate";
 import { switchAccount, getActiveAccount } from "@/lib/accounts";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("Switch Account API");
 
-interface SwitchRequestBody {
-  puuid: string;
-}
+const SwitchAccountSchema = z.object({
+  puuid: z.string().min(1),
+});
 
 /**
  * POST /api/accounts/switch
@@ -25,17 +27,13 @@ interface SwitchRequestBody {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body: SwitchRequestBody = await request.json();
+    const parsed = await parseBody(request, SwitchAccountSchema);
+    if (!parsed.success) return parsed.response;
 
-    if (!body.puuid) {
-      return NextResponse.json(
-        { error: "PUUID is required" },
-        { status: 400 }
-      );
-    }
+    const { puuid } = parsed.data;
 
     // Attempt to switch accounts
-    const success = await switchAccount(body.puuid);
+    const success = await switchAccount(puuid);
 
     if (!success) {
       return NextResponse.json(
@@ -47,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Get the newly active account
     const activeAccount = await getActiveAccount();
 
-    log.info(`Switched to account ${body.puuid.substring(0, 8)}`);
+    log.info(`Switched to account ${puuid.substring(0, 8)}`);
 
     return NextResponse.json({
       success: true,
