@@ -44,8 +44,6 @@ export async function fetchStoreStaticData() {
   return { skins, tiers };
 }
 
-/** @deprecated Use `fetchStoreStaticData` instead */
-export const getStoreStaticData = fetchStoreStaticData;
 
 type StaticData = Awaited<ReturnType<typeof fetchStoreStaticData>>;
 

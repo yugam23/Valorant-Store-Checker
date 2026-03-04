@@ -86,7 +86,7 @@ export async function getAccounts(): Promise<AccountsData | null> {
 }
 
 async function saveAccounts(data: AccountsData): Promise<void> {
-  const token = await new SignJWT(data as unknown as Record<string, unknown>)
+  const token = await new SignJWT({ ...data })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${ACCOUNTS_MAX_AGE}s`)
