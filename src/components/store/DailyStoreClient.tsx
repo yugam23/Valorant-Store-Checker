@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { StoreGrid } from "./StoreGrid";
 import type { StoreItem } from "@/types/store";
 import { logStoreRotation } from "@/lib/store-history";
+import { useWishlist } from "@/hooks/useWishlist";
 
 interface DailyStoreClientProps {
   items: StoreItem[];
@@ -58,7 +59,7 @@ function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
 }
 
 export function DailyStoreClient({ items, initialWishlistedUuids, expiresAt, puuid, account }: DailyStoreClientProps) {
-  const [wishlistedUuids, setWishlistedUuids] = useState<string[]>(initialWishlistedUuids);
+  const { wishlistedUuids, toggleWishlist } = useWishlist(initialWishlistedUuids);
 
   useEffect(() => {
     if (items.length > 0 && puuid) {
@@ -67,48 +68,6 @@ export function DailyStoreClient({ items, initialWishlistedUuids, expiresAt, puu
       );
     }
   }, [items, puuid, expiresAt, account]);
-
-  const handleWishlistToggle = async (skinUuid: string, item: StoreItem) => {
-    const isCurrentlyWishlisted = wishlistedUuids.includes(skinUuid);
-    const newWishlistState = isCurrentlyWishlisted
-        ? wishlistedUuids.filter(id => id !== skinUuid)
-        : [...wishlistedUuids, skinUuid];
-    
-    // Optimistic update
-    setWishlistedUuids(newWishlistState);
-
-    try {
-      if (isCurrentlyWishlisted) {
-        // Remove from wishlist
-        await fetch("/api/wishlist", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ skinUuid }),
-        });
-      } else {
-        // Add to wishlist
-        const wishlistItem = {
-            skinUuid: item.uuid,
-            displayName: item.displayName,
-            displayIcon: item.displayIcon,
-            tierColor: item.tierColor,
-            addedAt: new Date().toISOString(),
-        };
-
-        await fetch("/api/wishlist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(wishlistItem),
-        });
-      }
-    } catch (err) {
-      console.error("Wishlist toggle error:", err);
-      // Revert on error
-      setWishlistedUuids(initialWishlistedUuids); 
-    }
-  };
 
   return (
     <>
@@ -126,7 +85,7 @@ export function DailyStoreClient({ items, initialWishlistedUuids, expiresAt, puu
       <StoreGrid
         items={items}
         wishlistedUuids={wishlistedUuids}
-        onWishlistToggle={handleWishlistToggle}
+        onWishlistToggle={toggleWishlist}
         showInStoreNotifications={true}
       />
     </>

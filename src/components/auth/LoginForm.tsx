@@ -1,60 +1,29 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useTransition, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Loader2, Info } from "lucide-react";
-
-interface AuthResponse {
-  success: boolean;
-  error?: string;
-  data?: {
-    puuid: string;
-    region: string;
-  };
-}
+import { authenticateWithPaste } from "@/actions/auth";
 
 export function LoginForm() {
-  // State
   const [pastedValue, setPastedValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-
-
-  const handleAuth = async (e: FormEvent) => {
+  const handleAuth = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setIsLoading(true);
 
-    try {
-      // Determine if input is a URL (Browser Auth) or Cookie string (Session Auth)
-      const isUrl = pastedValue.trim().startsWith("http");
-      
-      const payload = isUrl 
-        ? { type: "url", url: pastedValue }
-        : { type: "cookie", cookie: pastedValue };
+    startTransition(async () => {
+      const result = await authenticateWithPaste(pastedValue);
 
-      const response = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // Ensure cookies are received and saved
-        body: JSON.stringify(payload),
-      });
-
-      const data: AuthResponse = await response.json();
-
-      if (data.success) {
-        // Force a hard navigation to ensure session state is picked up
+      if (result.success) {
+        // Force hard navigation to pick up the new session cookie
         window.location.href = "/store";
       } else {
-        setError(data.error || "Authentication failed. Please check your input.");
+        setError(result.error || "Authentication failed. Please check your input.");
       }
-    } catch (err) {
-      setError("Network error. Please try again.");
-      console.error("Auth error:", err);
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   const handleLaunchBrowser = () => {
@@ -118,7 +87,7 @@ export function LoginForm() {
                 onChange={(e) => setPastedValue(e.target.value)}
                 placeholder="https://playvalorant.com... OR ssid=...; tdid=..."
                 required
-                disabled={isLoading}
+                disabled={isPending}
                 className="w-full px-4 py-3 bg-void-deep border-l-2 border-transparent text-light placeholder-zinc-500 focus:outline-none focus:border-valorant-red disabled:opacity-50 disabled:cursor-not-allowed transition-all font-mono text-sm"
               />
             </div>
@@ -148,10 +117,10 @@ export function LoginForm() {
             type="submit"
             variant="valorant"
             size="lg"
-            disabled={isLoading || !pastedValue}
+            disabled={isPending || !pastedValue}
             className="w-full"
           >
-            {isLoading ? (
+            {isPending ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 Processing...
