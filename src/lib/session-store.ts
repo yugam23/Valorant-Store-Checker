@@ -48,10 +48,17 @@ export async function saveSessionToStore(sessionId: string, data: SessionData, m
 
 export async function getSessionFromStore(sessionId: string): Promise<SessionData | null> {
   const db = await initSessionDb();
-  const result = await db.execute({
-    sql: 'SELECT data, expires_at FROM sessions WHERE id = ?',
-    args: [sessionId],
-  });
+
+  let result: Awaited<ReturnType<typeof db.execute>>;
+  try {
+    result = await db.execute({
+      sql: 'SELECT data, expires_at FROM sessions WHERE id = ?',
+      args: [sessionId],
+    });
+  } catch (err) {
+    log.error('session-store: database error fetching session %s:', sessionId, err);
+    return null;
+  }
 
   if (result.rows.length === 0) {
     return null;
@@ -68,19 +75,26 @@ export async function getSessionFromStore(sessionId: string): Promise<SessionDat
     return null;
   }
 
-  const raw = JSON.parse(row.data as string);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(row.data as string);
+  } catch {
+    log.warn('session-store: corrupt session data for %s — discarding', sessionId);
+    return null;
+  }
 
   // Decrypt riotCookies if present
-  if (raw.riotCookies) {
+  const rawObj = raw as Record<string, unknown>;
+  if (rawObj.riotCookies) {
     const key = getEncryptionKey();
 
-    if (isEncrypted(raw.riotCookies)) {
+    if (isEncrypted(rawObj.riotCookies as string)) {
       if (!key) {
         log.warn('Encrypted cookies found but no ENCRYPTION_KEY — cannot decrypt, re-login required');
         return null;
       }
       try {
-        raw.riotCookies = decrypt(raw.riotCookies, key);
+        rawObj.riotCookies = decrypt(rawObj.riotCookies as string, key);
       } catch (err) {
         log.warn('Failed to decrypt riotCookies (re-login required):', err);
         return null;
