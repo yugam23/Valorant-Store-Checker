@@ -64,7 +64,7 @@ export async function getSessionFromStore(sessionId: string): Promise<SessionDat
     return null;
   }
 
-  const row = result.rows[0];
+  const row = result.rows[0]!;
   const expiresAt = row.expires_at as number;
 
   if (expiresAt < Date.now()) {

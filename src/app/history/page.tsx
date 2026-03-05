@@ -153,7 +153,7 @@ export default function HistoryPage() {
 
     return Array.from(map.entries()).map(([puuid, rots]) => {
       const first = rots[0];
-      const displayName = first.gameName
+      const displayName = first?.gameName
         ? `${first.gameName}${first.tagLine ? `#${first.tagLine}` : ""}`
         : `${puuid.slice(0, 8)}…`;
 

@@ -46,7 +46,7 @@ function extractWeaponName(displayName: string): string {
   }
 
   // Extract the last word as the weapon name
-  const weaponName = words[words.length - 1];
+  const weaponName = words[words.length - 1] ?? displayName;
 
   // Special cases for common weapon names
   const knownWeapons = [
@@ -203,8 +203,10 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
     let streamedVideo: string | null = null;
     if (skin.levels && skin.levels.length > 0) {
       for (let i = skin.levels.length - 1; i >= 0; i--) {
-        if (skin.levels[i].streamedVideo) {
-          streamedVideo = skin.levels[i].streamedVideo;
+        const level = skin.levels[i];
+        if (!level) continue;
+        if (level.streamedVideo) {
+          streamedVideo = level.streamedVideo;
           break;
         }
       }

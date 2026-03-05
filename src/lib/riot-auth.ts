@@ -133,7 +133,7 @@ export async function completeAuthWithUrl(
   try {
     let hash = "";
     if (url.includes("#")) {
-      hash = url.split("#")[1];
+      hash = url.split("#")[1] ?? "";
     } else {
       hash = url;
     }

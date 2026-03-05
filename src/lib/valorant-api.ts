@@ -389,6 +389,7 @@ export function getSkinVideo(skin: ValorantWeaponSkin): string | null {
   // Iterate backwards as higher levels usually come last
   for (let i = skin.levels.length - 1; i >= 0; i--) {
     const level = skin.levels[i];
+    if (!level) continue;
     if (level.streamedVideo) {
       return level.streamedVideo;
     }

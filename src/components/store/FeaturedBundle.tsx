@@ -45,14 +45,14 @@ function BundleCountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
 
   return (
     <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${timeLeft.h} hours ${timeLeft.m} minutes ${timeLeft.s} seconds remaining`}>
-      <BundleDigitCard value={timeLeft.h[0]} />
-      <BundleDigitCard value={timeLeft.h[1]} />
+      <BundleDigitCard value={timeLeft.h[0] ?? "0"} />
+      <BundleDigitCard value={timeLeft.h[1] ?? "0"} />
       <BundleSeparator />
-      <BundleDigitCard value={timeLeft.m[0]} />
-      <BundleDigitCard value={timeLeft.m[1]} />
+      <BundleDigitCard value={timeLeft.m[0] ?? "0"} />
+      <BundleDigitCard value={timeLeft.m[1] ?? "0"} />
       <BundleSeparator />
-      <BundleDigitCard value={timeLeft.s[0]} />
-      <BundleDigitCard value={timeLeft.s[1]} />
+      <BundleDigitCard value={timeLeft.s[0] ?? "0"} />
+      <BundleDigitCard value={timeLeft.s[1] ?? "0"} />
     </div>
   );
 }
@@ -360,7 +360,7 @@ export function FeaturedBundleCarousel({ bundles }: FeaturedBundleCarouselProps)
   if (bundles.length === 1) {
     return (
       <div className="stagger-entrance">
-        <FeaturedBundle bundle={bundles[0]} />
+        <FeaturedBundle bundle={bundles[0]!} />
       </div>
     );
   }

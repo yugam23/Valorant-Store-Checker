@@ -68,8 +68,8 @@ export function MobileNav({ isLoggedIn }: MobileNavProps) {
     const focusableElements =
       drawer.querySelectorAll<HTMLElement>(focusableSelector);
     if (focusableElements.length === 0) return;
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
+    const firstElement = focusableElements[0]!;
+    const lastElement = focusableElements[focusableElements.length - 1]!;
 
     // Focus first element on open
     firstElement.focus();

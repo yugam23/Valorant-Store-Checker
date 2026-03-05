@@ -56,7 +56,9 @@ export function decrypt(encryptedValue: string, keyHex: string): string {
     throw new Error('Invalid encrypted value format — expected iv:authTag:ciphertext');
   }
 
-  const [ivHex, authTagHex, ciphertextHex] = parts;
+  const ivHex = parts[0]!;
+  const authTagHex = parts[1]!;
+  const ciphertextHex = parts[2]!;
   const key = Buffer.from(keyHex, 'hex');
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = Buffer.from(authTagHex, 'hex');

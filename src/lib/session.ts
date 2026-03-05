@@ -64,7 +64,7 @@ export async function createSession(tokens: {
   const filteredCookies = tokens.riotCookies
     ? tokens.riotCookies
         .split("; ")
-        .filter((pair) => ESSENTIAL_COOKIE_NAMES.has(pair.split("=")[0].trim()))
+        .filter((pair) => ESSENTIAL_COOKIE_NAMES.has(pair.split("=")[0]?.trim() ?? ""))
         .join("; ")
     : undefined;
 

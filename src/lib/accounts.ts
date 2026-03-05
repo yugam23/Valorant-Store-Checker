@@ -216,9 +216,9 @@ export async function addAccount(
   if (existingIndex >= 0) {
     // Update existing account metadata
     registry.accounts[existingIndex] = {
-      ...registry.accounts[existingIndex],
+      ...registry.accounts[existingIndex]!,
       ...entry,
-      addedAt: registry.accounts[existingIndex].addedAt,
+      addedAt: registry.accounts[existingIndex]!.addedAt,
     };
     log.info(`Updated existing account ${getShortPuuid(entry.puuid)}`);
   } else {
@@ -346,7 +346,7 @@ export async function removeAccount(puuid: string): Promise<void> {
   if (registry.activePuuid === puuid) {
     if (registry.accounts.length > 0) {
       // Switch to the first remaining account
-      const nextAccount = registry.accounts[0];
+      const nextAccount = registry.accounts[0]!;
       const nextSession = await loadAccountSession(nextAccount.puuid);
 
       if (nextSession) {

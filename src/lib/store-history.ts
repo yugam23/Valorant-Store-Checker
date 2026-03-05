@@ -27,7 +27,7 @@ export async function logStoreRotation(
   }
 
   // Compute today's date in YYYY-MM-DD format
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().slice(0, 10);
 
   // Check for existing rotation (de-duplication)
   const existing = await db.storeRotations
@@ -208,7 +208,7 @@ export async function pruneOldHistory(
   // Calculate cutoff date
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - keepDays);
-  const cutoffDateString = cutoffDate.toISOString().split('T')[0];
+  const cutoffDateString = cutoffDate.toISOString().slice(0, 10);
 
   // Delete entries older than cutoff
   const deleted = await db.storeRotations
