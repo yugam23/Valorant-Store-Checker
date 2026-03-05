@@ -50,9 +50,11 @@ const switchRoute = await import("@/app/api/accounts/switch/route");
 // ---------------------------------------------------------------------------
 
 function makeRequest(url: string, method = "GET", body?: unknown): NextRequest {
-  const init: RequestInit = { method, headers: { "Content-Type": "application/json" } };
-  if (body !== undefined) init.body = JSON.stringify(body);
-  return new NextRequest(`http://localhost${url}`, init);
+  const headers = { "Content-Type": "application/json" };
+  if (body !== undefined) {
+    return new NextRequest(`http://localhost${url}`, { method, headers, body: JSON.stringify(body) });
+  }
+  return new NextRequest(`http://localhost${url}`, { method, headers });
 }
 
 // ---------------------------------------------------------------------------
