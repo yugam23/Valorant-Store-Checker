@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { parseBody } from "@/lib/api-validate";
+import { parseBody, withSession } from "@/lib/api-validate";
 import { switchAccount, getActiveAccount } from "@/lib/accounts";
 import { createLogger } from "@/lib/logger";
 
@@ -25,7 +25,7 @@ const SwitchAccountSchema = z.object({
  * POST /api/accounts/switch
  * Switch active account to a different stored account
  */
-export async function POST(request: NextRequest) {
+export const POST = withSession(async (request: NextRequest) => {
   try {
     const parsed = await parseBody(request, SwitchAccountSchema);
     if (!parsed.success) return parsed.response;
@@ -64,4 +64,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
