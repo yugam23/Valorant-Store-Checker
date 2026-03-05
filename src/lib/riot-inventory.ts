@@ -9,14 +9,10 @@ import { StoreTokens, fetchWithShardFallback } from "@/lib/riot-store";
 import { getWeaponSkinsByLevelUuids, getContentTierByUuid } from "@/lib/valorant-api";
 import { InventoryData, OwnedSkin, EditionCategory } from "@/types/inventory";
 import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
+import { ITEM_TYPE_WEAPON_SKIN } from "@/lib/constants";
 import { createLogger } from "./logger";
 
 const log = createLogger("riot-inventory");
-
-/**
- * Riot's internal ItemTypeID for weapon skins
- */
-const ITEM_TYPE_WEAPON_SKIN = "e7c63390-eda7-46e0-bb7a-a6abdacd2433";
 
 /**
  * In-memory cache for inventory data

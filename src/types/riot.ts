@@ -207,13 +207,6 @@ export interface ValorantBundle {
 // Currency Types
 // ============================================
 
-/**
- * Standard Valorant currency IDs
- */
-export const CURRENCY_IDS = {
-  VP: "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741", // Valorant Points
-  RP: "e59aa87c-4cbf-517a-5983-6e81511be9b7", // Radianite Points
-  KC: "85ca954a-41f2-ce94-9b45-8ca3dd39a00d", // Kingdom Credits (Free Agent)
-} as const;
-
-export type CurrencyType = keyof typeof CURRENCY_IDS;
+/** Standard Valorant currency IDs — defined in src/lib/constants.ts */
+export { CURRENCY_IDS } from "@/lib/constants";
+export type { CurrencyType } from "@/lib/constants";

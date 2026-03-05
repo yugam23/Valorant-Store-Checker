@@ -25,6 +25,7 @@ import {
   deleteSessionFromStore
 } from "./session-store";
 import type { StoredSession as SessionData } from "./schemas/session";
+import { ESSENTIAL_COOKIE_NAMES } from "./constants";
 
 const log = createLogger("session");
 
@@ -60,7 +61,6 @@ export async function createSession(tokens: {
   riotCookies?: string;
 }): Promise<void> {
   // 1. Filter cookies (legacy logic, still good to keep data small)
-  const ESSENTIAL_COOKIE_NAMES = new Set(["ssid", "clid", "csid", "tdid"]);
   const filteredCookies = tokens.riotCookies
     ? tokens.riotCookies
         .split("; ")
