@@ -18,9 +18,9 @@ const CostMapSchema = z.record(z.string(), z.number());
 
 /**
  * Riot inconsistently returns boolean fields as `true/false` or `0/1`.
- * This schema accepts both and keeps the raw value (no coercion).
+ * This schema accepts both and normalises to `boolean` via `.transform(Boolean)`.
  */
-const RiotBool = z.union([z.boolean(), z.number()]);
+const RiotBool = z.union([z.boolean(), z.number()]).transform(Boolean);
 
 /** Reward item within an offer */
 const RewardSchema = z.object({
