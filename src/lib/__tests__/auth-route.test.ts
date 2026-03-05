@@ -71,6 +71,7 @@ describe("POST /api/auth — credentials branch (type: auth)", () => {
       success: true,
       tokens: mockTokens,
       riotCookies: "ssid=x",
+      namedCookies: { raw: "ssid=x" },
     });
 
     const res = await POST(
@@ -130,6 +131,7 @@ describe("POST /api/auth — MFA branch (type: multifactor)", () => {
       success: true,
       tokens: mockTokens,
       riotCookies: "ssid=x",
+      namedCookies: { raw: "ssid=x" },
     });
 
     const res = await POST(
@@ -172,6 +174,7 @@ describe("POST /api/auth — cookie branch (type: cookie)", () => {
       success: true,
       tokens: mockTokens,
       riotCookies: "ssid=new",
+      namedCookies: { raw: "ssid=new" },
     });
 
     const res = await POST(
@@ -186,11 +189,10 @@ describe("POST /api/auth — cookie branch (type: cookie)", () => {
 });
 
 describe("POST /api/auth — browser branch (type: launch_browser)", () => {
-  it("success: launchBasicBrowser returns success → 200 with message", async () => {
+  it("success: launchBasicBrowser returns success → 200", async () => {
     const { launchBasicBrowser } = await import("@/lib/browser-auth");
     vi.mocked(launchBasicBrowser).mockResolvedValue({
       success: true,
-      message: "Browser launched",
     });
 
     const res = await POST(makeAuthRequest({ type: "launch_browser" }));

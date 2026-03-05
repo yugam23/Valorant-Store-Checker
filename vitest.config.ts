@@ -9,6 +9,21 @@ export default defineConfig({
     env: {
       LOG_LEVEL: "warn",
     },
+    coverage: {
+      provider: "v8",
+      include: ["src/lib/**/*.ts", "src/app/api/**/*.ts"],
+      exclude: [
+        "src/lib/__tests__/**",
+        "src/lib/db.ts",
+        "**/*.d.ts",
+      ],
+      thresholds: {
+        statements: 18,
+        branches: 11,
+        functions: 16,
+        lines: 18,
+      },
+    },
   },
   resolve: {
     alias: {
