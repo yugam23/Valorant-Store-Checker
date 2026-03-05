@@ -24,6 +24,7 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>();
+const MAX_CACHE_ENTRIES = 10;
 
 export function getCachedStore(puuid: string): StoreData | null {
   const entry = cache.get(puuid);
@@ -40,6 +41,13 @@ export function getCachedStore(puuid: string): StoreData | null {
 }
 
 export function setCachedStore(puuid: string, data: StoreData): void {
+  // Evict oldest entry on new inserts when at capacity (FIFO via Map insertion order)
+  if (!cache.has(puuid) && cache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey !== undefined) {
+      cache.delete(oldestKey);
+    }
+  }
   cache.set(puuid, { data, cachedAt: Date.now() });
 }
 
