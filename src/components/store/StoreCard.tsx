@@ -57,9 +57,10 @@ export function StoreCard({
     onWishlistToggle(item.uuid, item);
   };
 
-  // Sync optimistic state when prop changes (useEffect avoids setState during render)
+  // Sync optimistic state when prop changes (useEffect avoids setState during render).
   useEffect(() => {
     if (!isPulsing) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional derived-state sync
       setIsOptimisticallyWishlisted(isWishlisted);
     }
   }, [isWishlisted, isPulsing]);
