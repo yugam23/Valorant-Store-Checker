@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import type { StoreItem } from "../../types/store";
 import { getEditionIconPath } from "@/lib/edition-icons";
@@ -57,10 +57,12 @@ export function StoreCard({
     onWishlistToggle(item.uuid, item);
   };
 
-  // Sync optimistic state when prop changes
-  if (isWishlisted !== isOptimisticallyWishlisted && !isPulsing) {
-    setIsOptimisticallyWishlisted(isWishlisted);
-  }
+  // Sync optimistic state when prop changes (useEffect avoids setState during render)
+  useEffect(() => {
+    if (!isPulsing) {
+      setIsOptimisticallyWishlisted(isWishlisted);
+    }
+  }, [isWishlisted, isPulsing]);
 
   return (
     <div
