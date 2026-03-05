@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { hasValidSession } from "@/lib/session";
+import { ShoppingCart, Moon, Package } from "lucide-react";
 
-export default function Home() {
+export default async function Home() {
+  const isLoggedIn = await hasValidSession();
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-[80vh] text-center px-4 overflow-hidden">
+    <div className="relative flex flex-col items-center justify-center min-h-[80vh] pt-10 md:pt-10 pb-10 text-center px-4 overflow-hidden">
       {/* Animated background: diagonal grid lines */}
       <div
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -45,11 +48,12 @@ export default function Home() {
         </div>
 
         <p
-          className="stagger-entrance max-w-2xl mx-auto text-lg text-white/50 mb-10"
+          className="stagger-entrance max-w-2xl mx-auto text-[1.1rem] leading-[1.6] text-white/70 mb-10"
           style={{ "--stagger-delay": "100ms" } as React.CSSProperties}
         >
-          Login with your Riot ID to see your personalized offers, Night Market,
-          and more without launching the game.
+          {isLoggedIn
+            ? "Welcome back! Check your personalized offers, Night Market, and more."
+            : "Login with your Riot ID to see your personalized offers, Night Market, and more without launching the game."}
         </p>
 
         <div
@@ -59,10 +63,14 @@ export default function Home() {
           <Button
             size="lg"
             variant="valorant"
-            className="text-lg px-8 py-6 h-auto"
+            className="text-lg px-10 py-5 h-auto transition-transform hover:scale-105"
             asChild
           >
-            <Link href="/login">Login with Riot</Link>
+            {isLoggedIn ? (
+              <Link href="/store">VIEW MY STORE</Link>
+            ) : (
+              <Link href="/login">LOGIN WITH RIOT</Link>
+            )}
           </Button>
         </div>
       </div>
@@ -73,21 +81,33 @@ export default function Home() {
           {
             title: "Daily Store",
             desc: "View your 4 daily skins with prices.",
+            icon: ShoppingCart,
           },
-          { title: "Night Market", desc: "Check your Night Market discounts." },
-          { title: "Bundle Info", desc: "See current detailed bundle info." },
+          {
+            title: "Night Market",
+            desc: "Check your Night Market discounts.",
+            icon: Moon,
+          },
+          {
+            title: "Bundle Info",
+            desc: "See current detailed bundle info.",
+            icon: Package,
+          },
         ].map((f, i) => (
           <div
             key={f.title}
-            className="stagger-entrance angular-card bg-void-surface/50 border border-white/5 p-6 hover:border-valorant-red/30 hover:shadow-[0_0_20px_rgba(255,70,85,0.1)] transition-all duration-300"
+            className="stagger-entrance angular-card bg-[#1A202C]/60 border border-white/10 p-6 hover:border-valorant-red/40 hover:shadow-[0_0_20px_rgba(255,70,85,0.15)] transition-all duration-300"
             style={
               { "--stagger-delay": `${300 + i * 100}ms` } as React.CSSProperties
             }
           >
-            <h3 className="font-display text-xl uppercase font-semibold mb-2 text-white">
-              {f.title}
-            </h3>
-            <p className="text-white/40 text-sm">{f.desc}</p>
+            <div className="flex items-center gap-3 mb-2">
+              <f.icon className="w-6 h-6 text-valorant-red" />
+              <h3 className="font-display text-xl uppercase font-semibold text-white">
+                {f.title}
+              </h3>
+            </div>
+            <p className="text-white/70 text-sm">{f.desc}</p>
           </div>
         ))}
       </div>
