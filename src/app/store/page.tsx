@@ -8,6 +8,7 @@ import { BundleSection } from "@/components/store/server/BundleSection";
 import { NightMarketSection } from "@/components/store/server/NightMarketSection";
 import { LoadingSkeleton } from "@/components/store/LoadingSkeleton";
 import { LogoutButtonClient } from "@/components/store/LogoutButtonClient";
+import { SectionErrorBoundary } from "@/components/store/SectionErrorBoundary";
 
 export const dynamic = 'force-dynamic';
 
@@ -66,17 +67,23 @@ export default async function StorePage() {
         </div>
 
         {/* Content — bundles, daily store, night market */}
-        <Suspense fallback={<LoadingSkeleton text="Loading Bundle..." />}>
-             <BundleSection storeData={storeData} />
-        </Suspense>
+        <SectionErrorBoundary sectionName="Featured Bundle">
+          <Suspense fallback={<LoadingSkeleton text="Loading Bundle..." />}>
+            <BundleSection storeData={storeData} />
+          </Suspense>
+        </SectionErrorBoundary>
 
-        <Suspense fallback={<LoadingSkeleton text="Loading Daily Store..." />}>
-             <DailyStoreSection session={session} storeData={storeData} />
-        </Suspense>
+        <SectionErrorBoundary sectionName="Daily Store">
+          <Suspense fallback={<LoadingSkeleton text="Loading Daily Store..." />}>
+            <DailyStoreSection session={session} storeData={storeData} />
+          </Suspense>
+        </SectionErrorBoundary>
 
-        <Suspense fallback={<LoadingSkeleton text="Loading Night Market..." />}>
-             <NightMarketSection storeData={storeData} />
-        </Suspense>
+        <SectionErrorBoundary sectionName="Night Market">
+          <Suspense fallback={<LoadingSkeleton text="Loading Night Market..." />}>
+            <NightMarketSection storeData={storeData} />
+          </Suspense>
+        </SectionErrorBoundary>
       </div>
     </div>
   );
