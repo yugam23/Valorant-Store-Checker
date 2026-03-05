@@ -1,6 +1,6 @@
 import { createClient, type Client } from "@libsql/client";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
-import type { SessionData } from "@/lib/session-types";
+import type { SessionData } from "@/lib/schemas/session";
 
 // ---------------------------------------------------------------------------
 // In-memory SQLite mock for @/lib/session-db

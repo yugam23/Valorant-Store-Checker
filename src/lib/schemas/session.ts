@@ -26,3 +26,6 @@ export const StoredSessionSchema = z.object({
 
 /** Inferred type from the session schema — replaces the manual SessionData interface */
 export type StoredSession = z.infer<typeof StoredSessionSchema>;
+
+/** Backward-compatible alias — prefer `StoredSession` for new code */
+export type { StoredSession as SessionData };

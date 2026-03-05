@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import type { SessionData } from "@/lib/session-types";
+import type { SessionData } from "@/lib/schemas/session";
 
 // ---------------------------------------------------------------------------
 // Mocks — all declared before any imports (vi.mock is hoisted)

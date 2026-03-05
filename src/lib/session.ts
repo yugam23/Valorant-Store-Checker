@@ -19,12 +19,12 @@ import { cookies } from "next/headers";
 import { env } from "./env";
 import { createLogger } from "./logger";
 import { randomUUID } from "crypto";
-import { 
-  saveSessionToStore, 
-  getSessionFromStore, 
-  deleteSessionFromStore 
+import {
+  saveSessionToStore,
+  getSessionFromStore,
+  deleteSessionFromStore
 } from "./session-store";
-import { SessionData } from "./session-types";
+import type { StoredSession as SessionData } from "./schemas/session";
 
 const log = createLogger("session");
 
@@ -38,7 +38,7 @@ const getSecretKey = (): Uint8Array => {
 };
 
 // Export SessionData for other consumers (re-export)
-export type { SessionData } from "./session-types";
+export type { StoredSession as SessionData } from "./schemas/session";
 
 interface SessionTokenPayload {
   sessionId: string;

@@ -18,7 +18,7 @@ import { createClient, type Client } from '@libsql/client';
 import path from 'path';
 import fs from 'fs';
 
-import type { SessionData } from './session-types';
+import type { SessionData } from './schemas/session';
 import { createLogger } from "./logger";
 const log = createLogger("session-db");
 

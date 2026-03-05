@@ -1,5 +1,5 @@
 import { initSessionDb } from './session-db';
-import { SessionData } from './session-types';
+import type { SessionData } from './schemas/session';
 import { parseWithLog } from '@/lib/schemas/parse';
 import { StoredSessionSchema } from '@/lib/schemas/session';
 import { encrypt, decrypt, isEncrypted } from './session-crypto';
