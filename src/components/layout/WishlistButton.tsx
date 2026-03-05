@@ -49,7 +49,8 @@ export function WishlistButton() {
             ? "bg-[#F0B232]/20 hover:bg-[#F0B232]/30"
             : "bg-void-surface hover:bg-void-elevated"
         }`}
-        aria-label="Open wishlist"
+        aria-label="Wishlist"
+        title="Wishlist"
       >
         <svg
           className={`w-5 h-5 transition-all ${

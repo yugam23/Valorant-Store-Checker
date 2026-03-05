@@ -37,17 +37,17 @@ export async function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="group relative py-1 text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+              className="group relative py-1 text-sm font-medium text-slate-200 hover:text-valorant-red transition-colors"
             >
               {link.label}
               <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-valorant-red transition-all duration-300 group-hover:w-full" />
             </Link>
           ))}
           {isLoggedIn ? (
-            <>
+            <div className="flex items-center gap-4">
               <WishlistButton />
               <AccountSwitcher />
-            </>
+            </div>
           ) : (
             <Button variant="valorant" size="sm" asChild>
               <Link href="/login">Login with Riot</Link>
