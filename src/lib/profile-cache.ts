@@ -54,6 +54,7 @@ export interface ProfileData {
   fromCache: boolean;
   partial: boolean;
   cachedAt?: number;                // timestamp for "last updated" display (INFR-03)
+  henrikFailed: boolean;            // true when Henrik API (account or MMR) fails
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +117,12 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     log.warn("Henrik MMR fetch failed:", mmrResult.reason);
   }
 
+  // Detect Henrik API failure (account or MMR)
+  const henrikFailed =
+    accountResult.status === "rejected" ||
+    mmrResult.status === "rejected" ||
+    (accountResult.status === "fulfilled" && !accountResult.value && mmrResult.status === "fulfilled" && !mmrResult.value);
+
   // If loadout succeeded, hydrate card and title UUIDs to display data
   let cardData = null;
   let titleData = null;
@@ -156,6 +163,7 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     fromCache: false,
     partial: !loadout && !account,
     cachedAt: Date.now(),
+    henrikFailed,
   };
 
   // Hydrate competitive tier icon from valorant-api.com (v3 MMR no longer provides images)
