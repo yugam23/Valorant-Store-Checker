@@ -1,3 +1,6 @@
+// Set ENCRYPTION_KEY before any imports - process.env assignment is NOT hoisted
+process.env.ENCRYPTION_KEY = "0".repeat(64);
+
 import { vi } from "vitest";
 
 // Mock next/headers — used by session.ts for cookie access.
