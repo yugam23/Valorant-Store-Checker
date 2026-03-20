@@ -14,10 +14,10 @@ function getEncryptionKey(): string | null {
   const key = env.ENCRYPTION_KEY;
   if (!key) {
     if (!warnedNoKey) {
-      log.warn('ENCRYPTION_KEY not set — riotCookies stored in plaintext');
+      log.warn('ENCRYPTION_KEY not set — using fallback key. Generate a production key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
       warnedNoKey = true;
     }
-    return null;
+    return '0'.repeat(64);
   }
   if (key.length !== 64) {
     log.error('ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
