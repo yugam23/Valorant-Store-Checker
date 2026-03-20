@@ -46,7 +46,9 @@ export function middleware(request: NextRequest) {
   // If user is not authenticated and tries to access protected route
   if (!hasSession && PROTECTED_ROUTES.some((route) => pathname.startsWith(route))) {
     const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    redirectResponse.headers.set("x-request-id", requestId);
+    return redirectResponse;
   }
 
   // Allow request to proceed with request ID forwarded to downstream
