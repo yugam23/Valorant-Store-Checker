@@ -6,7 +6,7 @@ import { LoginForm } from "./LoginForm";
 // Mock next/image
 vi.mock("next/image", () => ({
   default: function MockImage(props: React.ComponentProps<"img">) {
-    return <img {...props} />;
+    return <img alt="" {...props} />;
   },
 }));
 

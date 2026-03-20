@@ -34,12 +34,14 @@ export async function register() {
   // ── MSW Node server for E2E testing ──
   if (process.env.ENABLE_MSW === "true") {
     // Guard against double-init on hot reload
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!(globalThis as any).__mswServer__) {
       const { setupServer } = await import("msw/node");
       const { handlers } = await import("@/lib/msw/handlers");
 
       const server = setupServer(...handlers);
       server.listen({ onUnhandledRequest: "bypass" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (globalThis as any).__mswServer__ = server;
       console.log("[MSW] Node server started for E2E tests");
     }

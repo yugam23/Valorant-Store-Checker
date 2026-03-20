@@ -20,7 +20,6 @@ import { initSessionDb } from "@/lib/session-db";
 const log = createLogger("wishlist");
 
 const WISHLIST_COOKIE_PREFIX = "valorant_wishlist_";
-const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1 year in seconds
 
 /**
  * Get the cookie name for a specific account's wishlist
