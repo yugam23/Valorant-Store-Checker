@@ -88,6 +88,15 @@ const CREATE_SESSIONS_INDEX = `
   CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)
 `.trim();
 
+const CREATE_WISHLISTS_TABLE = `
+  CREATE TABLE IF NOT EXISTS wishlists (
+    session_id TEXT NOT NULL,
+    puuid      TEXT NOT NULL,
+    skins      TEXT NOT NULL,
+    PRIMARY KEY (session_id, puuid)
+  )
+`.trim();
+
 // ---------------------------------------------------------------------------
 // Migration from sessions.json
 // ---------------------------------------------------------------------------
@@ -161,6 +170,7 @@ export function initSessionDb(): Promise<Client> {
         [
           { sql: CREATE_SESSIONS_TABLE, args: [] },
           { sql: CREATE_SESSIONS_INDEX, args: [] },
+          { sql: CREATE_WISHLISTS_TABLE, args: [] },
         ],
         'write'
       );
