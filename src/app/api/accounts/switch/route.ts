@@ -15,8 +15,6 @@ import { parseBody, withSession } from "@/lib/api-validate";
 import { switchAccount, getActiveAccount } from "@/lib/accounts";
 import { createLogger } from "@/lib/logger";
 
-const log = createLogger("Switch Account API");
-
 const SwitchAccountSchema = z.object({
   puuid: z.string().min(1),
 });
@@ -25,7 +23,8 @@ const SwitchAccountSchema = z.object({
  * POST /api/accounts/switch
  * Switch active account to a different stored account
  */
-export const POST = withSession(async (request: NextRequest) => {
+export const POST = withSession(async (request: NextRequest, _session: unknown, reqId?: string) => {
+  const log = createLogger("Switch Account API", reqId);
   try {
     const parsed = await parseBody(request, SwitchAccountSchema);
     if (!parsed.success) return parsed.response;

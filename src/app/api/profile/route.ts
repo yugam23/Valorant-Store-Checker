@@ -14,9 +14,8 @@ import { getProfileData } from "@/lib/profile-cache";
 import { type StoreTokens } from "@/lib/riot-store";
 import { createLogger } from "@/lib/logger";
 
-const log = createLogger("Profile API");
-
-export const GET = withSession(async (_request, session) => {
+export const GET = withSession(async (_request, session, reqId?: string) => {
+  const log = createLogger("Profile API", reqId);
   try {
     // 1. Build StoreTokens inline from session fields
     const tokens: StoreTokens = {

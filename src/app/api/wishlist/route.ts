@@ -17,8 +17,6 @@ import {
 } from "@/lib/wishlist";
 import { createLogger } from "@/lib/logger";
 
-const log = createLogger("Wishlist API");
-
 const WishlistItemSchema = z.object({
   skinUuid: z.string(),
   displayName: z.string(),
@@ -36,7 +34,8 @@ const WishlistDeleteSchema = z.object({
  * GET /api/wishlist
  * Returns the full wishlist for the active account
  */
-export const GET = withSession(async (_request, session) => {
+export const GET = withSession(async (_request, session, reqId?: string) => {
+  const log = createLogger("Wishlist API", reqId);
   try {
     const wishlist = await getWishlist(session.puuid);
     return NextResponse.json(wishlist);
@@ -54,7 +53,8 @@ export const GET = withSession(async (_request, session) => {
  * Adds an item to the wishlist
  * Body: WishlistItem
  */
-export const POST = withSession(async (request, session) => {
+export const POST = withSession(async (request, session, reqId?: string) => {
+  const log = createLogger("Wishlist API", reqId);
   try {
     const parsed = await parseBody(request, WishlistItemSchema);
     if (!parsed.success) return parsed.response;
@@ -92,7 +92,8 @@ export const POST = withSession(async (request, session) => {
  * Removes an item from the wishlist
  * Body: { skinUuid: string }
  */
-export const DELETE = withSession(async (request, session) => {
+export const DELETE = withSession(async (request, session, reqId?: string) => {
+  const log = createLogger("Wishlist API", reqId);
   try {
     const parsed = await parseBody(request, WishlistDeleteSchema);
     if (!parsed.success) return parsed.response;

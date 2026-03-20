@@ -15,13 +15,12 @@ import { getAccounts, addAccount, removeAccount } from "@/lib/accounts";
 import { getSession } from "@/lib/session";
 import { createLogger } from "@/lib/logger";
 
-const log = createLogger("Accounts API");
-
 /**
  * GET /api/accounts
  * Returns list of stored accounts and which one is active
  */
-export async function GET() {
+export async function GET(_request: NextRequest, _session: unknown, reqId?: string) {
+  const log = createLogger("Accounts API", reqId);
   try {
     let registry = await getAccounts();
 
@@ -86,7 +85,8 @@ export async function GET() {
  * DELETE /api/accounts?puuid=xxx
  * Removes a specific account by PUUID
  */
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: NextRequest, _session: unknown, reqId?: string) {
+  const log = createLogger("Accounts API", reqId);
   try {
     const { searchParams } = new URL(request.url);
     const puuid = searchParams.get("puuid");

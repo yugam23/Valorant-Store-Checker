@@ -11,9 +11,8 @@ import { getOwnedSkins, clearInventoryCache } from "@/lib/riot-inventory";
 import { getCachedInventory, clearCachedInventory } from "@/lib/inventory-cache";
 import { createLogger } from "@/lib/logger";
 
-const log = createLogger("Inventory API");
-
-export const GET = withSession(async (request: NextRequest, session) => {
+export const GET = withSession(async (request: NextRequest, session, reqId?: string) => {
+  const log = createLogger("Inventory API", reqId);
   try {
     // If ?refresh=true, clear all caches to force a fresh fetch from Riot and Valorant-API
     const refresh = request.nextUrl.searchParams.get("refresh") === "true";
