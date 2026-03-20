@@ -4,17 +4,21 @@ interface RankDisplayProps {
   competitiveTierName?: string;
   competitiveTierIcon?: string;
   peakTierName?: string;
+  henrikFailed?: boolean;
 }
 
 export function RankDisplay({
   competitiveTierName,
   competitiveTierIcon,
   peakTierName,
+  henrikFailed,
 }: RankDisplayProps) {
   if (competitiveTierName === undefined) {
     return (
       <div className="angular-card-sm bg-void-surface/30 p-4 text-center">
-        <p className="text-zinc-500 text-xs uppercase tracking-wider font-display">Rank unavailable</p>
+        <p className="text-zinc-500 text-xs uppercase tracking-wider font-display">
+          {henrikFailed ? "Rank unavailable" : "Unrated"}
+        </p>
       </div>
     );
   }
