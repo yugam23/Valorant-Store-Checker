@@ -16,7 +16,7 @@ test.describe("Store Page", () => {
 
     // Should see skin names rendered (from mock data)
     await expect(page.getByText("Prime Vandal")).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText("Reaver Vandal")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Reaver Omega")).toBeVisible({ timeout: 15000 });
 
     // Should see wallet balance visible (VP and RP amounts from mock wallet data)
     await expect(page.getByText("5,000")).toBeVisible({ timeout: 10000 });

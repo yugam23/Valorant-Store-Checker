@@ -14,7 +14,7 @@ test.describe("Account Switch", () => {
 
     // Verify first account's skin names are visible
     await expect(page.getByText("Prime Vandal")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("Reaver Vandal")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Reaver Omega")).toBeVisible({ timeout: 10000 });
 
     // Find and click the account switch button in the header
     // The AccountSwitcher trigger button contains a red dot and display name
@@ -76,7 +76,7 @@ test.describe("Account Switch", () => {
 
       // Verify the store shows the correct skins for the switched account
       await expect(page.getByText("Prime Vandal")).toBeVisible({ timeout: 10000 });
-      await expect(page.getByText("Reaver Vandal")).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText("Reaver Omega")).toBeVisible({ timeout: 10000 });
     }
   });
 });
