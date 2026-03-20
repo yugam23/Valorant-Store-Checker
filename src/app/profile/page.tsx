@@ -6,6 +6,7 @@ import { IdentityInfo } from "@/components/profile/IdentityInfo";
 import { AccountLevelBadge } from "@/components/profile/AccountLevelBadge";
 import { RankDisplay } from "@/components/profile/RankDisplay";
 import { RRProgressBar } from "@/components/profile/RRProgressBar";
+import { AlertCircle, Clock } from "lucide-react";
 import type { ProfilePageData } from "@/types/profile";
 
 function formatCachedAt(cachedAt: number): string {
@@ -181,8 +182,17 @@ export default function ProfilePage() {
                 competitiveTierName={profileData.competitiveTierName}
                 competitiveTierIcon={profileData.competitiveTierIcon}
                 peakTierName={profileData.peakTierName}
+                henrikFailed={profileData.henrikFailed}
               />
             </div>
+
+            {/* Henrik API failure notice */}
+            {profileData.henrikFailed && (
+              <div className="flex items-center gap-2 text-amber-500/70 text-xs">
+                <AlertCircle className="w-4 h-4" />
+                <span>Rank data temporarily unavailable</span>
+              </div>
+            )}
 
             {/* Section 4: RR Progress Bar */}
             <div
@@ -194,9 +204,10 @@ export default function ProfilePage() {
 
             {/* Last updated timestamp — shown when data is from cache */}
             {profileData.fromCache && profileData.cachedAt && (
-              <p className="text-zinc-500 text-[10px] font-display uppercase tracking-wider px-1">
-                Last updated {formatCachedAt(profileData.cachedAt)}
-              </p>
+              <div className="flex items-center gap-2 text-zinc-500 text-[10px] font-display uppercase tracking-wider px-1">
+                <Clock className="w-3 h-3" />
+                <span>Showing cached data from {formatCachedAt(profileData.cachedAt)}</span>
+              </div>
             )}
           </div>
         )}
