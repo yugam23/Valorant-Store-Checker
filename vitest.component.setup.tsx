@@ -3,6 +3,7 @@ import { vi } from "vitest";
 // Mock next/image — renders an img tag with passed props
 vi.mock("next/image", () => ({
   default: function MockImage(props: React.ComponentProps<"img">) {
+    // eslint-disable-next-line @next/next/no-img-element
     return <img alt="" {...props} />;
   },
 }));

@@ -6,6 +6,7 @@ import { LoginForm } from "./LoginForm";
 // Mock next/image
 vi.mock("next/image", () => ({
   default: function MockImage(props: React.ComponentProps<"img">) {
+    // eslint-disable-next-line @next/next/no-img-element
     return <img alt="" {...props} />;
   },
 }));
