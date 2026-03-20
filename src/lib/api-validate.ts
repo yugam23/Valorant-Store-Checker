@@ -79,6 +79,7 @@ export async function parseBody<T>(
 type SessionHandler = (
   request: NextRequest,
   session: SessionData,
+  reqId?: string,
 ) => Promise<NextResponse>;
 
 interface WithSessionOptions {
@@ -123,7 +124,10 @@ export function withSession(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 3. Session valid → delegate to the inner handler
-    return handler(request, session);
+    // 3. Extract x-request-id header for logging
+    const reqId = request.headers.get("x-request-id") ?? undefined;
+
+    // 4. Session valid → delegate to the inner handler
+    return handler(request, session, reqId);
   };
 }
