@@ -4,6 +4,21 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   test: {
+    coverage: {
+      provider: "v8" as const,
+      include: ["src/lib/**/*.ts", "src/app/api/**/*.ts"],
+      exclude: [
+        "src/lib/__tests__/**",
+        "src/lib/db.ts",
+        "**/*.d.ts",
+      ],
+      thresholds: {
+        statements: 65,
+        branches: 53,
+        functions: 71,
+        lines: 65,
+      },
+    },
     projects: [
       {
         name: "node",
@@ -11,21 +26,6 @@ export default defineConfig({
           environment: "node",
           include: ["src/**/__tests__/**/*.test.ts"],
           setupFiles: ["./vitest.setup.ts"],
-          coverage: {
-            provider: "v8" as const,
-            include: ["src/lib/**/*.ts", "src/app/api/**/*.ts"],
-            exclude: [
-              "src/lib/__tests__/**",
-              "src/lib/db.ts",
-              "**/*.d.ts",
-            ],
-            thresholds: {
-              statements: 65,
-              branches: 53,
-              functions: 71,
-              lines: 65,
-            },
-          },
         },
         resolve: {
           alias: {

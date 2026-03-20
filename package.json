@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:e2e": "node --import ./src/lib/msw/start.ts next start",
     "lint": "eslint",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
