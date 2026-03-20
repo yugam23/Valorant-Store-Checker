@@ -48,10 +48,12 @@ export interface Logger {
 /**
  * Creates a logger scoped to the given context tag.
  * @param context A short identifier, e.g. "riot-auth", "Store API"
+ * @param reqId Optional request ID (UUID) — first 8 chars are prepended to every log line
  */
-export function createLogger(context: string): Logger {
+export function createLogger(context: string, reqId?: string): Logger {
   const minLevel = getMinLevel();
-  const prefix = `[${context}]`;
+  const reqPrefix = reqId ? `[${reqId.substring(0, 8)}]` : "";
+  const prefix = reqPrefix ? `[${context}] ${reqPrefix}` : `[${context}]`;
 
   function shouldLog(level: LogLevel): boolean {
     return LOG_LEVELS[level] >= LOG_LEVELS[minLevel];
