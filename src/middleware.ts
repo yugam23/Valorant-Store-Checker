@@ -23,6 +23,16 @@ const SESSION_COOKIE_NAME = "valorant_session";
 const PROTECTED_ROUTES = ["/store", "/api/store", "/inventory", "/api/inventory", "/api/profile", "/profile"];
 
 export function middleware(request: NextRequest) {
+  const requestId = crypto.randomUUID();
+
+  // Set on response for client visibility
+  const response = NextResponse.next();
+  response.headers.set("x-request-id", requestId);
+
+  // Forward in request headers for downstream
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-request-id", requestId);
+
   const { pathname } = request.nextUrl;
 
   // Check if session cookie exists
@@ -39,8 +49,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Allow request to proceed
-  return NextResponse.next();
+  // Allow request to proceed with request ID forwarded to downstream
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 // Configure which routes should run middleware
