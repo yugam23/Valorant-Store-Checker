@@ -67,6 +67,15 @@ describe("getCachedStore", () => {
     expect(mockRedisGet).toHaveBeenCalledWith("store:test-puuid");
   });
 
+  it("returns null and does not throw when redis.get rejects with timeout error", async () => {
+    mockRedisGet.mockRejectedValue(new Error("Redis timeout exceeded"));
+
+    const result = await getCachedStore("test-puuid");
+
+    expect(result).toBeNull();
+    expect(mockRedisGet).toHaveBeenCalledWith("store:test-puuid");
+  });
+
   it("returns StoreData on cache hit with valid JSON", async () => {
     const storeData = makeStoreData();
     mockRedisGet.mockResolvedValue(makeCacheEntry(storeData));

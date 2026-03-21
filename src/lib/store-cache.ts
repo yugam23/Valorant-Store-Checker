@@ -31,7 +31,14 @@ const MAX_CACHE_ENTRIES = 10;
  */
 export async function getCachedStore(puuid: string): Promise<StoreData | null> {
   const key = `${STORE_KEY_PREFIX}${puuid}`;
-  const cached = await redis.get<string>(key);
+
+  let cached: string | null;
+  try {
+    cached = await redis.get<string>(key);
+  } catch {
+    // Redis error (timeout, connection failure) — treat as cache miss
+    return null;
+  }
 
   if (!cached) return null;
 
