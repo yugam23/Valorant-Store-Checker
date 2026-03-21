@@ -30,6 +30,28 @@ vi.mock("@/lib/accounts", () => ({
   addAccount: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/rate-limiter", () => ({
+  authRatelimit: {
+    limit: vi.fn().mockResolvedValue({
+      success: true,
+      limit: 10,
+      remaining: 9,
+      reset: Date.now() + 60000,
+    }),
+  },
+}));
+
+vi.mock("@/lib/rate-limit-utils", () => ({
+  getClientIP: vi.fn().mockReturnValue("127.0.0.1"),
+  addRateLimitHeaders: vi.fn((response) => response),
+  createRateLimitedResponse: vi.fn().mockImplementation(() => {
+    return new (require("next/server").NextResponse)(
+      JSON.stringify({ error: "Too many requests" }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
+    );
+  }),
+}));
+
 // ---------------------------------------------------------------------------
 // Dynamic import of route AFTER mocks
 // ---------------------------------------------------------------------------
@@ -207,5 +229,47 @@ describe("POST /api/auth — invalid body", () => {
   it("unknown type returns 400 (Zod discriminatedUnion validation fails)", async () => {
     const res = await POST(makeAuthRequest({ type: "invalid" }));
     expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /api/auth — rate limiting", () => {
+  it("returns 429 when rate limit is exceeded", async () => {
+    const { authRatelimit } = await import("@/lib/rate-limiter");
+    vi.mocked(authRatelimit.limit).mockResolvedValueOnce({
+      success: false,
+      limit: 10,
+      remaining: 0,
+      reset: Date.now() + 60000,
+    });
+
+    const res = await POST(
+      makeAuthRequest({ type: "auth", username: "user", password: "pass" }),
+    );
+
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.error).toBe("Too many requests");
+  });
+
+  it("successful response includes rate limit headers via addRateLimitHeaders", async () => {
+    // The mock for addRateLimitHeaders returns the response unchanged (identity).
+    // This test verifies the handler calls addRateLimitHeaders on success.
+    const { addRateLimitHeaders } = await import("@/lib/rate-limit-utils");
+    vi.mocked(addRateLimitHeaders).mockClear();
+
+    const { authenticateRiotAccount } = await import("@/lib/riot-auth");
+    vi.mocked(authenticateRiotAccount).mockResolvedValue({
+      success: true,
+      tokens: mockTokens,
+      riotCookies: "ssid=x",
+      namedCookies: { raw: "ssid=x" },
+    });
+
+    const res = await POST(
+      makeAuthRequest({ type: "auth", username: "user", password: "pass" }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(addRateLimitHeaders).toHaveBeenCalled();
   });
 });
