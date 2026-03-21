@@ -93,7 +93,12 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
   const key = `${PROFILE_KEY_PREFIX}${tokens.puuid}`;
 
   // Tier 0: Fresh cache hit — serve without hitting any APIs (INFR-03)
-  const cached = await redis.get<string>(key);
+  let cached: string | null = null;
+  try {
+    cached = await redis.get<string>(key);
+  } catch {
+    // Redis error (timeout, connection failure) — treat as cache miss
+  }
   if (cached) {
     try {
       const entry: ProfileCacheEntry = JSON.parse(cached) as ProfileCacheEntry;

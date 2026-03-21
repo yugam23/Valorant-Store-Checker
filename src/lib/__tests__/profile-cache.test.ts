@@ -204,6 +204,25 @@ describe("getProfileData — Tier 1 (API fetch)", () => {
     expect(mockRedisSet).toHaveBeenCalled(); // cached
   });
 
+  it("Tier 1: redis.get rejects with timeout → proceeds to API fetch (does not throw)", async () => {
+    mockRedisGet.mockRejectedValue(new Error("Redis timeout exceeded"));
+    mockRedisSet.mockResolvedValue("OK");
+    mockRedisDel.mockResolvedValue(1);
+
+    mockGetPlayerLoadout.mockResolvedValue(makeMockLoadout());
+    mockGetHenrikAccount.mockResolvedValue(makeMockAccount());
+    mockGetHenrikMMR.mockResolvedValue(makeMockMMR());
+    mockGetPlayerCardByUuid.mockResolvedValue({ smallArt: "", wideArt: "", largeArt: "" });
+    mockGetPlayerTitleByUuid.mockResolvedValue({ titleText: "Title" });
+    mockGetCompetitiveTierIconByTier.mockResolvedValue("https://ranked.icon");
+
+    const result = await getProfileData(makeTokens(), "na");
+
+    // Should fall through to API fetch since cache read failed
+    expect(mockGetPlayerLoadout).toHaveBeenCalled();
+    expect(result.partial).toBe(false);
+  });
+
   it("Tier 1: loadout fails, Henrik succeeds → partial:false, henrikFailed:false", async () => {
     mockRedisGet.mockResolvedValue(null);
 
