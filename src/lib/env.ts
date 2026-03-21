@@ -66,4 +66,9 @@ export const env = {
    *  Get from: Upstash Dashboard -> Redis -> Overview -> REST Token
    */
   UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN as string | undefined,
+
+  /** Optional: Maximum auth requests per minute per IP for rate limiting.
+   *  Defaults to 10 if not set.
+   */
+  RATE_LIMIT_REQS_PER_MIN: Number(process.env.RATE_LIMIT_REQS_PER_MIN) || 10,
 } as const;
