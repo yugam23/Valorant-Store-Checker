@@ -6,7 +6,7 @@ import { clearCachedStore } from "@/lib/store-cache";
 export async function POST() {
   const session = await getSession();
   if (session?.puuid) {
-    clearCachedStore(session.puuid);
+    await clearCachedStore(session.puuid);
   }
 
   // Get active account and remove it from the registry
