@@ -4,6 +4,7 @@
  */
 
 import { createLogger } from "./logger";
+import { redis } from "./redis-client";
 
 const log = createLogger("valorant-api");
 
@@ -16,32 +17,56 @@ import type {
 
 const VALORANT_API_BASE = "https://valorant-api.com/v1";
 
-// In-memory cache to avoid repeated fetches
-let weaponSkinsCache: ValorantWeaponSkin[] | null = null;
-let contentTiersCache: ValorantContentTier[] | null = null;
-let bundlesCache: ValorantBundle[] | null = null;
-let competitiveTiersCache: Array<{ tiers: Array<{ tier: number; largeIcon: string | null }> }> | null = null;
+// Redis key prefixes
+const KEYS = {
+  skins: "valorant:skins",
+  tiers: "valorant:tiers",
+  bundles: "valorant:bundles",
+  competitive: "valorant:competitive",
+} as const;
 
-let lastFetchTime = {
-  skins: 0,
-  tiers: 0,
-  bundles: 0,
-  competitiveTiers: 0,
-};
+// Cache expiration: 24 hours in milliseconds
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-// Cache expiration: 24 hours (static data changes rarely)
-const CACHE_TTL = 24 * 60 * 60 * 1000;
+// Redis TTL: 24 hours in seconds
+const CACHE_TTL_SECONDS = 24 * 60 * 60;
+
+/**
+ * Store data in Redis with timestamp
+ */
+async function setCache<T>(key: string, data: T): Promise<void> {
+  const payload = JSON.stringify({ data, timestamp: Date.now() });
+  await redis.set(key, payload, { ex: CACHE_TTL_SECONDS });
+}
+
+/**
+ * Get data from Redis and check if still valid
+ * Returns null if not found or expired
+ */
+async function getCache<T>(key: string): Promise<{ data: T; timestamp: number } | null> {
+  const raw = await redis.get<string>(key);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as { data: T; timestamp: number };
+    // Check if cache is still within TTL
+    if (Date.now() - parsed.timestamp > CACHE_TTL_MS) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Fetch all weapon skins from Valorant-API
- * Results are cached in memory for 24 hours
+ * Results are cached in Redis for 24 hours
  */
 export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
-  const now = Date.now();
-
-  // Return cached data if still valid
-  if (weaponSkinsCache && now - lastFetchTime.skins < CACHE_TTL) {
-    return weaponSkinsCache;
+  const cached = await getCache<ValorantWeaponSkin[]>(KEYS.skins);
+  if (cached) {
+    return cached.data;
   }
 
   try {
@@ -66,18 +91,18 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
       throw new Error(`Valorant-API error: status ${result.status}`);
     }
 
-    // Update cache
-    weaponSkinsCache = result.data;
-    lastFetchTime.skins = now;
+    // Store in Redis with 24h TTL
+    await setCache(KEYS.skins, result.data);
 
     return result.data;
   } catch (error) {
     log.error("Failed to fetch weapon skins:", error);
 
-    // Return cached data if available, even if expired
-    if (weaponSkinsCache) {
+    // Try to return expired cache on fetch failure (stale-while-revalidate)
+    const stale = await getStaleCache<ValorantWeaponSkin[]>(KEYS.skins);
+    if (stale) {
       log.warn("Using expired cache due to fetch failure");
-      return weaponSkinsCache;
+      return stale;
     }
 
     throw error;
@@ -86,14 +111,12 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
 
 /**
  * Fetch all content tiers (rarity levels) from Valorant-API
- * Results are cached in memory for 24 hours
+ * Results are cached in Redis for 24 hours
  */
 export async function getContentTiers(): Promise<ValorantContentTier[]> {
-  const now = Date.now();
-
-  // Return cached data if still valid
-  if (contentTiersCache && now - lastFetchTime.tiers < CACHE_TTL) {
-    return contentTiersCache;
+  const cached = await getCache<ValorantContentTier[]>(KEYS.tiers);
+  if (cached) {
+    return cached.data;
   }
 
   try {
@@ -118,18 +141,18 @@ export async function getContentTiers(): Promise<ValorantContentTier[]> {
       throw new Error(`Valorant-API error: status ${result.status}`);
     }
 
-    // Update cache
-    contentTiersCache = result.data;
-    lastFetchTime.tiers = now;
+    // Store in Redis with 24h TTL
+    await setCache(KEYS.tiers, result.data);
 
     return result.data;
   } catch (error) {
     log.error("Failed to fetch content tiers:", error);
 
-    // Return cached data if available, even if expired
-    if (contentTiersCache) {
+    // Try to return expired cache on fetch failure (stale-while-revalidate)
+    const stale = await getStaleCache<ValorantContentTier[]>(KEYS.tiers);
+    if (stale) {
       log.warn("Using expired cache due to fetch failure");
-      return contentTiersCache;
+      return stale;
     }
 
     throw error;
@@ -138,14 +161,12 @@ export async function getContentTiers(): Promise<ValorantContentTier[]> {
 
 /**
  * Fetch all bundles from Valorant-API
- * Results are cached in memory for 24 hours
+ * Results are cached in Redis for 24 hours
  */
 export async function getBundles(): Promise<ValorantBundle[]> {
-  const now = Date.now();
-
-  // Return cached data if still valid
-  if (bundlesCache && now - lastFetchTime.bundles < CACHE_TTL) {
-    return bundlesCache;
+  const cached = await getCache<ValorantBundle[]>(KEYS.bundles);
+  if (cached) {
+    return cached.data;
   }
 
   try {
@@ -170,18 +191,18 @@ export async function getBundles(): Promise<ValorantBundle[]> {
       throw new Error(`Valorant-API error: status ${result.status}`);
     }
 
-    // Update cache
-    bundlesCache = result.data;
-    lastFetchTime.bundles = now;
+    // Store in Redis with 24h TTL
+    await setCache(KEYS.bundles, result.data);
 
     return result.data;
   } catch (error) {
     log.error("Failed to fetch bundles:", error);
 
-    // Return cached data if available, even if expired
-    if (bundlesCache) {
+    // Try to return expired cache on fetch failure (stale-while-revalidate)
+    const stale = await getStaleCache<ValorantBundle[]>(KEYS.bundles);
+    if (stale) {
       log.warn("Using expired cache due to fetch failure");
-      return bundlesCache;
+      return stale;
     }
 
     throw error;
@@ -333,15 +354,31 @@ export async function getWeaponSkinsByLevelUuids(
 }
 
 /**
+ * Get stale cache data without TTL check (used for stale-while-revalidate)
+ */
+async function getStaleCache<T>(key: string): Promise<T | null> {
+  const raw = await redis.get<string>(key);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as { data: T; timestamp: number };
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Look up the large rank icon URL for a competitive tier ID.
  * Uses the latest competitive season tier table from valorant-api.com.
  * Tier IDs: 0=Unranked, 3-5=Iron 1-3, 6-8=Bronze, ..., 24=Radiant.
  * Returns null if the icon cannot be fetched.
  */
 export async function getCompetitiveTierIconByTier(tierId: number): Promise<string | null> {
-  const now = Date.now();
+  const cached = await getCache<Array<{ tiers: Array<{ tier: number; largeIcon: string | null }> }>>(KEYS.competitive);
+  let competitiveTiers = cached?.data;
 
-  if (!competitiveTiersCache || now - lastFetchTime.competitiveTiers > CACHE_TTL) {
+  if (!competitiveTiers) {
     try {
       const response = await fetch(`${VALORANT_API_BASE}/competitivetiers`, {
         next: { revalidate: 86400 },
@@ -349,17 +386,25 @@ export async function getCompetitiveTierIconByTier(tierId: number): Promise<stri
       });
       if (!response.ok) return null;
       const result = await response.json();
-      competitiveTiersCache = result.data;
-      lastFetchTime.competitiveTiers = now;
+      competitiveTiers = result.data;
+      // Store in Redis with 24h TTL
+      await setCache(KEYS.competitive, competitiveTiers!);
     } catch {
-      return null;
+      // Try to return stale cache on fetch failure
+      const stale = await getStaleCache<Array<{ tiers: Array<{ tier: number; largeIcon: string | null }> }>>(KEYS.competitive);
+      if (stale) {
+        log.warn("Using expired competitive tiers cache due to fetch failure");
+        competitiveTiers = stale;
+      } else {
+        return null;
+      }
     }
   }
 
-  if (!competitiveTiersCache || competitiveTiersCache.length === 0) return null;
+  if (!competitiveTiers || competitiveTiers.length === 0) return null;
 
   // The last entry in the array is the most recent competitive season
-  const latestSeason = competitiveTiersCache[competitiveTiersCache.length - 1];
+  const latestSeason = competitiveTiers[competitiveTiers.length - 1];
   const tier = latestSeason?.tiers?.find((t) => t.tier === tierId);
   return tier?.largeIcon ?? null;
 }
@@ -367,12 +412,11 @@ export async function getCompetitiveTierIconByTier(tierId: number): Promise<stri
 /**
  * Clear all caches (useful for testing or manual refresh)
  */
-export function clearCache(): void {
-  weaponSkinsCache = null;
-  contentTiersCache = null;
-  bundlesCache = null;
-  competitiveTiersCache = null;
-  lastFetchTime = { skins: 0, tiers: 0, bundles: 0, competitiveTiers: 0 };
+export async function clearCache(): Promise<void> {
+  await redis.del(KEYS.skins);
+  await redis.del(KEYS.tiers);
+  await redis.del(KEYS.bundles);
+  await redis.del(KEYS.competitive);
 }
 
 /**
@@ -402,26 +446,35 @@ export function getSkinVideo(skin: ValorantWeaponSkin): string | null {
 /**
  * Get cache status for monitoring
  */
-export function getCacheStatus() {
+export async function getCacheStatus(): Promise<{
+  weaponSkins: { cached: boolean; count: number | null; age: number | null; valid: boolean };
+  contentTiers: { cached: boolean; count: number | null; age: number | null; valid: boolean };
+  bundles: { cached: boolean; count: number | null; age: number | null; valid: boolean };
+}> {
+  const skinsCached = await getCache<ValorantWeaponSkin[]>(KEYS.skins);
+  const tiersCached = await getCache<ValorantContentTier[]>(KEYS.tiers);
+  const bundlesCached = await getCache<ValorantBundle[]>(KEYS.bundles);
+
   const now = Date.now();
+
   return {
     weaponSkins: {
-      cached: !!weaponSkinsCache,
-      count: weaponSkinsCache?.length || 0,
-      age: weaponSkinsCache ? now - lastFetchTime.skins : null,
-      valid: weaponSkinsCache && now - lastFetchTime.skins < CACHE_TTL,
+      cached: !!skinsCached,
+      count: skinsCached?.data.length ?? null,
+      age: skinsCached ? now - skinsCached.timestamp : null,
+      valid: !!skinsCached,
     },
     contentTiers: {
-      cached: !!contentTiersCache,
-      count: contentTiersCache?.length || 0,
-      age: contentTiersCache ? now - lastFetchTime.tiers : null,
-      valid: contentTiersCache && now - lastFetchTime.tiers < CACHE_TTL,
+      cached: !!tiersCached,
+      count: tiersCached?.data.length ?? null,
+      age: tiersCached ? now - tiersCached.timestamp : null,
+      valid: !!tiersCached,
     },
     bundles: {
-      cached: !!bundlesCache,
-      count: bundlesCache?.length || 0,
-      age: bundlesCache ? now - lastFetchTime.bundles : null,
-      valid: bundlesCache && now - lastFetchTime.bundles < CACHE_TTL,
+      cached: !!bundlesCached,
+      count: bundlesCached?.data.length ?? null,
+      age: bundlesCached ? now - bundlesCached.timestamp : null,
+      valid: !!bundlesCached,
     },
   };
 }
