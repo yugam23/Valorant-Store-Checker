@@ -10,8 +10,13 @@
  *
  * This satisfies INFR-02 (graceful partial data when Henrik is unavailable)
  * and provides fromCache/partial/cachedAt metadata for INFR-03 (last updated notice).
+ *
+ * Architecture note (Redis-backed cache):
+ * This module uses Upstash Redis for serverless-cold-start persistence.
+ * TTL is 5 minutes (300 seconds).
  */
 
+import { redis } from "@/lib/redis-client";
 import { StoreTokens } from "./riot-store";
 import { getPlayerLoadout } from "./riot-loadout";
 import { getHenrikAccount, getHenrikMMR } from "./henrik-api";
@@ -57,17 +62,13 @@ export interface ProfileData {
   henrikFailed: boolean;            // true when Henrik API (account or MMR) fails
 }
 
-// ---------------------------------------------------------------------------
-// Cache
-// ---------------------------------------------------------------------------
-
 interface ProfileCacheEntry {
   data: ProfileData;
   cachedAt: number;
 }
 
-const cache = new Map<string, ProfileCacheEntry>();
-const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const PROFILE_KEY_PREFIX = "profile:";
+const PROFILE_CACHE_TTL_SECONDS = 5 * 60; // 5 minutes
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -89,11 +90,22 @@ const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  * - All APIs failed + no cache → return partial profile (partial: true)
  */
 export async function getProfileData(tokens: StoreTokens, region: string): Promise<ProfileData> {
+  const key = `${PROFILE_KEY_PREFIX}${tokens.puuid}`;
+
   // Tier 0: Fresh cache hit — serve without hitting any APIs (INFR-03)
-  const cached = cache.get(tokens.puuid);
-  if (cached && Date.now() - cached.cachedAt < PROFILE_CACHE_TTL) {
-    log.info("Profile served from cache for PUUID:", tokens.puuid.substring(0, 8));
-    return { ...cached.data, fromCache: true, cachedAt: cached.cachedAt };
+  const cached = await redis.get<string>(key);
+  if (cached) {
+    try {
+      const entry: ProfileCacheEntry = JSON.parse(cached) as ProfileCacheEntry;
+      const age = Date.now() - entry.cachedAt;
+      if (age < PROFILE_CACHE_TTL_SECONDS * 1000) {
+        log.info("Profile served from cache for PUUID:", tokens.puuid.substring(0, 8));
+        return { ...entry.data, fromCache: true, cachedAt: entry.cachedAt };
+      }
+    } catch {
+      // Malformed cache entry, treat as miss
+      await redis.del(key);
+    }
   }
 
   // Tier 1: Fetch all sources in parallel; individual failures are tolerated
@@ -159,7 +171,7 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     peakTier: mmr?.peak?.tier?.id,
     peakTierName: mmr?.peak?.tier?.name,
 
-    // Metadata — partial if we got nothing useful from either primary source
+    // Metadata — partial if we got nothing useful from either primary sources
     fromCache: false,
     partial: !loadout && !account,
     cachedAt: Date.now(),
@@ -174,16 +186,21 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
 
   // Tier 1 success: at least some real data was obtained
   if (!profile.partial) {
-    cache.set(tokens.puuid, { data: profile, cachedAt: Date.now() });
+    const entry: ProfileCacheEntry = { data: profile, cachedAt: Date.now() };
+    await redis.set(key, JSON.stringify(entry), { ex: PROFILE_CACHE_TTL_SECONDS });
     log.info("Profile fetched successfully for PUUID:", tokens.puuid.substring(0, 8));
     return profile;
   }
 
   // Tier 2: Total failure — try stale cache
-  const stale = cache.get(tokens.puuid);
-  if (stale) {
-    log.warn("All APIs failed, returning stale cached profile for PUUID:", tokens.puuid.substring(0, 8));
-    return { ...stale.data, fromCache: true };
+  if (cached) {
+    try {
+      const entry: ProfileCacheEntry = JSON.parse(cached) as ProfileCacheEntry;
+      log.warn("All APIs failed, returning stale cached profile for PUUID:", tokens.puuid.substring(0, 8));
+      return { ...entry.data, fromCache: true };
+    } catch {
+      // Malformed stale cache, fall through
+    }
   }
 
   // Tier 3: No stale cache available — return partial profile as-is
@@ -196,10 +213,25 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
  * If puuid is provided, removes only that player's entry.
  * If no puuid is provided, clears all cached profiles.
  */
-export function clearProfileCache(puuid?: string): void {
+export async function clearProfileCache(puuid?: string): Promise<void> {
   if (puuid) {
-    cache.delete(puuid);
+    const key = `${PROFILE_KEY_PREFIX}${puuid}`;
+    await redis.del(key);
   } else {
-    cache.clear();
+    // Use SCAN to find and delete all profile keys (production-safe, not O(N) like KEYS)
+    let cursor = "0";
+
+    do {
+      const [nextCursor, keys] = await redis.scan(cursor, {
+        match: `${PROFILE_KEY_PREFIX}*`,
+        count: 100,
+      });
+      cursor = nextCursor;
+
+      // Delete all found keys
+      for (const key of keys) {
+        await redis.del(key);
+      }
+    } while (cursor !== "0");
   }
 }
