@@ -16,7 +16,8 @@ const log = createLogger("riot-tokens");
 export const RIOT_API_BASE = process.env.RIOT_API_BASE ?? "https://auth.riotgames.com";
 
 export const RIOT_AUTH_URL = `${RIOT_API_BASE}/api/v1/authorization`;
-export const RIOT_ENTITLEMENTS_URL = `${RIOT_API_BASE}/entitlements.auth.riotgames.com/api/token/v1`;
+// Entitlements uses a separate subdomain, not a path under auth.riotgames.com
+export const RIOT_ENTITLEMENTS_URL = `https://entitlements.auth.riotgames.com/api/token/v1`;
 export const RIOT_USERINFO_URL = `${RIOT_API_BASE}/userinfo`;
 
 export const CLIENT_ID = "play-valorant-web-prod";
