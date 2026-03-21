@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { spawn } from "child_process";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("BrowserAuth");
@@ -10,18 +10,30 @@ export async function launchBasicBrowser(): Promise<{ success: boolean; error?: 
   try {
     // Open the Riot login page in the user's default system browser.
     // This avoids bot detection that blocks Playwright/Puppeteer.
-    const command =
-      process.platform === "win32"
-        ? `start "" "${RIOT_LOGIN_URL}"`
-        : process.platform === "darwin"
-          ? `open "${RIOT_LOGIN_URL}"`
-          : `xdg-open "${RIOT_LOGIN_URL}"`;
+    const { platform } = process;
+    let program: string;
+    let args: string[];
+
+    if (platform === "win32") {
+      // Windows: use cmd.exe /c start to open default browser
+      program = "cmd.exe";
+      args = ["/c", "start", "", RIOT_LOGIN_URL];
+    } else if (platform === "darwin") {
+      // macOS: use open command
+      program = "open";
+      args = [RIOT_LOGIN_URL];
+    } else {
+      // Linux: use xdg-open
+      program = "xdg-open";
+      args = [RIOT_LOGIN_URL];
+    }
 
     await new Promise<void>((resolve, reject) => {
-      // eslint-disable-next-line security/detect-child-process -- command is assembled from hardcoded RIOT_LOGIN_URL constant + platform string literals; no user input involved
-      exec(command, (err) => {
-        if (err) reject(err);
-        else resolve();
+      const child = spawn(program, args);
+      child.on("error", reject);
+      child.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`Exited with code ${code}`));
       });
     });
 
