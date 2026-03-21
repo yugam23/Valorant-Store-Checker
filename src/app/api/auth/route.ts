@@ -19,34 +19,57 @@ import {
   handleCookieAuth,
   handleBrowserAuth,
 } from "@/lib/auth-handlers";
+import { authRatelimit } from "@/lib/rate-limiter";
+import { getClientIP, addRateLimitHeaders, createRateLimitedResponse } from "@/lib/rate-limit-utils";
 
 const log = createLogger("Auth API");
 
 export async function POST(request: NextRequest) {
+  // Rate limit check before any auth processing
+  const ip = getClientIP(request);
+  const { success, limit, remaining, reset } = await authRatelimit.limit(ip);
+  if (!success) {
+    return createRateLimitedResponse({ limit, remaining, reset });
+  }
+
   try {
     const parsed = await parseBody(request, AuthBodySchema);
-    if (!parsed.success) return parsed.response;
+    if (!parsed.success) {
+      const response = parsed.response;
+      return addRateLimitHeaders(response, { limit, remaining, reset });
+    }
 
     const body = parsed.data;
 
     switch (body.type) {
-      case "url":
-        return await handleUrlAuth(body);
-      case "cookie":
-        return await handleCookieAuth(body);
-      case "multifactor":
-        return await handleMfaAuth(body);
-      case "launch_browser":
-        return await handleBrowserAuth(body);
-      case "auth":
-        return await handleCredentialsAuth(body);
+      case "url": {
+        const response = await handleUrlAuth(body);
+        return addRateLimitHeaders(response, { limit, remaining, reset });
+      }
+      case "cookie": {
+        const response = await handleCookieAuth(body);
+        return addRateLimitHeaders(response, { limit, remaining, reset });
+      }
+      case "multifactor": {
+        const response = await handleMfaAuth(body);
+        return addRateLimitHeaders(response, { limit, remaining, reset });
+      }
+      case "launch_browser": {
+        const response = await handleBrowserAuth(body);
+        return addRateLimitHeaders(response, { limit, remaining, reset });
+      }
+      case "auth": {
+        const response = await handleCredentialsAuth(body);
+        return addRateLimitHeaders(response, { limit, remaining, reset });
+      }
     }
   } catch (error) {
     log.error("Unhandled error:", error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: "Internal server error during authentication" },
       { status: 500 },
     );
+    return addRateLimitHeaders(response, { limit, remaining, reset });
   }
 }
 
