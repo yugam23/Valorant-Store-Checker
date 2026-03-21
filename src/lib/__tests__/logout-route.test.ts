@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // ---------------------------------------------------------------------------
 // Mocks — all declared before any imports (vi.mock is hoisted)
@@ -14,8 +14,8 @@ vi.mock("@/lib/rate-limiter", () => ({
 vi.mock("@/lib/rate-limit-utils", () => ({
   getClientIP: vi.fn().mockReturnValue("127.0.0.1"),
   addRateLimitHeaders: vi.fn((response) => response),
-  createRateLimitedResponse: vi.fn().mockImplementation(({ limit, remaining, reset }) => {
-    return new (require("next/server").NextResponse)(
+  createRateLimitedResponse: vi.fn().mockImplementation(() => {
+    return new NextResponse(
       JSON.stringify({ error: "Too many requests" }),
       { status: 429, headers: { "Content-Type": "application/json" } }
     );
@@ -104,7 +104,7 @@ describe("POST /api/auth/logout", () => {
       reset: Date.now() + 60000,
     });
 
-    const { createRateLimitedResponse } = await import("@/lib/rate-limit-utils");
+    const { createRateLimitedResponse: _createRateLimitedResponse } = await import("@/lib/rate-limit-utils");
     const { getSession } = await import("@/lib/session");
     const { clearCachedStore } = await import("@/lib/store-cache");
 

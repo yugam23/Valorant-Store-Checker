@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { ValorantWeaponSkin } from "@/types/riot";
 
 // ---------------------------------------------------------------------------
 // Mock dependencies — all declared before any imports (vi.mock is hoisted)
@@ -404,12 +405,12 @@ describe("getCompetitiveTierIconByTier", () => {
 describe("getSkinVideo", () => {
   it("no levels array: returns null", () => {
     const skin = { uuid: "skin-1", levels: null };
-    expect(getSkinVideo(skin as any)).toBeNull();
+    expect(getSkinVideo(skin as unknown as ValorantWeaponSkin)).toBeNull();
   });
 
   it("levels exist but no streamedVideo: returns null", () => {
     const skin = { uuid: "skin-1", levels: [{ uuid: "l1", streamedVideo: null }, { uuid: "l2", streamedVideo: "" }] };
-    expect(getSkinVideo(skin as any)).toBeNull();
+    expect(getSkinVideo(skin as unknown as ValorantWeaponSkin)).toBeNull();
   });
 
   it("levels with streamedVideo: returns the video URL", () => {
@@ -421,7 +422,7 @@ describe("getSkinVideo", () => {
         { vnd: "l3", streamedVideo: "https://video.skin" },
       ],
     };
-    expect(getSkinVideo(skin as any)).toBe("https://video.skin");
+    expect(getSkinVideo(skin as unknown as ValorantWeaponSkin)).toBe("https://video.skin");
   });
 });
 

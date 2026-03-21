@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // ---------------------------------------------------------------------------
 // Mocks — all declared before any imports (vi.mock is hoisted)
@@ -45,7 +45,7 @@ vi.mock("@/lib/rate-limit-utils", () => ({
   getClientIP: vi.fn().mockReturnValue("127.0.0.1"),
   addRateLimitHeaders: vi.fn((response) => response),
   createRateLimitedResponse: vi.fn().mockImplementation(() => {
-    return new (require("next/server").NextResponse)(
+    return new NextResponse(
       JSON.stringify({ error: "Too many requests" }),
       { status: 429, headers: { "Content-Type": "application/json" } }
     );

@@ -60,7 +60,7 @@ describe("addRateLimitHeaders", () => {
   it("adds all three rate limit headers to the response", () => {
     const response = new NextResponse("ok");
     const headers = { limit: 10, remaining: 9, reset: 1234567890 };
-    const result = addRateLimitHeaders(response, headers);
+    addRateLimitHeaders(response, headers);
 
     expect(response.headers.get("X-RateLimit-Limit")).toBe("10");
     expect(response.headers.get("X-RateLimit-Remaining")).toBe("9");
