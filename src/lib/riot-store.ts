@@ -31,25 +31,14 @@ const CLIENT_PLATFORM = btoa(JSON.stringify({
   platformChipset: "Unknown",
 }));
 
-/** Cached client version fetched from valorant-api.com */
+/** Cached client version fetched from Riot manifest endpoint */
 let clientVersionCache: string | null = null;
 let clientVersionFetchedAt = 0;
 const VERSION_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
-const FALLBACK_CLIENT_VERSION = "release-09.06-shipping-20-2635846";
-let isUsingFallback = false;
-
 /**
- * Returns true if the client is currently using the hardcoded fallback version.
- * This indicates that the dynamic version fetch failed.
- */
-export function isUsingFallbackVersion(): boolean {
-  return isUsingFallback;
-}
-
-/**
- * Fetches the current Valorant client version from valorant-api.com
- * Retries up to 3 times before falling back.
+ * Fetches the current Valorant client version from Riot's official manifest endpoint.
+ * Retries up to 3 times before throwing an error.
  */
 async function getClientVersion(): Promise<string> {
   const now = Date.now();
@@ -59,36 +48,38 @@ async function getClientVersion(): Promise<string> {
 
   let attempts = 0;
   const maxAttempts = 3;
+  let lastError: Error | null = null;
 
   while (attempts < maxAttempts) {
     try {
-      const response = await fetch("https://valorant-api.com/v1/version", {
-        next: { revalidate: 3600 },
+      const response = await fetch("https://riotclient.riotgames.com/riotclient/ux-middleware/bootstrap/manifest", {
         signal: AbortSignal.timeout(5_000),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const version: string = data.data.riotClientVersion;
+        // Riot's manifest endpoint returns { data: { manifests: { riotClientVersion: "..." } } }
+        const version: string = data.data.manifests.riotClientVersion;
         clientVersionCache = version;
         clientVersionFetchedAt = now;
-        isUsingFallback = false;
         log.info("Updated Client Version: %s", version);
         return version;
+      } else {
+        lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
       log.warn(`Failed to fetch client version (Attempt ${attempts + 1}/${maxAttempts}):`, error);
     }
-    
+
     attempts++;
     // Small backoff
     if (attempts < maxAttempts) await new Promise(r => setTimeout(r, 1000));
   }
 
-  // Fallback if fetch fails
-  log.error("All client version fetch attempts failed. Using fallback: %s", FALLBACK_CLIENT_VERSION);
-  isUsingFallback = true;
-  return clientVersionCache || FALLBACK_CLIENT_VERSION;
+  // Throw after all retries exhaust - do not silently fall back
+  log.error("All client version fetch attempts failed. Last error: %s", lastError?.message);
+  throw new Error(`Failed to fetch client version after ${maxAttempts} attempts: ${lastError?.message}`);
 }
 
 /**
