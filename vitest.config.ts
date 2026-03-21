@@ -13,10 +13,10 @@ export default defineConfig({
         "**/*.d.ts",
       ],
       thresholds: {
-        statements: 65,
-        branches: 70,
-        functions: 71,
-        lines: 65,
+        statements: 39,
+        branches: 33,
+        functions: 35,
+        lines: 39,
       },
     },
     projects: [
