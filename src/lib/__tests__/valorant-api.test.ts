@@ -65,8 +65,8 @@ const MOCK_COMPETITIVE_DATA = [
   },
 ];
 
-function makeCachedPayload<T>(data: T, timestamp: number = Date.now() - 3600000) {
-  return JSON.stringify({ data, timestamp });
+function makeCachedPayload<T>(data: T, timestamp?: number) {
+  return JSON.stringify({ data, timestamp: timestamp ?? Date.now() - 3600000 });
 }
 
 function makeValidApiResponse(data: unknown, status = 200) {
@@ -78,8 +78,12 @@ function makeValidApiResponse(data: unknown, status = 200) {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  // Reset ALL mock functions completely to clear implementations AND call history
+  mockRedisGet.mockReset();
+  mockRedisSet.mockReset();
+  mockRedisDel.mockReset();
   vi.restoreAllMocks();
+  // Default successful return values for set/del
   mockRedisSet.mockResolvedValue("OK");
   mockRedisDel.mockResolvedValue(1);
 });
@@ -121,7 +125,7 @@ describe("getWeaponSkins", () => {
 
   it("cache miss, fetch throws, stale cache exists: returns stale data", async () => {
     mockRedisGet
-      .mockResolvedValueOnce(null) // first getCache call (fresh check)
+      .mockResolvedValueOnce(null) // getCache fresh check
       .mockResolvedValueOnce(makeCachedPayload(MOCK_SKINS_DATA)); // getStaleCache call
     vi.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network failure"));
 
@@ -132,6 +136,31 @@ describe("getWeaponSkins", () => {
 
   it("cache miss, fetch throws, no stale cache: throws original error", async () => {
     mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network failure"));
+
+    await expect(getWeaponSkins()).rejects.toThrow("Network failure");
+  });
+
+  it("cache hit but expired (>24h old): fetches fresh data instead of returning stale", async () => {
+    // Cache timestamp > 24 hours ago → TTL expired, getCache returns null
+    const oldTimestamp = Date.now() - 25 * 60 * 60 * 1000;
+    mockRedisGet.mockResolvedValue(makeCachedPayload(MOCK_SKINS_DATA, oldTimestamp));
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => makeValidApiResponse(MOCK_SKINS_DATA),
+    } as Response);
+
+    const result = await getWeaponSkins();
+
+    expect(result).toEqual(MOCK_SKINS_DATA);
+    expect(mockRedisSet).toHaveBeenCalled();
+  });
+
+  it("stale cache with malformed JSON: getStaleCache catch block returns null, rethrows", async () => {
+    mockRedisGet
+      .mockResolvedValueOnce(null) // getCache fresh check
+      .mockResolvedValueOnce("{invalid-json"); // getStaleCache → JSON.parse throws
     vi.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network failure"));
 
     await expect(getWeaponSkins()).rejects.toThrow("Network failure");
@@ -389,7 +418,7 @@ describe("getSkinVideo", () => {
       levels: [
         { uuid: "l1", streamedVideo: null },
         { uuid: "l2", streamedVideo: "" },
-        { uuid: "l3", streamedVideo: "https://video.skin" },
+        { vnd: "l3", streamedVideo: "https://video.skin" },
       ],
     };
     expect(getSkinVideo(skin as any)).toBe("https://video.skin");
@@ -405,5 +434,179 @@ describe("clearCache", () => {
     expect(mockRedisDel).toHaveBeenCalledWith("valorant:tiers");
     expect(mockRedisDel).toHaveBeenCalledWith("valorant:bundles");
     expect(mockRedisDel).toHaveBeenCalledWith("valorant:competitive");
+  });
+});
+
+describe("getCacheStatus", () => {
+  it("returns cached:true with count and age for all three cached items", async () => {
+    const ts = Date.now() - 3600000;
+    mockRedisGet
+      .mockResolvedValueOnce(makeCachedPayload(MOCK_SKINS_DATA, ts))
+      .mockResolvedValueOnce(makeCachedPayload(MOCK_TIERS_DATA, ts))
+      .mockResolvedValueOnce(makeCachedPayload(MOCK_BUNDLES_DATA, ts));
+
+    const { getCacheStatus } = await import("@/lib/valorant-api");
+    const result = await getCacheStatus();
+
+    expect(result.weaponSkins.cached).toBe(true);
+    expect(result.weaponSkins.count).toBe(MOCK_SKINS_DATA.length);
+    expect(result.weaponSkins.valid).toBe(true);
+    expect(result.contentTiers.cached).toBe(true);
+    expect(result.bundles.cached).toBe(true);
+  });
+
+  it("returns cached:false with nulls for uncached items", async () => {
+    mockRedisGet
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+
+    const { getCacheStatus } = await import("@/lib/valorant-api");
+    const result = await getCacheStatus();
+
+    expect(result.weaponSkins.cached).toBe(false);
+    expect(result.weaponSkins.count).toBeNull();
+    expect(result.weaponSkins.age).toBeNull();
+    expect(result.weaponSkins.valid).toBe(false);
+  });
+});
+
+describe("getWeaponSkinByUuid", () => {
+  it("returns skin when found in cached data", async () => {
+    const skins = [
+      { uuid: "skin-abc", displayName: "Vandal", displayIcon: "icon.png", levels: [], chromas: [], contentTierUuid: null },
+    ];
+    mockRedisGet.mockResolvedValue(makeCachedPayload(skins));
+
+    const { getWeaponSkinByUuid } = await import("@/lib/valorant-api");
+    const result = await getWeaponSkinByUuid("skin-abc");
+
+    expect(result).not.toBeNull();
+    expect(result!.displayName).toBe("Vandal");
+  });
+
+  it("returns null when skin not found", async () => {
+    const skins = [{ uuid: "skin-xyz", displayName: "Phantom", displayIcon: "icon.png", levels: [], chromas: [], contentTierUuid: null }];
+    mockRedisGet.mockResolvedValue(makeCachedPayload(skins));
+
+    const { getWeaponSkinByUuid } = await import("@/lib/valorant-api");
+    const result = await getWeaponSkinByUuid("not-found");
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("getContentTierByUuid", () => {
+  it("returns tier when found", async () => {
+    mockRedisGet.mockResolvedValue(makeCachedPayload(MOCK_TIERS_DATA));
+
+    const { getContentTierByUuid } = await import("@/lib/valorant-api");
+    const result = await getContentTierByUuid("tier-1");
+
+    expect(result).not.toBeNull();
+    expect(result!.displayName).toBe("Select");
+  });
+
+  it("returns null when tier not found", async () => {
+    mockRedisGet.mockResolvedValue(makeCachedPayload(MOCK_TIERS_DATA));
+
+    const { getContentTierByUuid } = await import("@/lib/valorant-api");
+    const result = await getContentTierByUuid("not-found");
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("getBundleByUuid", () => {
+  it("returns bundle when found", async () => {
+    mockRedisGet.mockResolvedValue(makeCachedPayload(MOCK_BUNDLES_DATA));
+
+    const { getBundleByUuid } = await import("@/lib/valorant-api");
+    const result = await getBundleByUuid("bundle-1");
+
+    expect(result).not.toBeNull();
+    expect(result!.displayName).toBe("Premium Bundle");
+  });
+
+  it("returns null when bundle not found", async () => {
+    mockRedisGet.mockResolvedValue(makeCachedPayload(MOCK_BUNDLES_DATA));
+
+    const { getBundleByUuid } = await import("@/lib/valorant-api");
+    const result = await getBundleByUuid("not-found");
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("getWeaponSkinsByUuids", () => {
+  it("returns Map of matching skins by skin UUID", async () => {
+    const skins = [
+      { uuid: "skin-a", displayName: "Vandal", displayIcon: "v.png", levels: [], chromas: [], contentTierUuid: null },
+      { uuid: "skin-b", displayName: "Phantom", displayIcon: "p.png", levels: [], chromas: [], contentTierUuid: null },
+    ];
+    mockRedisGet.mockResolvedValue(makeCachedPayload(skins));
+
+    const { getWeaponSkinsByUuids } = await import("@/lib/valorant-api");
+    const result = await getWeaponSkinsByUuids(["skin-a", "skin-c"]);
+
+    expect(result.size).toBe(1);
+    expect(result.get("skin-a")!.displayName).toBe("Vandal");
+  });
+
+  it("case-insensitive UUID matching", async () => {
+    const skins = [
+      { uuid: "SKIN-A", displayName: "Vandal", displayIcon: "v.png", levels: [], chromas: [], contentTierUuid: null },
+    ];
+    mockRedisGet.mockResolvedValue(makeCachedPayload(skins));
+
+    const { getWeaponSkinsByUuids } = await import("@/lib/valorant-api");
+    const result = await getWeaponSkinsByUuids(["skin-a"]);
+
+    expect(result.size).toBe(1);
+  });
+});
+
+describe("getWeaponSkinsByLevelUuids", () => {
+  it("returns Map of matching skins by level UUID", async () => {
+    const skins = [
+      {
+        uuid: "skin-1",
+        displayName: "Vandal",
+        displayIcon: "v.png",
+        levels: [
+          { uuid: "level-1a", streamedVideo: "vid.mp4" },
+          { uuid: "level-1b", streamedVideo: null },
+        ],
+        chromas: [],
+        contentTierUuid: null,
+      },
+    ];
+    mockRedisGet.mockResolvedValue(makeCachedPayload(skins));
+
+    const { getWeaponSkinsByLevelUuids } = await import("@/lib/valorant-api");
+    const result = await getWeaponSkinsByLevelUuids(["level-1a"]);
+
+    expect(result.size).toBe(1);
+    expect(result.get("level-1a")!.displayName).toBe("Vandal");
+  });
+
+  it("matches parent skin UUID as well as level UUID", async () => {
+    const skins = [
+      {
+        uuid: "skin-parent",
+        displayName: "Vandal",
+        displayIcon: "v.png",
+        levels: [],
+        chromas: [],
+        contentTierUuid: null,
+      },
+    ];
+    mockRedisGet.mockResolvedValue(makeCachedPayload(skins));
+
+    const { getWeaponSkinsByLevelUuids } = await import("@/lib/valorant-api");
+    const result = await getWeaponSkinsByLevelUuids(["skin-parent"]);
+
+    expect(result.size).toBe(1);
+    expect(result.get("skin-parent")!.displayName).toBe("Vandal");
   });
 });
