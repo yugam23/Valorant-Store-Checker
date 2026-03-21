@@ -37,7 +37,6 @@ const MOCK_MANIFEST_RESPONSE = {
   },
 };
 
-const MOCK_STOREFRONT = { Storefront: { Skins: [] } };
 const MOCK_WALLET = { Balances: { VP: 1000, RP: 500 } };
 
 function makeOkResponse(data: unknown) {

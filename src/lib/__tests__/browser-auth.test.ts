@@ -32,34 +32,6 @@ const { launchBasicBrowser } = await import("@/lib/browser-auth");
 const RIOT_LOGIN_URL =
   "https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1&scope=account%20openid";
 
-function makeChildProcess(overrides: {
-  closeCode?: number;
-  error?: Error;
-  simulateClose?: boolean;
-  simulateError?: boolean;
-} = {}) {
-  const { closeCode = 0, error, simulateClose = true, simulateError = false } = overrides;
-  const handlers: Record<string, (cb: (...args: unknown[]) => void) => void> = {};
-
-  mockSpawn.mockReturnValue({
-    on: (event: string, cb: (...args: unknown[]) => void) => {
-      handlers[event] = cb;
-      // Simulate events if requested
-      if (simulateError && error && event === "error") {
-        // Error is emitted asynchronously
-        setTimeout(() => cb(error), 0);
-      }
-      if (simulateClose && event === "close") {
-        // Close is emitted asynchronously
-        setTimeout(() => cb(closeCode), 0);
-      }
-      return {} as ReturnType<typeof mockSpawn>;
-    },
-  });
-
-  return { handlers };
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
