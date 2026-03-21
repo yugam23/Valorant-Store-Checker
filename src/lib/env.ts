@@ -56,4 +56,14 @@ export const env = {
    *  When absent, cookies are stored as plaintext and a one-time warning is logged.
    */
   ENCRYPTION_KEY: process.env.ENCRYPTION_KEY as string | undefined,
+
+  /** Optional: Upstash Redis REST URL for serverless cache persistence.
+   *  Get from: Upstash Dashboard -> Redis -> Overview -> REST URL
+   */
+  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL as string | undefined,
+
+  /** Optional: Upstash Redis REST Token for serverless cache persistence.
+   *  Get from: Upstash Dashboard -> Redis -> Overview -> REST Token
+   */
+  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN as string | undefined,
 } as const;
