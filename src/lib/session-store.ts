@@ -13,6 +13,9 @@ let warnedNoKey = false;
 function getEncryptionKey(): string | null {
   const key = env.ENCRYPTION_KEY;
   if (!key) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("ENCRYPTION_KEY required in production — generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"");
+    }
     if (!warnedNoKey) {
       log.warn('ENCRYPTION_KEY not set — using fallback key. Generate a production key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
       warnedNoKey = true;
@@ -119,5 +122,19 @@ export async function cleanupExpiredSessions(): Promise<void> {
   await db.execute({
     sql: 'DELETE FROM sessions WHERE expires_at < ?',
     args: [Date.now()],
+  });
+}
+
+/**
+ * In-place UPDATE of session expiration.
+ * Used by refreshSession() to extend session lifetime without
+ * creating a new sessionId (avoids delete+insert race condition).
+ */
+export async function refreshSessionExpiration(sessionId: string, maxAgeSeconds: number): Promise<void> {
+  const db = await initSessionDb();
+  const expiresAt = Date.now() + (maxAgeSeconds * 1000);
+  await db.execute({
+    sql: 'UPDATE sessions SET expires_at = ? WHERE id = ?',
+    args: [expiresAt, sessionId],
   });
 }
