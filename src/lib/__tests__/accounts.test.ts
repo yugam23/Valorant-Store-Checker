@@ -149,5 +149,99 @@ beforeEach(async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests: getAccounts
+// ---------------------------------------------------------------------------
+
+describe("getAccounts", () => {
+  it("returns AccountsData when valid token exists", async () => {
+    const accountsPayload = {
+      accounts: [
+        { puuid: "test-puuid-1", region: "na", gameName: "Player1", tagLine: "NA1", addedAt: Date.now() },
+        { puuid: "test-puuid-2", region: "eu", gameName: "Player2", tagLine: "EU1", addedAt: Date.now() },
+      ],
+      activePuuid: "test-puuid-1",
+    };
+    mockJwtVerify.mockResolvedValue({ payload: accountsPayload });
+    mockCookiesGet.mockReturnValue({ value: "valid-accounts-token" });
+
+    const result = await getAccounts();
+
+    expect(result).not.toBeNull();
+    expect(result!.accounts).toHaveLength(2);
+    expect(result!.activePuuid).toBe("test-puuid-1");
+  });
+
+  it("returns null when no accounts cookie exists", async () => {
+    mockCookiesGet.mockReturnValue(undefined);
+
+    const result = await getAccounts();
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when token is invalid/malformed", async () => {
+    mockJwtVerify.mockRejectedValue(new Error("jwt error"));
+    mockCookiesGet.mockReturnValue({ value: "malformed-token" });
+
+    const result = await getAccounts();
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when payload missing accounts array", async () => {
+    mockJwtVerify.mockResolvedValue({ payload: { activePuuid: "test-puuid" } });
+    mockCookiesGet.mockReturnValue({ value: "valid-token" });
+
+    const result = await getAccounts();
+
+    expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: getActiveAccount
+// ---------------------------------------------------------------------------
+
+describe("getActiveAccount", () => {
+  it("returns AccountEntry when active account exists", async () => {
+    const entry = makeAccountEntry({ puuid: "active-puuid-123" });
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        accounts: [entry],
+        activePuuid: "active-puuid-123",
+      },
+    });
+    mockCookiesGet.mockReturnValue({ value: "valid-token" });
+
+    const result = await getActiveAccount();
+
+    expect(result).not.toBeNull();
+    expect(result!.puuid).toBe("active-puuid-123");
+  });
+
+  it("returns null when registry is null", async () => {
+    mockCookiesGet.mockReturnValue(undefined);
+
+    const result = await getActiveAccount();
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when activePuuid is empty string", async () => {
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        accounts: [{ puuid: "some-puuid", region: "na", addedAt: Date.now() }],
+        activePuuid: "",
+      },
+    });
+    mockCookiesGet.mockReturnValue({ value: "valid-token" });
+
+    const result = await getActiveAccount();
+
+    expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests will be added in subsequent tasks
 // ---------------------------------------------------------------------------
