@@ -38,6 +38,14 @@ export const UserInfoSchema = z
   })
   .passthrough();
 
-export const AuthResponseSchema = z
-  .object({ type: z.string() })
-  .passthrough();
+export const AuthResponseSchema = z.object({
+  type: z.enum(["response", "multifactor"]),
+  accessToken: z.string().min(1).optional(),
+  idToken: z.string().min(1).optional(),
+  expiresAt: z.number().positive().optional(),
+  expiresIn: z.number().positive().optional(),
+  multifactor: z.object({
+    email: z.string().email().optional(),
+    method: z.string().optional(),
+  }).optional(),
+});
