@@ -48,4 +48,11 @@ export const AuthResponseSchema = z.object({
     email: z.string().email().optional(),
     method: z.string().optional(),
   }).optional(),
+  // Riot API returns tokens in response.parameters.uri for 'response' type
+  response: z.object({
+    mode: z.string().optional(),
+    parameters: z.object({
+      uri: z.string().optional(),
+    }).optional(),
+  }).optional(),
 }).strict();
