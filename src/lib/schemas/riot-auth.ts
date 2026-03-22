@@ -48,4 +48,4 @@ export const AuthResponseSchema = z.object({
     email: z.string().email().optional(),
     method: z.string().optional(),
   }).optional(),
-});
+}).strict();

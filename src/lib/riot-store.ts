@@ -153,15 +153,17 @@ export async function fetchWithShardFallback(
   
   // Determine the order of regions to try
   const cachedShard = cachedShardByPuuid.get(tokens.puuid);
-  const attempts = [cachedShard || tokens.region];
+  const attempts: string[] = [cachedShard || tokens.region];
   for (const r of regions) {
     if (!attempts.includes(r)) attempts.push(r);
   }
+  // Deduplicate to prevent redundant fetch calls when cachedShard === tokens.region
+  const uniqueAttempts = [...new Set(attempts)];
 
   let lastError: Error | null = null;
   const baseHeaders = await getStoreHeaders(tokens);
 
-  for (const region of attempts) {
+  for (const region of uniqueAttempts) {
     const pdUrl = getPdUrl(region);
     const url = endpointBuilder(pdUrl);
 
