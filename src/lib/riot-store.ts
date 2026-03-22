@@ -38,7 +38,8 @@ const VERSION_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 /**
  * Fetches the current Valorant client version from Riot's official manifest endpoint.
- * Retries up to 3 times before throwing an error.
+ * Retries up to 3 times before trying fallback endpoints.
+ * Fallback order: riotclient.riotgames.com -> valorant-api.com -> hardcoded fallback
  */
 async function getClientVersion(): Promise<string> {
   const now = Date.now();
@@ -46,6 +47,45 @@ async function getClientVersion(): Promise<string> {
     return clientVersionCache;
   }
 
+  let lastError: Error | null = null;
+
+  // Try riotclient.riotgames.com first (primary source)
+  const primaryVersion = await tryFetchFromRiotManifest();
+  if (primaryVersion) {
+    clientVersionCache = primaryVersion;
+    clientVersionFetchedAt = now;
+    log.info("Updated Client Version (Riot): %s", primaryVersion);
+    return primaryVersion;
+  }
+
+  // Fallback to valorant-api.com (public API with version info)
+  log.warn("Riot manifest endpoint failed, trying valorant-api.com fallback");
+  try {
+    const fallbackVersion = await tryFetchFromValorantAPI();
+    if (fallbackVersion) {
+      clientVersionCache = fallbackVersion;
+      clientVersionFetchedAt = now;
+      log.info("Updated Client Version (ValorantAPI): %s", fallbackVersion);
+      return fallbackVersion;
+    }
+  } catch (error) {
+    lastError = error instanceof Error ? error : new Error(String(error));
+    log.warn("Valorant-API fallback also failed:", error);
+  }
+
+  // Last resort: use hardcoded fallback version
+  // This version should be updated periodically or the app will eventually fail
+  const hardcodedFallback = "release-12.05-shipping-22-4360629";
+  log.warn("All version sources failed, using hardcoded fallback: %s", hardcodedFallback);
+  clientVersionCache = hardcodedFallback;
+  clientVersionFetchedAt = now;
+  return hardcodedFallback;
+}
+
+/**
+ * Try to fetch version from Riot's official manifest endpoint
+ */
+async function tryFetchFromRiotManifest(): Promise<string | null> {
   let attempts = 0;
   const maxAttempts = 3;
   let lastError: Error | null = null;
@@ -60,26 +100,45 @@ async function getClientVersion(): Promise<string> {
         const data = await response.json();
         // Riot's manifest endpoint returns { data: { manifests: { riotClientVersion: "..." } } }
         const version: string = data.data.manifests.riotClientVersion;
-        clientVersionCache = version;
-        clientVersionFetchedAt = now;
-        log.info("Updated Client Version: %s", version);
         return version;
       } else {
         lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      log.warn(`Failed to fetch client version (Attempt ${attempts + 1}/${maxAttempts}):`, error);
+      log.warn(`Failed to fetch from Riot manifest (Attempt ${attempts + 1}/${maxAttempts}):`, error);
     }
 
     attempts++;
-    // Small backoff
     if (attempts < maxAttempts) await new Promise(r => setTimeout(r, 1000));
   }
 
-  // Throw after all retries exhaust - do not silently fall back
-  log.error("All client version fetch attempts failed. Last error: %s", lastError?.message);
-  throw new Error(`Failed to fetch client version after ${maxAttempts} attempts: ${lastError?.message}`);
+  log.warn("Riot manifest endpoint failed after %d attempts. Last error: %s", maxAttempts, lastError?.message);
+  return null;
+}
+
+/**
+ * Try to fetch version from valorant-api.com (public API)
+ * This is used as a fallback when Riot's endpoint is unreachable
+ */
+async function tryFetchFromValorantAPI(): Promise<string | null> {
+  const response = await fetch("https://valorant-api.com/v1/version", {
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Valorant-API returned ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  // Valorant-API returns { status: 200, data: { riotClientVersion: "release-12.05-shipping-22-4360629", ... } }
+  const version: string = data.data.riotClientVersion;
+
+  if (!version) {
+    throw new Error("Valorant-API response missing riotClientVersion field");
+  }
+
+  return version;
 }
 
 /**
