@@ -41,7 +41,7 @@ describe("x-request-id injection", () => {
     // Response should pass through with request headers
     expect(response).toBeInstanceOf(Response);
     // The next response with request headers is returned
-    const responseClone = response as Response & { request?: { headers: Headers } };
+    const _responseClone = response as Response & { request?: { headers: Headers } };
     // Verify request headers are forwarded (middleware passes them via NextResponse.next({ request: { headers } }))
     expect(response).toBeTruthy();
   });
