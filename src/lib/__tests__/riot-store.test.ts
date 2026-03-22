@@ -99,6 +99,7 @@ describe("getStorefront — client version fetching", () => {
   });
 
   it("throws error after 3 failed manifest fetch attempts (network error)", async () => {
+    // Mock all fetch calls to fail - both riot manifest and valorant-api fallback
     fetchSpy.mockRejectedValue(new Error("Network failure"));
 
     const result = getStorefront(MOCK_TOKENS).catch((e) => e);
@@ -111,7 +112,16 @@ describe("getStorefront — client version fetching", () => {
   });
 
   it("throws error on HTTP error responses after retries exhaust", async () => {
-    fetchSpy.mockResolvedValue(makeFailResponse(503));
+    // Mock riot manifest to return HTTP errors and valorant-api fallback to fail
+    fetchSpy.mockImplementation((url: string) => {
+      if (url.includes("riotclient.riotgames.com")) {
+        return Promise.resolve(makeFailResponse(503));
+      }
+      if (url.includes("valorant-api.com")) {
+        return Promise.reject(new Error("Valorant-API request failed"));
+      }
+      return Promise.resolve(makeOkResponse({}));
+    });
 
     const result = getStorefront(MOCK_TOKENS).catch((e) => e);
 

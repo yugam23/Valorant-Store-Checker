@@ -69,8 +69,13 @@ async function getClientVersion(): Promise<string> {
       return fallbackVersion;
     }
   } catch (error) {
-    lastError = error instanceof Error ? error : new Error(String(error));
     log.warn("Valorant-API fallback also failed:", error);
+    lastError = error instanceof Error ? error : new Error(String(error));
+  }
+
+  // All sources failed — throw the last error
+  if (lastError) {
+    throw new Error(`Failed to fetch client version after 3 attempts: ${lastError.message}`);
   }
 
   // Last resort: use hardcoded fallback version
