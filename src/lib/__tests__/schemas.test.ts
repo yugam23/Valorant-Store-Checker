@@ -138,7 +138,7 @@ describe("AuthResponseSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("type=multifactor with multifactor field: passes through", () => {
+  it("type=multifactor with multifactor field: parses successfully", () => {
     const result = AuthResponseSchema.safeParse({
       type: "multifactor",
       multifactor: { email: "test@example.com" },
@@ -152,6 +152,71 @@ describe("AuthResponseSchema", () => {
   it("missing type field: fails validation", () => {
     const result = AuthResponseSchema.safeParse({});
     expect(result.success).toBe(false);
+  });
+
+  // Negative validation tests
+  it("unknown fields: fails validation (no passthrough)", () => {
+    const result = AuthResponseSchema.safeParse({
+      type: "response",
+      unknownField: "value",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("empty string for accessToken: fails validation", () => {
+    const result = AuthResponseSchema.safeParse({
+      type: "response",
+      accessToken: "",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("null for accessToken: fails validation", () => {
+    const result = AuthResponseSchema.safeParse({
+      type: "response",
+      accessToken: null,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("array input for accessToken: fails validation", () => {
+    const result = AuthResponseSchema.safeParse({
+      type: "response",
+      accessToken: ["array"],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("invalid type value (not response/multifactor): fails validation", () => {
+    const result = AuthResponseSchema.safeParse({ type: "invalid" });
+    expect(result.success).toBe(false);
+  });
+
+  it("negative expiresAt: fails validation", () => {
+    const result = AuthResponseSchema.safeParse({
+      type: "response",
+      expiresAt: -1,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("valid full response with all optional fields: passes", () => {
+    const result = AuthResponseSchema.safeParse({
+      type: "response",
+      accessToken: "tok123",
+      idToken: "id123",
+      expiresAt: 3600,
+      expiresIn: 3600,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("valid multifactor response with email: passes", () => {
+    const result = AuthResponseSchema.safeParse({
+      type: "multifactor",
+      multifactor: { email: "test@example.com" },
+    });
+    expect(result.success).toBe(true);
   });
 });
 
