@@ -41,22 +41,20 @@ vi.mock("@/lib/session-store", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock: jose (async importOriginal pattern)
+// Mock: jose
 // ---------------------------------------------------------------------------
 
-vi.mock("jose", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("jose")>();
-  return {
-    ...actual,
-    jwtVerify: mockJwtVerify,
-    SignJWT: vi.fn(() => ({
+vi.mock("jose", () => ({
+  jwtVerify: mockJwtVerify,
+  SignJWT: vi.fn(function (this: Record<string, unknown>) {
+    return {
       setProtectedHeader: vi.fn().mockReturnThis(),
       setIssuedAt: vi.fn().mockReturnThis(),
       setExpirationTime: vi.fn().mockReturnThis(),
       sign: vi.fn().mockResolvedValue("mock-jwt-token"),
-    })),
-  };
-});
+    };
+  }),
+}));
 
 // ---------------------------------------------------------------------------
 // Mock: next/headers
@@ -239,6 +237,296 @@ describe("getActiveAccount", () => {
     const result = await getActiveAccount();
 
     expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: addAccount
+// ---------------------------------------------------------------------------
+
+describe("addAccount", () => {
+  it("adds new account and sets as active", async () => {
+    const entry = makeAccountEntry({ puuid: "new-puuid-1" });
+    const tokens = makeSessionTokens({ puuid: "new-puuid-1" });
+
+    // Mock getAccounts returning null (no existing registry)
+    mockCookiesGet.mockReturnValue(undefined);
+    mockJwtVerify.mockRejectedValue(new Error("no token"));
+
+    await addAccount(entry, tokens);
+
+    // Should have called createSession
+    expect(mockCreateSession).toHaveBeenCalled();
+    // Should have saved account session
+    expect(mockSaveSessionToStore).toHaveBeenCalled();
+  });
+
+  it("updates existing account when puuid matches", async () => {
+    const existingEntry = makeAccountEntry({ puuid: "same-puuid", gameName: "OldName" });
+    const updatedEntry = makeAccountEntry({ puuid: "same-puuid", gameName: "NewName" });
+    const tokens = makeSessionTokens({ puuid: "same-puuid" });
+
+    let callCount = 0;
+    // First call returns existing registry, subsequent calls also return it
+    mockJwtVerify.mockImplementation(async () => {
+      callCount++;
+      return {
+        payload: {
+          accounts: [existingEntry],
+          activePuuid: "same-puuid",
+        },
+      };
+    });
+    mockCookiesGet.mockReturnValue({ value: "existing-token" });
+
+    await addAccount(updatedEntry, tokens);
+
+    // createSession should be called to set updated session
+    expect(mockCreateSession).toHaveBeenCalled();
+  });
+
+  it("removes oldest account when MAX_ACCOUNTS (5) exceeded", async () => {
+    // Build a registry with 5 existing accounts
+    const existingAccounts: AccountEntry[] = [];
+    for (let i = 0; i < 5; i++) {
+      existingAccounts.push(makeAccountEntry({ puuid: `existing-${i}`, gameName: `Player${i}` }));
+    }
+
+    let callCount = 0;
+    mockJwtVerify.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        // First call: getAccounts() - return full registry
+        return {
+          payload: {
+            accounts: [...existingAccounts],
+            activePuuid: "existing-0",
+          },
+        };
+      }
+      // Subsequent calls: deleteAccountSession wants sessionId
+      return {
+        payload: { sessionId: "session-for-deleted-account" },
+      };
+    });
+    mockCookiesGet.mockReturnValue({ value: "token" });
+
+    // Add 6th account
+    const newEntry = makeAccountEntry({ puuid: "new-puuid-6" });
+    const newTokens = makeSessionTokens({ puuid: "new-puuid-6" });
+    await addAccount(newEntry, newTokens);
+
+    // Should have called deleteSessionFromStore when oldest was removed
+    expect(mockDeleteSessionFromStore).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: switchAccount
+// ---------------------------------------------------------------------------
+
+describe("switchAccount", () => {
+  it("switches to existing account successfully", async () => {
+    const entry1 = makeAccountEntry({ puuid: "acc-1", gameName: "Player1" });
+    const entry2 = makeAccountEntry({ puuid: "acc-2", gameName: "Player2" });
+
+    let callCount = 0;
+    mockJwtVerify.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        // First call: getAccounts() - return registry
+        return {
+          payload: {
+            accounts: [entry1, entry2],
+            activePuuid: "acc-1",
+          },
+        };
+      }
+      // Second call: loadAccountSession() - return sessionId
+      return {
+        payload: { sessionId: "session-id-for-acc-2" },
+      };
+    });
+    mockCookiesGet.mockReturnValue({ value: "accounts-token" });
+
+    // Current session is acc-1
+    mockGetSession.mockResolvedValue({
+      accessToken: "token-1",
+      entitlementsToken: "ent-token-1",
+      puuid: "acc-1",
+      region: "na",
+      createdAt: Date.now(),
+    });
+
+    // Target account's session (acc-2) is available
+    mockGetSessionFromStore.mockResolvedValue({
+      accessToken: "token-2",
+      entitlementsToken: "ent-token-2",
+      puuid: "acc-2",
+      region: "na",
+      createdAt: Date.now(),
+    });
+
+    const result = await switchAccount("acc-2");
+
+    expect(result).toBe(true);
+    expect(mockCreateSession).toHaveBeenCalled();
+  });
+
+  it("returns false when account not found", async () => {
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        accounts: [{ puuid: "existing-puuid", region: "na", addedAt: Date.now() }],
+        activePuuid: "existing-puuid",
+      },
+    });
+    mockCookiesGet.mockReturnValue({ value: "accounts-token" });
+
+    const result = await switchAccount("non-existent-puuid");
+
+    expect(result).toBe(false);
+  });
+
+  it("returns false when registry is null", async () => {
+    mockCookiesGet.mockReturnValue(undefined);
+
+    const result = await switchAccount("any-puuid");
+
+    expect(result).toBe(false);
+  });
+
+  it("returns false when target session not found in store", async () => {
+    const entry1 = makeAccountEntry({ puuid: "acc-1" });
+    const entry2 = makeAccountEntry({ puuid: "acc-2" });
+
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        accounts: [entry1, entry2],
+        activePuuid: "acc-1",
+      },
+    });
+    mockCookiesGet.mockReturnValue({ value: "accounts-token" });
+
+    mockGetSession.mockResolvedValue({
+      accessToken: "token-1",
+      entitlementsToken: "ent-token-1",
+      puuid: "acc-1",
+      region: "na",
+      createdAt: Date.now(),
+    });
+
+    // Target session doesn't exist in store
+    mockGetSessionFromStore.mockResolvedValue(null);
+
+    const result = await switchAccount("acc-2");
+
+    expect(result).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: removeAccount
+// ---------------------------------------------------------------------------
+
+describe("removeAccount", () => {
+  it("removes account from registry", async () => {
+    const entry1 = makeAccountEntry({ puuid: "remove-1" });
+    const entry2 = makeAccountEntry({ puuid: "remove-2" });
+
+    // jwtVerify is called:
+    // 1. getAccounts() - returns registry with both accounts
+    // 2. deleteAccountSession() - returns sessionId
+    // 3. getAccounts() again after modification
+    let callCount = 0;
+    mockJwtVerify.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1 || callCount === 3) {
+        // getAccounts calls
+        return {
+          payload: {
+            accounts: callCount === 1 ? [entry1, entry2] : [entry2],
+            activePuuid: "remove-2",
+          },
+        };
+      }
+      // deleteAccountSession verification - returns sessionId
+      return { payload: { sessionId: "session-for-remove-1" } };
+    });
+    mockCookiesGet.mockReturnValue({ value: "accounts-token" });
+
+    await removeAccount("remove-1");
+
+    // Account should have been removed (deleteAccountSession called)
+    expect(mockDeleteSessionFromStore).toHaveBeenCalled();
+  });
+
+  it("switches to first remaining account when active is removed", async () => {
+    const entry1 = makeAccountEntry({ puuid: "active-1" });
+    const entry2 = makeAccountEntry({ puuid: "active-2" });
+
+    // jwtVerify is called:
+    // 1. getAccounts() - returns registry with both accounts
+    // 2. deleteAccountSession() - returns sessionId
+    // 3. loadAccountSession() for next account - returns sessionId
+    let callCount = 0;
+    mockJwtVerify.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          payload: {
+            accounts: [entry1, entry2],
+            activePuuid: "active-1",
+          },
+        };
+      }
+      // deleteAccountSession verification and loadAccountSession both want sessionId
+      return { payload: { sessionId: "session-for-account" } };
+    });
+    mockCookiesGet.mockReturnValue({ value: "accounts-token" });
+
+    // Mock loadAccountSession to return entry2's session
+    mockGetSessionFromStore.mockResolvedValue({
+      accessToken: "token-2",
+      entitlementsToken: "ent-token-2",
+      puuid: "active-2",
+      region: "na",
+      createdAt: Date.now(),
+    });
+
+    await removeAccount("active-1");
+
+    // Should switch to remaining account
+    expect(mockCreateSession).toHaveBeenCalled();
+  });
+
+  it("clears all cookies when last account removed", async () => {
+    const entry = makeAccountEntry({ puuid: "last-account" });
+
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        accounts: [entry],
+        activePuuid: "last-account",
+      },
+    });
+    mockCookiesGet.mockReturnValue({ value: "accounts-token" });
+
+    await removeAccount("last-account");
+
+    // Should delete cookies
+    expect(mockCookiesDelete).toHaveBeenCalled();
+  });
+
+  it("does nothing when account not found in registry", async () => {
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        accounts: [{ puuid: "existing", region: "na", addedAt: Date.now() }],
+        activePuuid: "existing",
+      },
+    });
+    mockCookiesGet.mockReturnValue({ value: "accounts-token" });
+
+    // Should not throw
+    await expect(removeAccount("non-existent")).resolves.not.toThrow();
   });
 });
 
