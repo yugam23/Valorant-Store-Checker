@@ -25,10 +25,6 @@ const PROTECTED_ROUTES = ["/store", "/api/store", "/inventory", "/api/inventory"
 export function middleware(request: NextRequest) {
   const requestId = crypto.randomUUID();
 
-  // Set on response for client visibility
-  const response = NextResponse.next();
-  response.headers.set("x-request-id", requestId);
-
   // Forward in request headers for downstream
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-request-id", requestId);
