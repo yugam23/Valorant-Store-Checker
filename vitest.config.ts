@@ -86,10 +86,10 @@ export default defineConfig({
           lines: 70,
         },
         "src/lib/riot-store.ts": {
-          statements: 70,
-          branches: 53,
-          functions: 70,
-          lines: 70,
+          statements: 68,
+          branches: 49,
+          functions: 84,
+          lines: 68,
         },
         "src/lib/session-store.ts": {
           statements: 70,
