@@ -24,10 +24,11 @@ export function mergeCookies(existing: string, newSetCookieHeaders: string[]): s
 
   // Override with new cookies
   for (const header of newSetCookieHeaders) {
-    const cookiePart = header.split(";")[0] ?? "";
-    const eqIdx = cookiePart.indexOf("=");
-    if (eqIdx > 0) {
-      cookieMap.set(cookiePart.substring(0, eqIdx), cookiePart);
+    for (const cookiePart of header.split("; ")) {
+      const eqIdx = cookiePart.indexOf("=");
+      if (eqIdx > 0) {
+        cookieMap.set(cookiePart.substring(0, eqIdx), cookiePart);
+      }
     }
   }
 

@@ -56,6 +56,32 @@ describe("mergeCookies", () => {
     const result = mergeCookies("badcookie; ssid=valid", []);
     expect(result).toBe("ssid=valid");
   });
+
+  it("handles single cookie with no semicolon", () => {
+    // split("; ") on a string with no "; " returns single element
+    expect(mergeCookies("ssid=abc123", [])).toBe("ssid=abc123");
+  });
+
+  it("handles trailing semicolon with space", () => {
+    // "ssid=abc123; " split("; ") = ["ssid=abc123", ""]
+    // empty string has no "=", so eqIdx=-1, skip
+    expect(mergeCookies("ssid=abc123; ", [])).toBe("ssid=abc123");
+  });
+
+  it("handles value with spaces and special chars", () => {
+    // Space in value is fine — split is on "; " not "="
+    const result = mergeCookies("", ["ssid=val ue; clid=def"]);
+    expect(result).toContain("ssid=val ue");
+    expect(result).toContain("clid=def");
+  });
+
+  it("handles empty-named cookie value (ssid=)", () => {
+    // "ssid=; clid=def" split("; ") = ["ssid=", "clid=def"]
+    // "ssid=" has eqIdx=5 (>0), so empty-value cookie is stored
+    const result = mergeCookies("ssid=; clid=def", []);
+    expect(result).toContain("ssid=");
+    expect(result).toContain("clid=def");
+  });
 });
 
 describe("extractNamedCookies", () => {
@@ -103,6 +129,38 @@ describe("extractNamedCookies", () => {
     expect(result.clid).toBeUndefined();
     expect(result.csid).toBeUndefined();
     expect(result.tdid).toBeUndefined();
+  });
+
+  it("handles single cookie with no semicolon", () => {
+    // split("; ") on "ssid=abc123" returns ["ssid=abc123"]
+    const result = extractNamedCookies("ssid=abc123");
+    expect(result.ssid).toBe("abc123");
+    expect(result.raw).toBe("ssid=abc123");
+  });
+
+  it("handles trailing semicolon with trailing empty string", () => {
+    // "ssid=abc; " split("; ") = ["ssid=abc", ""]
+    // empty string has eqIdx=-1, skip; ssid=abc should still be extracted
+    const result = extractNamedCookies("ssid=abc; ");
+    expect(result.ssid).toBe("abc");
+    expect(result.raw).toBe("ssid=abc; ");
+  });
+
+  it("handles malformed cookie missing equals sign", () => {
+    // "ssid; clid=def" split("; ") = ["ssid", "clid=def"]
+    // "ssid" has eqIdx=-1, skip; "clid=def" is valid
+    const result = extractNamedCookies("ssid; clid=def");
+    expect(result.ssid).toBeUndefined();
+    expect(result.clid).toBe("def");
+    expect(result.raw).toBe("ssid; clid=def");
+  });
+
+  it("handles duplicate cookie names — last value wins", () => {
+    // "ssid=first; ssid=second" split("; ") = ["ssid=first", "ssid=second"]
+    // second assignment overwrites first
+    const result = extractNamedCookies("ssid=first; ssid=second");
+    expect(result.ssid).toBe("second");
+    expect(result.raw).toBe("ssid=first; ssid=second");
   });
 });
 
@@ -186,5 +244,19 @@ describe("captureSetCookies", () => {
 
     const result = captureSetCookies(mockResponse);
     expect(result).toEqual([]);
+  });
+
+  it("getSetCookie() returning null is handled gracefully", () => {
+    // getSetCookie() can return null instead of throwing in some runtimes
+    const mockResponse = {
+      headers: {
+        getSetCookie: () => null,
+        get: () => null,
+      },
+    } as unknown as Response;
+
+    const result = captureSetCookies(mockResponse);
+    // null is returned directly (not caught by try/catch), so result is null
+    expect(result).toBeNull();
   });
 });
