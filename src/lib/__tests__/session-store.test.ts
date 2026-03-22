@@ -1,6 +1,7 @@
 import { createClient, type Client } from "@libsql/client";
-import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach, beforeAll } from "vitest";
 import type { SessionData } from "@/lib/schemas/session";
+import { encrypt } from "@/lib/session-crypto";
 
 // ---------------------------------------------------------------------------
 // In-memory SQLite mock for @/lib/session-db
@@ -10,8 +11,17 @@ import type { SessionData } from "@/lib/schemas/session";
 
 let testClient: Client;
 
+// Valid 64-char hex encryption key for testing encrypted riotCookies
+const TEST_ENCRYPTION_KEY = "a".repeat(64);
+
 vi.mock("@/lib/session-db", () => ({
   initSessionDb: vi.fn(async () => testClient),
+}));
+
+vi.mock("@/lib/env", () => ({
+  env: {
+    ENCRYPTION_KEY: TEST_ENCRYPTION_KEY,
+  },
 }));
 
 // Import AFTER mock declarations (vi.mock is hoisted, so this is safe)
@@ -20,6 +30,7 @@ const {
   getSessionFromStore,
   deleteSessionFromStore,
   cleanupExpiredSessions,
+  refreshSessionExpiration,
 } = await import("@/lib/session-store");
 
 const { initSessionDb } = await import("@/lib/session-db");
@@ -134,6 +145,43 @@ describe("cleanupExpiredSessions", () => {
   });
 });
 
+describe("refreshSessionExpiration", () => {
+  it("updates expires_at for an existing session", async () => {
+    const now = Date.now();
+
+    // Insert a session with a known expires_at
+    await testClient.execute({
+      sql: "INSERT INTO sessions (id, data, expires_at) VALUES (?, ?, ?)",
+      args: ["refresh-test", JSON.stringify(validSession), now + 60_000],
+    });
+
+    // Verify initial expires_at
+    let row = await testClient.execute({
+      sql: "SELECT expires_at FROM sessions WHERE id = ?",
+      args: ["refresh-test"],
+    });
+    const initialExpiresAt = (row.rows[0]!.expires_at as number);
+    expect(initialExpiresAt).toBe(now + 60_000);
+
+    // Refresh with a longer maxAge
+    await refreshSessionExpiration("refresh-test", 7200); // 2 hours
+
+    // Verify expires_at was updated
+    row = await testClient.execute({
+      sql: "SELECT expires_at FROM sessions WHERE id = ?",
+      args: ["refresh-test"],
+    });
+    const newExpiresAt = (row.rows[0]!.expires_at as number);
+    // Should be approximately Date.now() + 7200*1000
+    expect(newExpiresAt).toBeGreaterThan(initialExpiresAt + 7_000_000);
+  });
+
+  it("is a no-op for non-existent session (no throw)", async () => {
+    // Should not throw even if session doesn't exist
+    await expect(refreshSessionExpiration("nonexistent-session", 3600)).resolves.toBeUndefined();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Defensive error-handling tests (ERR-01, ERR-03)
 // ---------------------------------------------------------------------------
@@ -193,5 +241,55 @@ describe("getSessionFromStore — defensive error handling", () => {
     expect(result).toBeNull();
     expect(warnSpy).not.toHaveBeenCalled();
     expect(errorSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("getSessionFromStore — encrypted riotCookies decryption", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("decrypts encrypted riotCookies when ENCRYPTION_KEY is available", async () => {
+    // Insert session with encrypted riotCookies directly into DB
+    const sessionWithEncryptedCookies: SessionData = {
+      ...validSession,
+      riotCookies: "original-cookie-value",
+    };
+    const encryptedCookies = encrypt("original-cookie-value", TEST_ENCRYPTION_KEY);
+    const sessionWithEncrypted: Record<string, unknown> = { ...sessionWithEncryptedCookies, riotCookies: encryptedCookies };
+
+    await testClient.execute({
+      sql: "INSERT INTO sessions (id, data, expires_at) VALUES (?, ?, ?)",
+      args: ["encrypted-session", JSON.stringify(sessionWithEncrypted), Date.now() + 60_000],
+    });
+
+    const result = await getSessionFromStore("encrypted-session");
+
+    expect(result).not.toBeNull();
+    expect(result!.riotCookies).toBe("original-cookie-value");
+  });
+
+  it("returns null when ciphertext is corrupted (decryption fails)", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Insert session with invalid encrypted riotCookies (corrupt ciphertext)
+    const sessionWithCorrupt: Record<string, unknown> = {
+      ...validSession,
+      riotCookies: "aa0000bb1111cc2222dd3333:aa0000bb1111cc2222dd333344445555:aa",
+    };
+
+    await testClient.execute({
+      sql: "INSERT INTO sessions (id, data, expires_at) VALUES (?, ?, ?)",
+      args: ["corrupt-session", JSON.stringify(sessionWithCorrupt), Date.now() + 60_000],
+    });
+
+    const result = await getSessionFromStore("corrupt-session");
+
+    expect(result).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[session-store]"),
+      expect.stringContaining("Failed to decrypt"),
+      expect.any(Error),
+    );
   });
 });
