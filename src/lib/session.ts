@@ -22,7 +22,8 @@ import { randomUUID } from "crypto";
 import {
   saveSessionToStore,
   getSessionFromStore,
-  deleteSessionFromStore
+  deleteSessionFromStore,
+  refreshSessionExpiration
 } from "./session-store";
 import type { StoredSession as SessionData } from "./schemas/session";
 import { ESSENTIAL_COOKIE_NAMES } from "./constants";
@@ -205,28 +206,23 @@ export async function hasValidSession(): Promise<boolean> {
 }
 
 export async function refreshSession(): Promise<boolean> {
-  const session = await getSession();
-  if (!session) return false;
+  const result = await getSessionInternal();
+  if (!result) return false;
 
-  // With server-side store, "refreshing" a session mostly means 
-  // updating the expiration time in the store so it doesn't get cleaned up.
-  // The cookie maxAge also needs updating.
-  // Ideally we would grab the current sessionId, but getSession returns data, not ID.
-  
-  // For simplicity and robustness, we can just re-create the session 
-  // which generates a new ID. This invalidates the old ID.
-  // This is safe.
-  
-  await createSession({
-    accessToken: session.accessToken,
-    idToken: session.idToken,
-    entitlementsToken: session.entitlementsToken,
-    puuid: session.puuid,
-    region: session.region,
-    gameName: session.gameName,
-    tagLine: session.tagLine,
-    country: session.country,
-    riotCookies: session.riotCookies,
+  const { sessionId } = result;
+
+  // Update expires_at in-place — no new sessionId needed
+  await refreshSessionExpiration(sessionId, SESSION_MAX_AGE);
+
+  // Update cookie maxAge (preserve existing JWT token)
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value ?? '';
+  cookieStore.set(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: SESSION_MAX_AGE,
+    path: "/",
   });
 
   return true;
