@@ -1,5 +1,5 @@
 import { createClient, type Client } from "@libsql/client";
-import { vi, describe, it, expect, beforeEach, afterEach, beforeAll } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { SessionData } from "@/lib/schemas/session";
 import { encrypt } from "@/lib/session-crypto";
 
