@@ -33,3 +33,27 @@ jobs:
           # Dummy secrets for build-time — real values live in Vercel env vars
           SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'ci-placeholder-secret-32-chars-long' }}
           HENRIK_API_KEY: ${{ secrets.HENRIK_API_KEY || 'ci-placeholder' }}
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm test
+        env:
+          # Dummy secrets for test-time — real values live in Vercel env vars
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'ci-placeholder-secret-32-chars-long' }}
+          HENRIK_API_KEY: ${{ secrets.HENRIK_API_KEY || 'ci-placeholder' }}
