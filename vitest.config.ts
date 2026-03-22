@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     coverage: {
       provider: "v8" as const,
-      include: ["src/lib/**/*.ts", "src/app/api/**/*.ts"],
+      include: ["src/lib/**/*.ts", "src/app/api/**/*.ts", "src/middleware.ts"],
       exclude: [
         "src/lib/__tests__/**",
         "src/lib/db.ts",
