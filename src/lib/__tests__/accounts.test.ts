@@ -266,16 +266,12 @@ describe("addAccount", () => {
     const updatedEntry = makeAccountEntry({ puuid: "same-puuid", gameName: "NewName" });
     const tokens = makeSessionTokens({ puuid: "same-puuid" });
 
-    let callCount = 0;
-    // First call returns existing registry, subsequent calls also return it
-    mockJwtVerify.mockImplementation(async () => {
-      callCount++;
-      return {
-        payload: {
-          accounts: [existingEntry],
-          activePuuid: "same-puuid",
-        },
-      };
+    // getAccounts returns existing registry
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        accounts: [existingEntry],
+        activePuuid: "same-puuid",
+      },
     });
     mockCookiesGet.mockReturnValue({ value: "existing-token" });
 
@@ -531,5 +527,104 @@ describe("removeAccount", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests will be added in subsequent tasks
+// Tests: error cases
+// ---------------------------------------------------------------------------
+
+describe("error cases", () => {
+  it("getAccounts handles DB errors gracefully", async () => {
+    mockJwtVerify.mockRejectedValue(new Error("Database error"));
+    mockCookiesGet.mockReturnValue({ value: "valid-token" });
+
+    const result = await getAccounts();
+
+    expect(result).toBeNull();
+  });
+
+  it("getSessionFromStore returns null for missing session", async () => {
+    const entry1 = makeAccountEntry({ puuid: "acc-1" });
+    const entry2 = makeAccountEntry({ puuid: "acc-2" });
+
+    // Setup registry
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        accounts: [entry1, entry2],
+        activePuuid: "acc-1",
+      },
+    });
+    mockCookiesGet.mockReturnValue({ value: "accounts-token" });
+
+    mockGetSession.mockResolvedValue({
+      accessToken: "token-1",
+      entitlementsToken: "ent-token-1",
+      puuid: "acc-1",
+      region: "na",
+      createdAt: Date.now(),
+    });
+
+    // Mock jwtVerify to return sessionId for loadAccountSession
+    mockJwtVerify.mockImplementation(async () => {
+      return { payload: { sessionId: "session-id" } };
+    });
+
+    // But getSessionFromStore returns null (session not found)
+    mockGetSessionFromStore.mockResolvedValue(null);
+
+    const result = await switchAccount("acc-2");
+
+    expect(result).toBe(false);
+  });
+
+  it("addAccount throws when saveSessionToStore fails", async () => {
+    const entry = makeAccountEntry({ puuid: "test-puuid" });
+    const tokens = makeSessionTokens({ puuid: "test-puuid" });
+
+    // Mock getAccounts returning null (new registry)
+    mockCookiesGet.mockReturnValue(undefined);
+    mockJwtVerify.mockRejectedValue(new Error("no token"));
+
+    // Mock saveSessionToStore to reject (this is called in saveAccountSession)
+    mockSaveSessionToStore.mockRejectedValue(new Error("Session store error"));
+
+    // Error propagates (no try/catch in addAccount)
+    await expect(addAccount(entry, tokens)).rejects.toThrow("Session store error");
+  });
+
+  it("removeAccount handles missing session cookie gracefully", async () => {
+    const entry1 = makeAccountEntry({ puuid: "active-1" });
+    const entry2 = makeAccountEntry({ puuid: "active-2" });
+
+    // getAccounts returns registry
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        accounts: [entry1, entry2],
+        activePuuid: "active-1",
+      },
+    });
+    mockCookiesGet.mockReturnValue({ value: "accounts-token" });
+
+    // But the cookie for active-1 doesn't exist (returns undefined for deleteAccountSession)
+    // We need to mock jwtVerify to throw when deleteAccountSession tries to verify
+    let callCount = 0;
+    mockJwtVerify.mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          payload: {
+            accounts: [entry1, entry2],
+            activePuuid: "active-1",
+          },
+        };
+      }
+      // For deleteAccountSession, token is undefined so jwtVerify would throw
+      // But our mock just returns sessionId = undefined
+      return { payload: {} };
+    });
+
+    // Should not throw
+    await expect(removeAccount("active-1")).resolves.not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Final verification placeholder
 // ---------------------------------------------------------------------------
