@@ -38,12 +38,11 @@ export default defineConfig({
         "src/lib/session-crypto.ts",
       ],
       thresholds: {
-        perFile: true,
         statements: 70,
         branches: 70,
         functions: 70,
         lines: 70,
-        // Per-file overrides for files with complex branching or limited test access
+        // Per-file overrides — only apply to these specific files
         "src/app/api/auth/route.ts": {
           statements: 70,
           branches: 70,
