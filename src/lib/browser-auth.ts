@@ -45,6 +45,9 @@ export async function launchBasicBrowser(): Promise<{ success: boolean; error?: 
   }
 }
 
+/**
+ * @deprecated Automated browser login is deprecated. Please use the 'Launch Riot Login' button.
+ */
 export async function authenticateWithBrowser(
   _username: string,
   _pass: string
