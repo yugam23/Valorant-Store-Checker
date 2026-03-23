@@ -15,6 +15,7 @@ import { cookies } from "next/headers";
 import { env } from "./env";
 import { createLogger } from "./logger";
 import { AccountsPayloadSchema, AccountEntry, AccountsData } from "./schemas/accounts";
+import { parseWithLog } from "./schemas/parse";
 
 // Re-export for backwards compatibility with existing imports from @/lib/accounts
 export type { AccountEntry, AccountsData };
@@ -62,15 +63,14 @@ export async function getAccounts(): Promise<AccountsData | null> {
 
     const { payload } = await jwtVerify(token, getSecretKey());
 
-    const parsed = AccountsPayloadSchema.safeParse(payload);
-    if (!parsed.success) {
-      log.warn("[AccountsPayload] validation failed:", parsed.error.issues);
+    const parsed = parseWithLog(AccountsPayloadSchema, payload, "AccountsPayload");
+    if (!parsed) {
       return null;
     }
 
     return {
-      accounts: parsed.data.accounts,
-      activePuuid: parsed.data.activePuuid,
+      accounts: parsed.accounts,
+      activePuuid: parsed.activePuuid,
     };
   } catch (error) {
     log.error("Failed to get accounts registry:", error);
