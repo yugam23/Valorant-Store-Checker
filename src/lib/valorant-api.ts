@@ -262,6 +262,30 @@ export interface ValorantPlayerTitle {
   assetPath: string;
 }
 
+export interface ValorantSkinLevel {
+  uuid: string;
+  displayName: string;
+  displayIcon: string | null;
+  streamedVideo: string | null;
+  assetPath: string;
+}
+
+export interface ValorantBuddyLevel {
+  uuid: string;
+  displayName: string;
+  displayIcon: string | null;
+  assetPath: string;
+}
+
+export interface ValorantSpray {
+  uuid: string;
+  displayName: string;
+  displayIcon: string | null;
+  largeArt: string | null;
+  wideArt: string | null;
+  assetPath: string;
+}
+
 /**
  * Fetch a player card by UUID from Valorant-API
  * Uses Next.js fetch-level caching (24h) — no module-level Map needed
@@ -295,6 +319,91 @@ export async function getPlayerTitleByUuid(uuid: string): Promise<ValorantPlayer
     return result.status === 200 ? result.data : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Fetch a skin level by UUID from Valorant-API
+ * Results are cached in Redis for 24 hours
+ */
+export async function getSkinLevelByUuid(uuid: string): Promise<ValorantSkinLevel | null> {
+  const cacheKey = `valorant:skinlevel:${uuid}`;
+  const cached = await getCache<ValorantSkinLevel>(cacheKey);
+  if (cached) {
+    return cached.data;
+  }
+
+  try {
+    const response = await fetch(`${VALORANT_API_BASE}/weapons/skinlevels/${uuid}`, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) return null;
+    const result: ValorantAPIResponse<ValorantSkinLevel> = await response.json();
+    if (result.status !== 200 || !result.data) return null;
+    await setCache(cacheKey, result.data);
+    return result.data;
+  } catch {
+    // Fall back to stale cache on error
+    const stale = await getStaleCache<ValorantSkinLevel>(cacheKey);
+    return stale;
+  }
+}
+
+/**
+ * Fetch a buddy level by UUID from Valorant-API
+ * Results are cached in Redis for 24 hours
+ */
+export async function getBuddyLevelByUuid(uuid: string): Promise<ValorantBuddyLevel | null> {
+  const cacheKey = `valorant:buddylevel:${uuid}`;
+  const cached = await getCache<ValorantBuddyLevel>(cacheKey);
+  if (cached) {
+    return cached.data;
+  }
+
+  try {
+    const response = await fetch(`${VALORANT_API_BASE}/buddies/levels/${uuid}`, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) return null;
+    const result: ValorantAPIResponse<ValorantBuddyLevel> = await response.json();
+    if (result.status !== 200 || !result.data) return null;
+    await setCache(cacheKey, result.data);
+    return result.data;
+  } catch {
+    const stale = await getStaleCache<ValorantBuddyLevel>(cacheKey);
+    return stale;
+  }
+}
+
+/**
+ * Fetch a spray by UUID from Valorant-API
+ * Results are cached in Redis for 24 hours
+ */
+export async function getSprayByUuid(uuid: string): Promise<ValorantSpray | null> {
+  const cacheKey = `valorant:spray:${uuid}`;
+  const cached = await getCache<ValorantSpray>(cacheKey);
+  if (cached) {
+    return cached.data;
+  }
+
+  try {
+    const response = await fetch(`${VALORANT_API_BASE}/sprays/${uuid}`, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) return null;
+    const result: ValorantAPIResponse<ValorantSpray> = await response.json();
+    if (result.status !== 200 || !result.data) return null;
+    await setCache(cacheKey, result.data);
+    return result.data;
+  } catch {
+    const stale = await getStaleCache<ValorantSpray>(cacheKey);
+    return stale;
   }
 }
 
