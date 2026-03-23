@@ -5,6 +5,18 @@
 
 import { createLogger } from "./logger";
 import { redis } from "./redis-client";
+import { parseWithLog } from "@/lib/schemas/parse";
+import {
+  ValorantWeaponSkinSchema,
+  ValorantContentTierSchema,
+  ValorantBundleSchema,
+  ValorantSkinLevelSchema,
+  ValorantBuddyLevelSchema,
+  ValorantSpraySchema,
+  ValorantPlayerCardSchema,
+  ValorantPlayerTitleSchema,
+  CompetitiveSeasonSchema,
+} from "@/lib/schemas/valorant-api";
 
 const log = createLogger("valorant-api");
 
@@ -91,10 +103,13 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
       throw new Error(`Valorant-API error: status ${result.status}`);
     }
 
-    // Store in Redis with 24h TTL
-    await setCache(KEYS.skins, result.data);
+    const parsed = parseWithLog(ValorantWeaponSkinSchema.array(), result.data, "getWeaponSkins");
+    if (!parsed) throw new Error("Valorant-API validation failed for weapon skins");
 
-    return result.data;
+    // Store in Redis with 24h TTL
+    await setCache(KEYS.skins, parsed);
+
+    return parsed;
   } catch (error) {
     log.error("Failed to fetch weapon skins:", error);
 
@@ -141,10 +156,13 @@ export async function getContentTiers(): Promise<ValorantContentTier[]> {
       throw new Error(`Valorant-API error: status ${result.status}`);
     }
 
-    // Store in Redis with 24h TTL
-    await setCache(KEYS.tiers, result.data);
+    const parsed = parseWithLog(ValorantContentTierSchema.array(), result.data, "getContentTiers");
+    if (!parsed) throw new Error("Valorant-API validation failed for content tiers");
 
-    return result.data;
+    // Store in Redis with 24h TTL
+    await setCache(KEYS.tiers, parsed);
+
+    return parsed;
   } catch (error) {
     log.error("Failed to fetch content tiers:", error);
 
@@ -191,10 +209,13 @@ export async function getBundles(): Promise<ValorantBundle[]> {
       throw new Error(`Valorant-API error: status ${result.status}`);
     }
 
-    // Store in Redis with 24h TTL
-    await setCache(KEYS.bundles, result.data);
+    const parsed = parseWithLog(ValorantBundleSchema.array(), result.data, "getBundles");
+    if (!parsed) throw new Error("Valorant-API validation failed for bundles");
 
-    return result.data;
+    // Store in Redis with 24h TTL
+    await setCache(KEYS.bundles, parsed);
+
+    return parsed;
   } catch (error) {
     log.error("Failed to fetch bundles:", error);
 
@@ -298,7 +319,9 @@ export async function getPlayerCardByUuid(uuid: string): Promise<ValorantPlayerC
     });
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantPlayerCard> = await response.json();
-    return result.status === 200 ? result.data : null;
+    if (result.status !== 200) return null;
+    const parsed = parseWithLog(ValorantPlayerCardSchema, result.data, "getPlayerCardByUuid");
+    return parsed ?? null;
   } catch {
     return null;
   }
@@ -316,7 +339,9 @@ export async function getPlayerTitleByUuid(uuid: string): Promise<ValorantPlayer
     });
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantPlayerTitle> = await response.json();
-    return result.status === 200 ? result.data : null;
+    if (result.status !== 200) return null;
+    const parsed = parseWithLog(ValorantPlayerTitleSchema, result.data, "getPlayerTitleByUuid");
+    return parsed ?? null;
   } catch {
     return null;
   }
@@ -342,8 +367,10 @@ export async function getSkinLevelByUuid(uuid: string): Promise<ValorantSkinLeve
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantSkinLevel> = await response.json();
     if (result.status !== 200 || !result.data) return null;
-    await setCache(cacheKey, result.data);
-    return result.data;
+    const parsed = parseWithLog(ValorantSkinLevelSchema, result.data, "getSkinLevelByUuid");
+    if (!parsed) return null;
+    await setCache(cacheKey, parsed);
+    return parsed;
   } catch {
     // Fall back to stale cache on error
     const stale = await getStaleCache<ValorantSkinLevel>(cacheKey);
@@ -371,8 +398,10 @@ export async function getBuddyLevelByUuid(uuid: string): Promise<ValorantBuddyLe
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantBuddyLevel> = await response.json();
     if (result.status !== 200 || !result.data) return null;
-    await setCache(cacheKey, result.data);
-    return result.data;
+    const parsed = parseWithLog(ValorantBuddyLevelSchema, result.data, "getBuddyLevelByUuid");
+    if (!parsed) return null;
+    await setCache(cacheKey, parsed);
+    return parsed;
   } catch {
     const stale = await getStaleCache<ValorantBuddyLevel>(cacheKey);
     return stale;
@@ -399,8 +428,10 @@ export async function getSprayByUuid(uuid: string): Promise<ValorantSpray | null
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantSpray> = await response.json();
     if (result.status !== 200 || !result.data) return null;
-    await setCache(cacheKey, result.data);
-    return result.data;
+    const parsed = parseWithLog(ValorantSpraySchema, result.data, "getSprayByUuid");
+    if (!parsed) return null;
+    await setCache(cacheKey, parsed);
+    return parsed;
   } catch {
     const stale = await getStaleCache<ValorantSpray>(cacheKey);
     return stale;
@@ -495,9 +526,11 @@ export async function getCompetitiveTierIconByTier(tierId: number): Promise<stri
       });
       if (!response.ok) return null;
       const result = await response.json();
-      competitiveTiers = result.data;
+      const parsed = parseWithLog(CompetitiveSeasonSchema.array(), result.data, "getCompetitiveTierIconByTier");
+      if (!parsed) return null;
+      competitiveTiers = parsed;
       // Store in Redis with 24h TTL
-      await setCache(KEYS.competitive, competitiveTiers!);
+      await setCache(KEYS.competitive, competitiveTiers);
     } catch {
       // Try to return stale cache on fetch failure
       const stale = await getStaleCache<Array<{ tiers: Array<{ tier: number; largeIcon: string | null }> }>>(KEYS.competitive);
