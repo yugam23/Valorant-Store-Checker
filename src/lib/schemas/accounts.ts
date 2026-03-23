@@ -14,8 +14,8 @@ export const AccountEntrySchema = z.object({
   region: z.string(),
   gameName: z.string().optional(),
   tagLine: z.string().optional(),
-  // Accept number (timestamp) directly, or string which gets transformed to timestamp
-  addedAt: z.number().or(z.string().transform((s) => new Date(s).getTime())),
+  // Accept number (timestamp) or string - no transform to avoid Zod generic type inference issues
+  addedAt: z.union([z.number(), z.string()]),
 }).passthrough();
 
 export const AccountsPayloadSchema = z.object({
