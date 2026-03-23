@@ -10,8 +10,6 @@ import { LoadingSkeleton } from "@/components/store/LoadingSkeleton";
 import { LogoutButtonClient } from "@/components/store/LogoutButtonClient";
 import { SectionErrorBoundary } from "@/components/store/SectionErrorBoundary";
 
-export const dynamic = 'force-dynamic';
-
 /**
  * Store Page — async Server Component
  *
