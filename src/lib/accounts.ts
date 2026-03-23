@@ -15,6 +15,9 @@ import { cookies } from "next/headers";
 import { env } from "./env";
 import { createLogger } from "./logger";
 import { AccountsPayloadSchema, AccountEntry, AccountsData } from "./schemas/accounts";
+
+// Re-export for backwards compatibility with existing imports from @/lib/accounts
+export type { AccountEntry, AccountsData };
 import { randomUUID } from "crypto";
 import { createSession, getSession, SessionData } from "./session";
 import { 

@@ -13,5 +13,5 @@ export function parseWithLog<T>(
     log.warn(`[${schemaName}] validation failed:`, result.error.issues);
     return null;
   }
-  return result.data;
+  return result.data as T;
 }
