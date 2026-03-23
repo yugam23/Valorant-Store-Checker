@@ -31,18 +31,20 @@ function getWishlistCookieName(puuid: string): string {
 }
 
 /**
- * Get wishlist for the active account
- * SQLite-first: reads from SQLite, falls back to legacy cookie on miss,
- * and migrates the cookie data to SQLite atomically.
+ * Read wishlist items from storage (SQLite-first with cookie fallback)
+ *
+ * This helper ONLY reads - it does not write to SQLite.
+ * The calling functions (addToWishlist, removeFromWishlist) handle writes.
+ *
  * @param puuid Account PUUID
- * @returns Wishlist data with items and count
+ * @returns Promise resolving to array of wishlist items (empty on any error)
  */
-export async function getWishlist(puuid: string): Promise<WishlistData> {
+async function readWishlistItems(puuid: string): Promise<WishlistItem[]> {
   try {
     // 1. Get session ID
     const sessionId = await getCurrentSessionId();
     if (!sessionId) {
-      return { items: [], count: 0 };
+      return [];
     }
 
     // 2. Read from SQLite first
@@ -54,20 +56,21 @@ export async function getWishlist(puuid: string): Promise<WishlistData> {
 
     if (result.rows.length > 0) {
       const skinsJson = result.rows[0]!.skins as string;
-      const items: WishlistItem[] = JSON.parse(skinsJson);
-      return { items, count: items.length };
+      log.debug(`Wishlist read from SQLite for ${puuid}`);
+      return JSON.parse(skinsJson);
     }
 
-    // 3. Fallback to legacy cookie
+    // 3. SQLite miss - fall back to cookie
+    log.debug(`SQLite miss, falling back to cookie for ${puuid}`);
     const cookieStore = await cookies();
     const cookieName = getWishlistCookieName(puuid);
     const cookieValue = cookieStore.get(cookieName)?.value;
 
     if (!cookieValue) {
-      return { items: [], count: 0 };
+      return [];
     }
 
-    // 4. Migrate to SQLite atomically
+    // 4. Cookie exists - migrate to SQLite atomically
     const items: WishlistItem[] = JSON.parse(cookieValue);
     const skinsJson = JSON.stringify(items);
 
@@ -80,6 +83,22 @@ export async function getWishlist(puuid: string): Promise<WishlistData> {
     // 5. Delete legacy cookie ONLY after successful write
     cookieStore.delete(cookieName);
 
+    return items;
+  } catch (error) {
+    log.error("Error reading wishlist items:", error);
+    return [];
+  }
+}
+
+/**
+ * Get wishlist for the active account
+ * Uses readWishlistItems() helper for SQLite-first, cookie fallback reading.
+ * @param puuid Account PUUID
+ * @returns Wishlist data with items and count
+ */
+export async function getWishlist(puuid: string): Promise<WishlistData> {
+  try {
+    const items = await readWishlistItems(puuid);
     return { items, count: items.length };
   } catch (error) {
     log.error("Error reading wishlist:", error);
@@ -89,7 +108,7 @@ export async function getWishlist(puuid: string): Promise<WishlistData> {
 
 /**
  * Add item to wishlist (with deduplication)
- * Reads from SQLite (with cookie fallback), writes SQLite only.
+ * Uses readWishlistItems() helper for reading, writes SQLite only.
  * @param puuid Account PUUID
  * @param item Wishlist item to add
  * @returns Updated wishlist data
@@ -103,28 +122,8 @@ export async function addToWishlist(
     return { items: [], count: 0 };
   }
 
-  const db = await initSessionDb();
-
-  // Read current from SQLite (not cookies)
-  const result = await db.execute({
-    sql: "SELECT skins FROM wishlists WHERE session_id = ? AND puuid = ?",
-    args: [sessionId, puuid],
-  });
-
-  let items: WishlistItem[];
-  if (result.rows.length > 0) {
-    items = JSON.parse(result.rows[0]!.skins as string);
-  } else {
-    // Check legacy cookie as a fallback for initial migration scenario
-    const cookieStore = await cookies();
-    const cookieName = getWishlistCookieName(puuid);
-    const cookieValue = cookieStore.get(cookieName)?.value;
-    if (cookieValue) {
-      items = JSON.parse(cookieValue);
-    } else {
-      items = [];
-    }
-  }
+  // Read current wishlist items using helper (handles SQLite+cookie fallback)
+  const items = await readWishlistItems(puuid);
 
   // Check if already wishlisted
   const alreadyExists = items.some(
@@ -138,7 +137,8 @@ export async function addToWishlist(
   // Add new item at the beginning (most recent first) - NO CAP
   const updated: WishlistItem[] = [item, ...items];
 
-  // Write to SQLite only
+  // Write to SQLite
+  const db = await initSessionDb();
   await db.execute({
     sql: `INSERT INTO wishlists (session_id, puuid, skins) VALUES (?, ?, ?)
           ON CONFLICT(session_id, puuid) DO UPDATE SET skins = excluded.skins`,
@@ -153,7 +153,7 @@ export async function addToWishlist(
 
 /**
  * Remove item from wishlist
- * Reads from SQLite (with cookie fallback), writes SQLite only.
+ * Uses readWishlistItems() helper for reading, writes SQLite only.
  * @param puuid Account PUUID
  * @param skinUuid UUID of skin to remove
  * @returns Updated wishlist data
@@ -167,33 +167,14 @@ export async function removeFromWishlist(
     return { items: [], count: 0 };
   }
 
-  const db = await initSessionDb();
-
-  // Read current from SQLite
-  const result = await db.execute({
-    sql: "SELECT skins FROM wishlists WHERE session_id = ? AND puuid = ?",
-    args: [sessionId, puuid],
-  });
-
-  let items: WishlistItem[];
-  if (result.rows.length > 0) {
-    items = JSON.parse(result.rows[0]!.skins as string);
-  } else {
-    // Fallback to cookie for migration edge case
-    const cookieStore = await cookies();
-    const cookieName = getWishlistCookieName(puuid);
-    const cookieValue = cookieStore.get(cookieName)?.value;
-    if (cookieValue) {
-      items = JSON.parse(cookieValue);
-    } else {
-      items = [];
-    }
-  }
+  // Read current wishlist items using helper (handles SQLite+cookie fallback)
+  const items = await readWishlistItems(puuid);
 
   // Filter out the item
   const updated = items.filter((item) => item.skinUuid !== skinUuid);
 
-  // Write to SQLite only
+  // Write to SQLite
+  const db = await initSessionDb();
   await db.execute({
     sql: `INSERT INTO wishlists (session_id, puuid, skins) VALUES (?, ?, ?)
           ON CONFLICT(session_id, puuid) DO UPDATE SET skins = excluded.skins`,
