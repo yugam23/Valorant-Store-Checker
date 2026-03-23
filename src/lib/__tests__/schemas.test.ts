@@ -7,6 +7,7 @@ import {
   UserInfoSchema,
 } from "@/lib/schemas/riot-auth";
 import { RiotStorefrontSchema, RiotWalletSchema } from "@/lib/schemas/storefront";
+import { AccountsPayloadSchema } from "@/lib/schemas/accounts";
 import { parseWithLog } from "@/lib/schemas/parse";
 
 // ---------------------------------------------------------------------------
@@ -449,5 +450,103 @@ describe("parseWithLog", () => {
       const result = parseWithLog(StoredSessionSchema, null, "StoredSession");
       expect(result).toBeNull();
     }).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AccountsPayloadSchema
+// ---------------------------------------------------------------------------
+
+describe("AccountsPayloadSchema", () => {
+  const validAccountEntry = {
+    puuid: "test-puuid-abc",
+    region: "na",
+    gameName: "TestPlayer",
+    tagLine: "NA1",
+    addedAt: 1700000000000,
+  };
+
+  const validPayload = {
+    accounts: [validAccountEntry],
+    activePuuid: "test-puuid-abc",
+  };
+
+  it("valid accounts payload: parses successfully", () => {
+    const result = AccountsPayloadSchema.safeParse(validPayload);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.accounts).toHaveLength(1);
+      expect(result.data.activePuuid).toBe("test-puuid-abc");
+    }
+  });
+
+  it("extra fields: passes through (passthrough)", () => {
+    const withExtra = { ...validPayload, extraField: "bonus", nested: { foo: "bar" } };
+    const result = AccountsPayloadSchema.safeParse(withExtra);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect((result.data as Record<string, unknown>).extraField).toBe("bonus");
+      expect((result.data as Record<string, unknown>).nested).toEqual({ foo: "bar" });
+    }
+  });
+
+  it("missing accounts array: fails validation", () => {
+    const withoutAccounts = { activePuuid: "test-puuid-abc" };
+    const result = AccountsPayloadSchema.safeParse(withoutAccounts);
+    expect(result.success).toBe(false);
+  });
+
+  it("missing activePuuid: fails validation", () => {
+    const withoutActive = { accounts: [validAccountEntry] };
+    const result = AccountsPayloadSchema.safeParse(withoutActive);
+    expect(result.success).toBe(false);
+  });
+
+  it("invalid account entry (missing puuid): fails validation", () => {
+    const invalidEntry = { region: "na", gameName: "Test" };
+    const withInvalid = { accounts: [invalidEntry], activePuuid: "test" };
+    const result = AccountsPayloadSchema.safeParse(withInvalid);
+    expect(result.success).toBe(false);
+  });
+
+  it("addedAt as string: coerces to date/number", () => {
+    const withStringTimestamp = {
+      accounts: [{ puuid: "p", region: "r", addedAt: "2024-01-01T00:00:00.000Z" }],
+      activePuuid: "p",
+    };
+    const result = AccountsPayloadSchema.safeParse(withStringTimestamp);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(typeof result.data.accounts[0]!.addedAt).toBe("number");
+      expect(result.data.accounts[0]!.addedAt).toBe(new Date("2024-01-01T00:00:00.000Z").getTime());
+    }
+  });
+
+  it("addedAt as number: parses correctly", () => {
+    const withNumberTimestamp = {
+      accounts: [{ puuid: "p", region: "r", addedAt: 1700000000000 }],
+      activePuuid: "p",
+    };
+    const result = AccountsPayloadSchema.safeParse(withNumberTimestamp);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.accounts[0]!.addedAt).toBe(1700000000000);
+    }
+  });
+
+  it("multiple accounts: parses array correctly", () => {
+    const multiPayload = {
+      accounts: [
+        { puuid: "puuid-1", region: "na", addedAt: 1000 },
+        { puuid: "puuid-2", region: "eu", addedAt: 2000, gameName: "Player2", tagLine: "EU1" },
+      ],
+      activePuuid: "puuid-2",
+    };
+    const result = AccountsPayloadSchema.safeParse(multiPayload);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.accounts).toHaveLength(2);
+      expect(result.data.activePuuid).toBe("puuid-2");
+    }
   });
 });
