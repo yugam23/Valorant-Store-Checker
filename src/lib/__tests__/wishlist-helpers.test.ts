@@ -140,7 +140,7 @@ describe("readWishlistItems() - cookie fallback and migration", () => {
   it("falls back to cookie when SQLite returns empty", async () => {
     const items = [makeWishlistItem(), makeWishlistItem()];
     const puuid = "test-puuid-456";
-    const cookieName = `valorant_wishlist_${puuid.substring(0, 8)}`;
+    const _cookieName = `valorant_wishlist_${puuid.substring(0, 8)}`;
 
     // SQLite returns empty (fresh in-memory)
     mockCookiesGet.mockReturnValue({ value: JSON.stringify(items) });
@@ -338,7 +338,7 @@ describe("error handling", () => {
 
   it("handles JSON parse error in cookie gracefully", async () => {
     const puuid = "test-puuid-parse-error";
-    const cookieName = `valorant_wishlist_${puuid.substring(0, 8)}`;
+    const _cookieName = `valorant_wishlist_${puuid.substring(0, 8)}`;
 
     // SQLite returns empty (fresh in-memory)
     mockCookiesGet.mockReturnValue({ value: "invalid-json" });
