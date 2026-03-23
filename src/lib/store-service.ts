@@ -6,7 +6,7 @@
  */
 
 import { getStorefront, getWallet, type StoreTokens } from "@/lib/riot-store";
-import { getWeaponSkins, getContentTiers, getSkinVideo, getBundleByUuid } from "@/lib/valorant-api";
+import { getWeaponSkins, getContentTiers, getSkinVideo, getBundleByUuid, getSkinLevelByUuid, getBuddyLevelByUuid, getSprayByUuid, getPlayerCardByUuid, getPlayerTitleByUuid } from "@/lib/valorant-api";
 import { StoreData, StoreItem, BundleItem, BundleData, TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { RiotStorefront, RiotBundle } from "@/types/riot";
 import { ITEM_TYPE_WEAPON_SKIN, ITEM_TYPE_BUDDY, ITEM_TYPE_PLAYER_CARD, ITEM_TYPE_SPRAY, ITEM_TYPE_PLAYER_TITLE, ITEM_TYPE_FLEX, CURRENCY_IDS } from "@/lib/constants";
@@ -226,49 +226,38 @@ async function hydrateSingleBundle(
           displayName = skin.displayName;
           displayIcon = skin.levels?.[0]?.displayIcon || skin.displayIcon || "";
         } else {
-          // New skin not yet in static data — try fetching directly
+          // New skin not yet in static data — use cached fetcher
           displayName = "New Skin";
-          try {
-            const res = await fetch(`https://valorant-api.com/v1/weapons/skinlevels/${itemId}`, { signal: AbortSignal.timeout(30_000) });
-            if (res.ok) {
-              const json = await res.json();
-              if (json.status === 200 && json.data) {
-                displayName = json.data.displayName || displayName;
-                displayIcon = json.data.displayIcon || "";
-              }
-            }
-          } catch {
-            log.warn("Failed to fetch skin level asset for %s", itemId);
+          const skinLevelData = await getSkinLevelByUuid(itemId);
+          if (skinLevelData) {
+            displayName = skinLevelData.displayName || displayName;
+            displayIcon = skinLevelData.displayIcon || "";
           }
         }
       } else {
-        // ── Non-skin item: fetch from Valorant-API ──
-        const endpointMap: Record<string, string> = {
-          [ITEM_TYPE_BUDDY]: "buddies/levels",
-          [ITEM_TYPE_PLAYER_CARD]: "playercards",
-          [ITEM_TYPE_SPRAY]: "sprays",
-          [ITEM_TYPE_PLAYER_TITLE]: "playertitles",
-          [ITEM_TYPE_FLEX]: "flex",
-        };
-        const endpoint = endpointMap[itemTypeId];
-
-        const endpointsToTry = endpoint
-          ? [endpoint]
-          : ["buddies/levels", "buddies", "playercards", "sprays", "playertitles", "flex"];
-
-        for (const ep of endpointsToTry) {
-          try {
-            const res = await fetch(`https://valorant-api.com/v1/${ep}/${itemId}`, { signal: AbortSignal.timeout(30_000) });
-            if (res.ok) {
-              const json = await res.json();
-              if (json.status === 200 && json.data) {
-                displayName = json.data.displayName || displayName;
-                displayIcon = json.data.displayIcon || json.data.largeArt || json.data.wideArt || "";
-                break;
-              }
-            }
-          } catch {
-            log.warn(`Failed to fetch ${itemTypeName} asset for ${itemId} via /${ep}`);
+        // ── Non-skin item: use cached fetchers ──
+        if (itemTypeId === ITEM_TYPE_BUDDY) {
+          const buddyData = await getBuddyLevelByUuid(itemId);
+          if (buddyData) {
+            displayName = buddyData.displayName || displayName;
+            displayIcon = buddyData.displayIcon || "";
+          }
+        } else if (itemTypeId === ITEM_TYPE_SPRAY) {
+          const sprayData = await getSprayByUuid(itemId);
+          if (sprayData) {
+            displayName = sprayData.displayName || displayName;
+            displayIcon = sprayData.displayIcon || sprayData.largeArt || sprayData.wideArt || "";
+          }
+        } else if (itemTypeId === ITEM_TYPE_PLAYER_CARD) {
+          const cardData = await getPlayerCardByUuid(itemId);
+          if (cardData) {
+            displayName = cardData.displayName || displayName;
+            displayIcon = cardData.displayIcon || cardData.largeArt || cardData.wideArt || "";
+          }
+        } else if (itemTypeId === ITEM_TYPE_PLAYER_TITLE) {
+          const titleData = await getPlayerTitleByUuid(itemId);
+          if (titleData) {
+            displayName = titleData.displayName || displayName;
           }
         }
       }
