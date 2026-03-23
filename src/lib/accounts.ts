@@ -14,6 +14,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { env } from "./env";
 import { createLogger } from "./logger";
+import { AccountsPayloadSchema, AccountEntry, AccountsData } from "./schemas/accounts";
 import { randomUUID } from "crypto";
 import { createSession, getSession, SessionData } from "./session";
 import { 
@@ -33,19 +34,6 @@ const MAX_ACCOUNTS = 5;
 const getSecretKey = (): Uint8Array => {
   return new TextEncoder().encode(env.SESSION_SECRET);
 };
-
-export interface AccountEntry {
-  puuid: string;
-  region: string;
-  gameName?: string;
-  tagLine?: string;
-  addedAt: number;
-}
-
-export interface AccountsData {
-  accounts: AccountEntry[];
-  activePuuid: string;
-}
 
 export interface SessionTokens {
   accessToken: string;
@@ -71,13 +59,15 @@ export async function getAccounts(): Promise<AccountsData | null> {
 
     const { payload } = await jwtVerify(token, getSecretKey());
 
-    if (!payload.accounts || !Array.isArray(payload.accounts)) {
+    const parsed = AccountsPayloadSchema.safeParse(payload);
+    if (!parsed.success) {
+      log.warn("[AccountsPayload] validation failed:", parsed.error.issues);
       return null;
     }
 
     return {
-      accounts: payload.accounts as AccountEntry[],
-      activePuuid: (payload.activePuuid as string) || "",
+      accounts: parsed.data.accounts,
+      activePuuid: parsed.data.activePuuid,
     };
   } catch (error) {
     log.error("Failed to get accounts registry:", error);
@@ -149,7 +139,7 @@ async function loadAccountSession(puuid: string): Promise<SessionData | null> {
 
     // Verify JWT and extract sessionId
     const { payload } = await jwtVerify(token, getSecretKey());
-    const sessionId = (payload as { sessionId?: string }).sessionId;
+    const sessionId = typeof payload.sessionId === "string" ? payload.sessionId : undefined;
 
     if (!sessionId) return null;
 
@@ -174,7 +164,7 @@ async function deleteAccountSession(puuid: string): Promise<void> {
   if (token) {
     try {
       const { payload } = await jwtVerify(token, getSecretKey());
-      const sessionId = (payload as { sessionId?: string }).sessionId;
+      const sessionId = typeof payload.sessionId === "string" ? payload.sessionId : undefined;
       if (sessionId) {
         log.debug(`Deleting per-account session ${sessionId} for ${getShortPuuid(puuid)}`);
         await deleteSessionFromStore(sessionId);
