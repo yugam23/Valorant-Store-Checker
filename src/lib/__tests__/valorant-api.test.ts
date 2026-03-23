@@ -46,13 +46,64 @@ const {
 // ---------------------------------------------------------------------------
 
 const MOCK_SKINS_DATA = [
-  { uuid: "skin-1", displayName: "Vandal", displayIcon: "icon.png", levels: [], chromas: [], contentTierUuid: null },
+  {
+    uuid: "skin-1",
+    displayName: "Vandal",
+    themeUuid: "theme-1",
+    contentTierUuid: null,
+    displayIcon: "icon.png",
+    wallpaper: null,
+    assetPath: "Skins/Skin-1",
+    levels: [
+      {
+        uuid: "level-1",
+        displayName: "Vandal Standard",
+        levelItem: null,
+        displayIcon: "level-icon.png",
+        streamedVideo: null,
+        assetPath: "Levels/Level-1",
+      },
+    ],
+    chromas: [
+      {
+        uuid: "chroma-1",
+        displayName: "Vandal Red",
+        displayIcon: "chroma-icon.png",
+        fullRender: "full-render.png",
+        swatch: "swatch.png",
+        streamedVideo: null,
+        assetPath: "Chromas/Chroma-1",
+      },
+    ],
+  },
 ];
 const MOCK_TIERS_DATA = [
-  { uuid: "tier-1", displayName: "Select", rankTier: 1, color: "#fff", levels: [] },
+  {
+    uuid: "tier-1",
+    displayName: "Select",
+    devName: "Select",
+    rank: 1,
+    juiceValue: 0,
+    juiceCost: 0,
+    highlightColor: "#ffffff",
+    displayIcon: "tier-icon.png",
+    assetPath: "Tiers/Tier-1",
+  },
 ];
 const MOCK_BUNDLES_DATA = [
-  { uuid: "bundle-1", displayName: "Premium Bundle", displayIcon: "bundle.png" },
+  {
+    uuid: "bundle-1",
+    displayName: "Premium Bundle",
+    displayNameSubText: null,
+    description: null,
+    extraDescription: null,
+    promoDescription: null,
+    useAdditionalContext: false,
+    displayIcon: "bundle.png",
+    displayIcon2: "bundle2.png",
+    verticalPromoImage: null,
+    assetPath: "Bundles/Bundle-1",
+  },
 ];
 const MOCK_COMPETITIVE_DATA = [
   {
