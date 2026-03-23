@@ -509,7 +509,7 @@ describe("AccountsPayloadSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("addedAt as string: coerces to date/number", () => {
+  it("addedAt as string: accepted as-is without coercion", () => {
     const withStringTimestamp = {
       accounts: [{ puuid: "p", region: "r", addedAt: "2024-01-01T00:00:00.000Z" }],
       activePuuid: "p",
@@ -517,8 +517,9 @@ describe("AccountsPayloadSchema", () => {
     const result = AccountsPayloadSchema.safeParse(withStringTimestamp);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(typeof result.data.accounts[0]!.addedAt).toBe("number");
-      expect(result.data.accounts[0]!.addedAt).toBe(new Date("2024-01-01T00:00:00.000Z").getTime());
+      // z.union accepts string but does not coerce to number
+      expect(typeof result.data.accounts[0]!.addedAt).toBe("string");
+      expect(result.data.accounts[0]!.addedAt).toBe("2024-01-01T00:00:00.000Z");
     }
   });
 
