@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import type { StoreItem } from "../../types/store";
 import { getEditionIconPath } from "@/lib/edition-icons";
@@ -22,8 +22,12 @@ export function StoreCard({
 }: StoreCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
-  const [isOptimisticallyWishlisted, setIsOptimisticallyWishlisted] = useState(isWishlisted);
+  // Track optimistic override separately from prop-derived state
+  const [optimisticOverride, setOptimisticOverride] = useState<boolean | null>(null);
   const [isPulsing, setIsPulsing] = useState(false);
+
+  // Derived display state: optimistic override takes precedence, otherwise use prop
+  const displayIsWishlisted = optimisticOverride ?? isWishlisted;
 
   const handleMouseEnter = () => {
     setIsHovered(true);
@@ -48,22 +52,14 @@ export function StoreCard({
 
     if (!onWishlistToggle) return;
 
-    // Optimistic UI update
-    setIsOptimisticallyWishlisted(!isOptimisticallyWishlisted);
+    // Optimistic UI update — set override to opposite of current display state
+    setOptimisticOverride(!displayIsWishlisted);
     setIsPulsing(true);
     setTimeout(() => setIsPulsing(false), 300);
 
     // Call parent handler
     onWishlistToggle(item.uuid, item);
   };
-
-  // Sync optimistic state when prop changes (useEffect avoids setState during render).
-  useEffect(() => {
-    if (!isPulsing) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional derived-state sync
-      setIsOptimisticallyWishlisted(isWishlisted);
-    }
-  }, [isWishlisted, isPulsing]);
 
   return (
     <div
@@ -95,15 +91,15 @@ export function StoreCard({
             <button
               onClick={handleHeartClick}
               className={`absolute top-3 right-3 z-20 w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 ${
-                isOptimisticallyWishlisted
+                displayIsWishlisted
                   ? "bg-valorant-red/20 hover:bg-valorant-red/30"
                   : "bg-void-deep/80 hover:bg-void-surface"
               } ${isPulsing ? "scale-125" : "scale-100"}`}
-              aria-label={isOptimisticallyWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              aria-label={displayIsWishlisted ? "Remove from wishlist" : "Add to wishlist"}
             >
               <svg
                 className={`w-5 h-5 transition-all duration-300 ${
-                  isOptimisticallyWishlisted ? "fill-valorant-red scale-110" : "fill-none stroke-zinc-400"
+                  displayIsWishlisted ? "fill-valorant-red scale-110" : "fill-none stroke-zinc-400"
                 }`}
                 viewBox="0 0 24 24"
                 strokeWidth="2"
