@@ -308,11 +308,11 @@ export async function getWeaponSkinsByUuids(
   const skins = await getWeaponSkins();
   const result = new Map<string, ValorantWeaponSkin>();
 
-  const normalizedUuids = uuids.map((uuid) => uuid.toLowerCase());
+  const normalizedUuids = new Set(uuids.map((uuid) => uuid.toLowerCase()));
 
   for (const skin of skins) {
     const skinUuid = skin.uuid.toLowerCase();
-    if (normalizedUuids.includes(skinUuid)) {
+    if (normalizedUuids.has(skinUuid)) {
       result.set(skinUuid, skin);
     }
   }
