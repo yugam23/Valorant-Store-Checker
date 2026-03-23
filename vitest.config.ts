@@ -28,19 +28,15 @@ export default defineConfig({
         "src/lib/auth-handlers/index.ts",
         // Files that are data-only or external API wrappers
         "src/lib/henrik-api.ts",
-        "src/lib/accounts.ts",
         "src/lib/riot-inventory.ts",
         "src/lib/riot-loadout.ts",
+        // Files without tests - keep exclusions
         "src/lib/store-service.ts",
-        "src/lib/wishlist.ts",
-        "src/lib/inventory-cache.ts",
-        // Crypto utility with hard-to-test edge cases
         "src/lib/session-crypto.ts",
+        "src/lib/inventory-cache.ts",
         // Files with very low branch coverage that drag down project average
         // (require browser IndexedDB or complex integration scenarios)
         "src/lib/store-history.ts",
-        "src/lib/session.ts",
-        "src/lib/riot-auth.ts",
         "src/lib/riot-reauth.ts",
       ],
       thresholds: {
