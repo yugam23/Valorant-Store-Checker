@@ -13,7 +13,7 @@ import type { EncyclopediaClientProps, EncyclopediaSkin, EncyclopediaTier } from
 import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 
 // Revalidate every hour — aligns with Redis cache TTL in valorant-api.ts
-export const revalidate = 60 * 60;
+export const revalidate = 3600;
 
 export default async function EncyclopediaPage() {
   const [skins, tiers] = await Promise.all([
