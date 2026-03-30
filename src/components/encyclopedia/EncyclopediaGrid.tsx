@@ -1,8 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect, useState, useCallback } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { EncyclopediaSkin, EncyclopediaTier } from "@/types/encyclopedia";
 import { EncyclopediaCard } from "./EncyclopediaCard";
+
+const ROW_HEIGHT = 280;
+const GAP = 24;
+const MIN_COLUMN_WIDTH = 280;
 
 interface EncyclopediaGridProps {
   skins: EncyclopediaSkin[];
@@ -15,6 +20,9 @@ interface EncyclopediaGridProps {
   setActiveWeapons: (w: string[]) => void;
   activeEditions: string[];
   setActiveEditions: (e: string[]) => void;
+  wishlistSet: Set<string>;
+  loadingWishlist: boolean;
+  toggleWishlist: (skinUuid: string, skin: EncyclopediaSkin) => void;
 }
 
 export function EncyclopediaGrid({
@@ -28,8 +36,14 @@ export function EncyclopediaGrid({
   setActiveWeapons,
   activeEditions,
   setActiveEditions,
+  wishlistSet,
+  loadingWishlist,
+  toggleWishlist,
 }: EncyclopediaGridProps) {
-  // Composable filtering: weapon → edition → search
+  const parentRef = useRef<HTMLDivElement>(null);
+  const [columnCount, setColumnCount] = useState(4);
+
+  // Composable filtering: weapon -> edition -> search
   const filteredSkins = useMemo(() => {
     let result = skins;
 
@@ -50,6 +64,33 @@ export function EncyclopediaGrid({
 
     return result;
   }, [skins, activeWeapons, activeEditions, searchQuery]);
+
+  // Responsive column count via ResizeObserver
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? el.offsetWidth;
+      const cols = Math.max(1, Math.floor((width + GAP) / (MIN_COLUMN_WIDTH + GAP)));
+      setColumnCount(cols);
+    });
+
+    observer.observe(el);
+
+    // Set initial value
+    const width = el.offsetWidth;
+    setColumnCount(Math.max(1, Math.floor((width + GAP) / (MIN_COLUMN_WIDTH + GAP))));
+
+    return () => observer.disconnect();
+  }, []);
+
+  const rowVirtualizer = useVirtualizer({
+    count: Math.ceil(filteredSkins.length / columnCount),
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT + GAP,
+    overscan: 3,
+  });
 
   const toggleWeapon = (weapon: string) => {
     setActiveWeapons(
@@ -213,12 +254,49 @@ export function EncyclopediaGrid({
         </div>
       </div>
 
-      {/* Skins Grid */}
+      {/* Virtualized Skins Grid */}
       {filteredSkins.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredSkins.map((skin) => (
-            <EncyclopediaCard key={skin.uuid} skin={skin} />
-          ))}
+        <div
+          className="h-[calc(100vh-200px)] overflow-auto"
+          ref={parentRef}
+        >
+          <div
+            style={{
+              height: rowVirtualizer.getTotalSize(),
+              position: "relative",
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              return Array.from({ length: columnCount }, (_, colIndex) => {
+                const skinIndex = virtualRow.index * columnCount + colIndex;
+                const skin = filteredSkins[skinIndex];
+                if (!skin) return null;
+                const isWishlisted = wishlistSet.has(skin.uuid);
+                const colWidth = `calc(${100 / columnCount}% - ${GAP * (columnCount - 1) / columnCount}px)`;
+                return (
+                  <div
+                    key={skin.uuid}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: colWidth,
+                      height: ROW_HEIGHT,
+                      transform: `translateX(${colIndex * (100 / columnCount)}%) translateY(${virtualRow.start}px)`,
+                      paddingRight: colIndex < columnCount - 1 ? `${GAP}px` : 0,
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <EncyclopediaCard
+                      skin={skin}
+                      isWishlisted={isWishlisted}
+                      onWishlistToggle={toggleWishlist}
+                    />
+                  </div>
+                );
+              });
+            })}
+          </div>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 space-y-4">
