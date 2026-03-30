@@ -23,9 +23,17 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
     return Array.from(set).sort();
   }, [skins]);
 
-  // Precompute edition categories from tiers (sorted alphabetically)
+  // Precompute edition categories from tiers (sorted by hierarchy)
   const editionCategories = useMemo(() => {
-    return [...tiers].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    const EDITION_ORDER = ["Select Edition", "Deluxe Edition", "Premium Edition", "Exclusive Edition", "Ultra Edition"];
+    return [...tiers].sort((a, b) => {
+      const indexA = EDITION_ORDER.indexOf(a.displayName);
+      const indexB = EDITION_ORDER.indexOf(b.displayName);
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return a.displayName.localeCompare(b.displayName);
+    });
   }, [tiers]);
 
   // Fetch wishlist on mount
@@ -98,31 +106,43 @@ export function EncyclopediaClient({ skins, tiers, tierMap }: EncyclopediaClient
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="mb-8">
-        <h1 className="font-display text-3xl uppercase font-bold text-light tracking-wide">
-          Encyclopedia
-        </h1>
-        <p className="text-zinc-400 mt-1 text-sm">
-          Browse all Valorant weapon skins
-        </p>
-      </div>
+    <div className="min-h-screen bg-void p-6 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Page Header */}
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div className="space-y-2">
+              <h1 className="font-display text-4xl md:text-5xl uppercase font-bold text-light tracking-wide">
+                Encyclopedia
+              </h1>
+            </div>
 
-      <EncyclopediaGrid
-        skins={skins}
-        weaponCategories={weaponCategories}
-        editionCategories={editionCategories}
-        tierMap={tierMap}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        activeWeapons={activeWeapons}
-        setActiveWeapons={setActiveWeapons}
-        activeEditions={activeEditions}
-        setActiveEditions={setActiveEditions}
-        wishlistSet={wishlistSet}
-        loadingWishlist={loadingWishlist}
-        toggleWishlist={toggleWishlist}
-      />
+            <div className="flex items-center gap-3">
+              <div className="px-4 py-2 bg-valorant-red/20 border border-valorant-red angular-card-sm">
+                <span className="text-valorant-red font-bold text-lg">
+                  {skins.length} Skins
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <EncyclopediaGrid
+          skins={skins}
+          weaponCategories={weaponCategories}
+          editionCategories={editionCategories}
+          tierMap={tierMap}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          activeWeapons={activeWeapons}
+          setActiveWeapons={setActiveWeapons}
+          activeEditions={activeEditions}
+          setActiveEditions={setActiveEditions}
+          wishlistSet={wishlistSet}
+          loadingWishlist={loadingWishlist}
+          toggleWishlist={toggleWishlist}
+        />
+      </div>
     </div>
   );
 }

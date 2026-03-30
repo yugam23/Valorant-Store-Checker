@@ -44,4 +44,5 @@ export interface EncyclopediaCardProps {
   skin: EncyclopediaSkin;
   isWishlisted: boolean;
   onWishlistToggle?: (skinUuid: string, skin: EncyclopediaSkin) => void;
+  staggerDelay?: number;
 }

@@ -1,13 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useEffect, useState, useCallback } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useMemo } from "react";
+import Image from "next/image";
 import type { EncyclopediaSkin, EncyclopediaTier } from "@/types/encyclopedia";
 import { EncyclopediaCard } from "./EncyclopediaCard";
-
-const ROW_HEIGHT = 280;
-const GAP = 24;
-const MIN_COLUMN_WIDTH = 280;
+import { getEditionIconPath } from "@/lib/edition-icons";
+import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 
 interface EncyclopediaGridProps {
   skins: EncyclopediaSkin[];
@@ -40,9 +38,6 @@ export function EncyclopediaGrid({
   loadingWishlist,
   toggleWishlist,
 }: EncyclopediaGridProps) {
-  const parentRef = useRef<HTMLDivElement>(null);
-  const [columnCount, setColumnCount] = useState(4);
-
   // Composable filtering: weapon -> edition -> search
   const filteredSkins = useMemo(() => {
     let result = skins;
@@ -64,33 +59,6 @@ export function EncyclopediaGrid({
 
     return result;
   }, [skins, activeWeapons, activeEditions, searchQuery]);
-
-  // Responsive column count via ResizeObserver
-  useEffect(() => {
-    const el = parentRef.current;
-    if (!el) return;
-
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? el.offsetWidth;
-      const cols = Math.max(1, Math.floor((width + GAP) / (MIN_COLUMN_WIDTH + GAP)));
-      setColumnCount(cols);
-    });
-
-    observer.observe(el);
-
-    // Set initial value
-    const width = el.offsetWidth;
-    setColumnCount(Math.max(1, Math.floor((width + GAP) / (MIN_COLUMN_WIDTH + GAP))));
-
-    return () => observer.disconnect();
-  }, []);
-
-  const rowVirtualizer = useVirtualizer({
-    count: Math.ceil(filteredSkins.length / columnCount),
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT + GAP,
-    overscan: 3,
-  });
 
   const toggleWeapon = (weapon: string) => {
     setActiveWeapons(
@@ -152,26 +120,28 @@ export function EncyclopediaGrid({
           <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
             Weapon
           </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 max-h-[130px] overflow-y-auto pr-2 custom-scrollbar">
             <button
               onClick={() => setActiveWeapons([])}
-              className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
+              className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all stagger-entrance ${
                 activeWeapons.length === 0
                   ? "bg-valorant-red text-white"
                   : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
               }`}
+              style={{ "--stagger-delay": "0ms" } as React.CSSProperties}
             >
               All
             </button>
-            {weaponCategories.map((weapon) => (
+            {weaponCategories.map((weapon, index) => (
               <button
                 key={weapon}
                 onClick={() => toggleWeapon(weapon)}
-                className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
+                className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all stagger-entrance ${
                   activeWeapons.includes(weapon)
                     ? "bg-valorant-red text-white"
                     : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
                 }`}
+                style={{ "--stagger-delay": `${(index + 1) * 50}ms` } as React.CSSProperties}
               >
                 {weapon}
               </button>
@@ -188,30 +158,32 @@ export function EncyclopediaGrid({
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setActiveEditions([])}
-                className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${
+                className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all stagger-entrance ${
                   activeEditions.length === 0
                     ? "bg-valorant-red text-white"
                     : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
                 }`}
+                style={{ "--stagger-delay": "0ms" } as React.CSSProperties}
               >
                 All
               </button>
-              {editionCategories.map((tier) => {
+              {editionCategories.map((tier, index) => {
                 const isSelected = activeEditions.includes(tier.displayName);
-                const tierColor = `#${tier.highlightColor.slice(0, 6)}`;
+                const tierColor = TIER_COLORS[tier.displayName.replace(" Edition", "")] ?? tier.highlightColor ?? DEFAULT_TIER_COLOR;
+                const iconPath = getEditionIconPath(tier.displayName);
                 return (
                   <button
                     key={tier.uuid}
                     onClick={() => toggleEdition(tier.displayName)}
-                    className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all flex items-center gap-2 ${
+                    className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all flex items-center gap-2 stagger-entrance ${
                       isSelected
                         ? "text-white"
                         : "bg-void-deep border border-white/10 text-zinc-400 hover:text-light"
                     }`}
                     style={
                       isSelected
-                        ? { backgroundColor: tierColor, borderColor: tierColor }
-                        : { borderColor: undefined }
+                        ? { backgroundColor: tierColor, borderColor: tierColor, "--stagger-delay": `${(index + 1) * 50}ms` } as React.CSSProperties
+                        : { borderColor: undefined, "--stagger-delay": `${(index + 1) * 50}ms` } as React.CSSProperties
                     }
                     onMouseEnter={(e) => {
                       if (!isSelected) {
@@ -224,10 +196,20 @@ export function EncyclopediaGrid({
                       }
                     }}
                   >
-                    <span
-                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: tierColor }}
-                    />
+                    {iconPath ? (
+                      <Image
+                        src={iconPath}
+                        alt=""
+                        width={14}
+                        height={14}
+                        className="flex-shrink-0"
+                      />
+                    ) : (
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: tierColor }}
+                      />
+                    )}
                     {tier.displayName}
                   </button>
                 );
@@ -254,49 +236,21 @@ export function EncyclopediaGrid({
         </div>
       </div>
 
-      {/* Virtualized Skins Grid */}
+      {/* Skins Grid */}
       {filteredSkins.length > 0 ? (
-        <div
-          className="h-[calc(100vh-200px)] overflow-auto"
-          ref={parentRef}
-        >
-          <div
-            style={{
-              height: rowVirtualizer.getTotalSize(),
-              position: "relative",
-            }}
-          >
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              return Array.from({ length: columnCount }, (_, colIndex) => {
-                const skinIndex = virtualRow.index * columnCount + colIndex;
-                const skin = filteredSkins[skinIndex];
-                if (!skin) return null;
-                const isWishlisted = wishlistSet.has(skin.uuid);
-                const colWidth = `calc(${100 / columnCount}% - ${GAP * (columnCount - 1) / columnCount}px)`;
-                return (
-                  <div
-                    key={skin.uuid}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: colWidth,
-                      height: ROW_HEIGHT,
-                      transform: `translateX(${colIndex * (100 / columnCount)}%) translateY(${virtualRow.start}px)`,
-                      paddingRight: colIndex < columnCount - 1 ? `${GAP}px` : 0,
-                      boxSizing: "border-box",
-                    }}
-                  >
-                    <EncyclopediaCard
-                      skin={skin}
-                      isWishlisted={isWishlisted}
-                      onWishlistToggle={toggleWishlist}
-                    />
-                  </div>
-                );
-              });
-            })}
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredSkins.map((skin, index) => {
+            const isWishlisted = wishlistSet.has(skin.uuid);
+            return (
+              <EncyclopediaCard
+                key={skin.uuid}
+                skin={skin}
+                isWishlisted={isWishlisted}
+                onWishlistToggle={toggleWishlist}
+                staggerDelay={index * 50}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 space-y-4">

@@ -5,8 +5,12 @@ import { NightMarketData } from "@/types/store";
 import Image from "next/image";
 import { getEditionIconPath } from "@/lib/edition-icons";
 
+import type { NightMarketItem } from "@/types/store";
+
 interface NightMarketProps {
   nightMarket: NightMarketData;
+  wishlistedUuids?: string[];
+  onWishlistToggle?: (skinUuid: string, item: NightMarketItem) => Promise<void>;
 }
 
 /** Live-updating countdown for Night Market expiration */
@@ -48,7 +52,7 @@ function NightMarketTimer({ expiresAt }: { expiresAt: string | Date }) {
   );
 }
 
-export function NightMarket({ nightMarket }: NightMarketProps) {
+export function NightMarket({ nightMarket, wishlistedUuids = [], onWishlistToggle }: NightMarketProps) {
   if (!nightMarket.items || nightMarket.items.length === 0) {
     return null;
   }
@@ -70,7 +74,9 @@ export function NightMarket({ nightMarket }: NightMarketProps) {
 
       {/* Night Market Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" role="list" aria-label="Night market offers">
-        {nightMarket.items.map((item, index) => (
+        {nightMarket.items.map((item, index) => {
+          const isWishlisted = wishlistedUuids.some(id => id.toLowerCase() === item.uuid.toLowerCase());
+          return (
           <div
             key={item.uuid}
             className="stagger-entrance"
@@ -78,16 +84,51 @@ export function NightMarket({ nightMarket }: NightMarketProps) {
             role="listitem"
             aria-label={`${item.displayName}, ${item.discountedPrice.toLocaleString()} VP, ${item.discountPercent}% off`}
           >
-            {/* Purple glow border */}
+            {/* Glow border (red for wishlisted, purple default) */}
             <div
-              className="glow-border angular-card"
-              style={{ "--glow-color": "rgba(168, 85, 247, 0.6)" } as React.CSSProperties}
+              className="glow-border w-full"
+              style={{ "--glow-color": isWishlisted ? "var(--color-valorant-red)" : "rgba(168, 85, 247, 0.6)" } as React.CSSProperties}
             >
-              <div className="group relative angular-card bg-void-deep overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(168,85,247,0.2)]">
+              <div className="group relative w-full max-w-full angular-card bg-void-deep overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(168,85,247,0.2)]">
                 {/* Discount Badge */}
                 <div className="absolute top-3 right-3 z-10 angular-card-sm bg-gradient-to-r from-pink-600 to-purple-600 text-white px-3 py-1 text-sm font-bold shadow-lg" aria-label={`${item.discountPercent}% discount`}>
                   -{item.discountPercent}%
                 </div>
+
+                {/* Heart button — above discount badge */}
+                {onWishlistToggle && (
+                  <button
+                    onClick={() => onWishlistToggle(item.uuid, item)}
+                    className={`absolute top-3 right-16 z-30 w-10 h-10 flex items-center justify-center rounded-full transition-all ${
+                      isWishlisted
+                        ? "bg-valorant-red/20 hover:bg-valorant-red/30"
+                        : "bg-void-deep/80 hover:bg-void-surface"
+                    }`}
+                    aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+                  >
+                    <svg
+                      className={`w-5 h-5 transition-all duration-300 ${
+                        isWishlisted ? "fill-valorant-red scale-110" : "fill-none stroke-zinc-400"
+                      }`}
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                    >
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                  </button>
+                )}
+
+                {/* Wishlisted Badge — top-left, above isSeen dot */}
+                {isWishlisted && (
+                  <div className="absolute top-3 left-3 z-20 px-3 py-1 bg-valorant-red text-white text-xs font-bold uppercase tracking-wider angular-card-sm animate-pulse-glow">
+                    Wishlisted
+                  </div>
+                )}
+
+                {/* isSeen dot — below wishlist badge, left side */}
+                {!item.isSeen && (
+                  <div className="absolute top-8 left-3 z-10 w-2 h-2 bg-pink-500 animate-pulse-glow" style={{ clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" }} aria-label="New offer" />
+                )}
 
                 {/* Image Container */}
                 <div className="relative h-48 bg-gradient-to-b from-transparent to-black/40 flex items-center justify-center p-6">
@@ -149,15 +190,12 @@ export function NightMarket({ nightMarket }: NightMarketProps) {
                       </p>
                     </div>
                   </div>
-
-                  {!item.isSeen && (
-                    <div className="absolute top-3 left-3 w-2 h-2 bg-pink-500 animate-pulse-glow" style={{ clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" }} aria-label="New offer" />
-                  )}
                 </div>
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

@@ -79,7 +79,7 @@ export default async function StorePage() {
 
         <SectionErrorBoundary sectionName="Night Market">
           <Suspense fallback={<LoadingSkeleton text="Loading Night Market..." />}>
-            <NightMarketSection storeData={storeData} />
+            <NightMarketSection session={session} storeData={storeData} />
           </Suspense>
         </SectionErrorBoundary>
       </div>

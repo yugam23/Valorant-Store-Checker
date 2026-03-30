@@ -39,7 +39,7 @@ export default async function EncyclopediaPage() {
     const weaponName = extractWeaponName(skin.displayName);
     const tier = skin.contentTierUuid ? tierMap.get(skin.contentTierUuid) : null;
     const tierColor = tier
-      ? TIER_COLORS[tier.displayName] ?? `#${tier.highlightColor.slice(0, 6)}`
+      ? TIER_COLORS[tier.displayName.replace(" Edition", "")] ?? tier.highlightColor
       : DEFAULT_TIER_COLOR;
 
     return {

@@ -99,7 +99,7 @@ export function InventoryGrid({ skins, weaponCategories, editionCategories }: In
         {/* Weapon Filter Pills */}
         <div className="space-y-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Weapon</span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 max-h-[130px] overflow-y-auto pr-2 custom-scrollbar">
             <button
               onClick={() => setActiveWeapons([])}
               className={`px-4 py-2 text-sm font-semibold uppercase tracking-wide angular-card-sm transition-all ${

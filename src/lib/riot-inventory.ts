@@ -187,7 +187,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
       : null;
 
     const tierColor = tier
-      ? (TIER_COLORS[tier.displayName] || `#${tier.highlightColor.slice(0, 6)}`)
+      ? (TIER_COLORS[tier.displayName.replace(" Edition", "")] || `#${tier.highlightColor.slice(0, 6)}`)
       : DEFAULT_TIER_COLOR;
 
     // Extract weapon name

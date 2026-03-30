@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import type { EncyclopediaCardProps } from "@/types/encyclopedia";
-
-export function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle }: EncyclopediaCardProps) {
+import { getEditionIconPath } from "@/lib/edition-icons";
+export function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle, staggerDelay = 0 }: EncyclopediaCardProps) {
   const [optimisticOverride, setOptimisticOverride] = useState<boolean | null>(null);
   const [isPulsing, setIsPulsing] = useState(false);
   const displayIsWishlisted = optimisticOverride ?? isWishlisted;
@@ -26,6 +26,8 @@ export function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle }: Encyc
 
   return (
     <div
+      className="stagger-entrance"
+      style={{ "--stagger-delay": `${staggerDelay}ms` } as React.CSSProperties}
       role="article"
       aria-label={`${skin.displayName}, ${skin.tierName} tier, ${skin.weaponName}`}
     >
@@ -34,7 +36,9 @@ export function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle }: Encyc
         className="glow-border angular-card"
         style={{ "--glow-color": skin.tierColor } as React.CSSProperties}
       >
-        <div className="group relative overflow-hidden angular-card bg-void-deep">
+        <div
+          className="group relative overflow-hidden angular-card bg-void-deep"
+        >
           {/* Inner radial glow on hover */}
           <div
             className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-0"
@@ -79,7 +83,7 @@ export function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle }: Encyc
                   alt={skin.displayName}
                   fill
                   className="object-contain p-3 transition-all duration-300 group-hover:scale-105"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-zinc-500">
@@ -109,10 +113,20 @@ export function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle }: Encyc
                     color: skin.tierColor,
                   }}
                 >
-                  <span
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: skin.tierColor }}
-                  />
+                  {getEditionIconPath(skin.tierName) ? (
+                    <Image
+                      src={getEditionIconPath(skin.tierName)!}
+                      alt=""
+                      width={14}
+                      height={14}
+                      className="flex-shrink-0"
+                    />
+                  ) : (
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: skin.tierColor }}
+                    />
+                  )}
                   {skin.tierName}
                 </span>
               </div>

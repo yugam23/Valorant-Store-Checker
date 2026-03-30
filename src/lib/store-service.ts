@@ -105,7 +105,7 @@ export async function hydrateDailyItems(
 
     const tier = skin.contentTierUuid ? findTier(skin.contentTierUuid, tiers) : null;
     const tierColor = tier
-      ? (TIER_COLORS[tier.displayName] || `#${tier.highlightColor.slice(0, 6)}`)
+      ? (TIER_COLORS[tier.displayName.replace(" Edition", "")] || `#${tier.highlightColor.slice(0, 6)}`)
       : DEFAULT_TIER_COLOR;
 
     return {
@@ -151,7 +151,7 @@ export async function hydrateNightMarket(
 
     const tier = skin.contentTierUuid ? findTier(skin.contentTierUuid, tiers) : null;
     const tierColor = tier
-      ? (TIER_COLORS[tier.displayName] || `#${tier.highlightColor.slice(0, 6)}`)
+      ? (TIER_COLORS[tier.displayName.replace(" Edition", "")] || `#${tier.highlightColor.slice(0, 6)}`)
       : DEFAULT_TIER_COLOR;
 
     return {
@@ -219,7 +219,7 @@ async function hydrateSingleBundle(
         if (skin) {
           const tier = skin.contentTierUuid ? findTier(skin.contentTierUuid, tiers) : null;
           tierColor = tier
-            ? (TIER_COLORS[tier.displayName] || `#${tier.highlightColor.slice(0, 6)}`)
+            ? (TIER_COLORS[tier.displayName.replace(" Edition", "")] || `#${tier.highlightColor.slice(0, 6)}`)
             : DEFAULT_TIER_COLOR;
           tierUuid = tier?.uuid || null;
           tierName = tier?.displayName || null;
