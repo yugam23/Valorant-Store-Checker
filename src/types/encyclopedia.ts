@@ -2,6 +2,8 @@
  * Encyclopedia page types
  */
 
+import type { WishlistItem } from "./wishlist";
+
 /**
  * Content tier for encyclopedia display (mirrors ValorantContentTier)
  */
@@ -33,4 +35,13 @@ export interface EncyclopediaClientProps {
   skins: EncyclopediaSkin[];
   tiers: EncyclopediaTier[];
   tierMap: Map<string, EncyclopediaTier>;
+}
+
+/**
+ * Props for EncyclopediaCard including wishlist state
+ */
+export interface EncyclopediaCardProps {
+  skin: EncyclopediaSkin;
+  isWishlisted: boolean;
+  onWishlistToggle?: (skinUuid: string, skin: EncyclopediaSkin) => void;
 }
