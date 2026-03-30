@@ -1,0 +1,72 @@
+/**
+ * Encyclopedia page — RSC
+ *
+ * Fetches all Valorant weapon skins and content tiers from Valorant-API,
+ * enriches each skin with computed weapon name and tier info, then passes
+ * to EncyclopediaClient for client-side filtering.
+ */
+
+import { getWeaponSkins, getContentTiers } from "@/lib/valorant-api";
+import { extractWeaponName } from "@/lib/encyclopedia";
+import { EncyclopediaClient } from "@/components/encyclopedia/EncyclopediaClient";
+import type { EncyclopediaClientProps, EncyclopediaSkin, EncyclopediaTier } from "@/types/encyclopedia";
+import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
+
+// Revalidate every hour — aligns with Redis cache TTL in valorant-api.ts
+export const revalidate = 60 * 60;
+
+export default async function EncyclopediaPage() {
+  const [skins, tiers] = await Promise.all([
+    getWeaponSkins(),
+    getContentTiers(),
+  ]);
+
+  // Build tier lookup map by UUID
+  const tierMap = new Map<string, EncyclopediaTier>(
+    tiers.map((t) => [
+      t.uuid,
+      {
+        uuid: t.uuid,
+        displayName: t.displayName,
+        highlightColor: `#${t.highlightColor.slice(0, 6)}`,
+        displayIcon: t.displayIcon,
+      },
+    ])
+  );
+
+  // Enrich each skin with computed weapon name and tier info
+  const skinsWithWeaponAndTier: EncyclopediaSkin[] = skins.map((skin) => {
+    const weaponName = extractWeaponName(skin.displayName);
+    const tier = skin.contentTierUuid ? tierMap.get(skin.contentTierUuid) : null;
+    const tierColor = tier
+      ? TIER_COLORS[tier.displayName] ?? `#${tier.highlightColor.slice(0, 6)}`
+      : DEFAULT_TIER_COLOR;
+
+    return {
+      uuid: skin.uuid,
+      displayName: skin.displayName,
+      displayIcon: skin.displayIcon,
+      wallpaper: skin.wallpaper,
+      weaponName,
+      tierName: tier?.displayName ?? "Unknown",
+      tierColor,
+      contentTierUuid: skin.contentTierUuid,
+    };
+  });
+
+  // Sort alphabetically by weapon, then skin name
+  skinsWithWeaponAndTier.sort((a, b) => {
+    if (a.weaponName !== b.weaponName) {
+      return a.weaponName.localeCompare(b.weaponName);
+    }
+    return a.displayName.localeCompare(b.displayName);
+  });
+
+  const props: EncyclopediaClientProps = {
+    skins: skinsWithWeaponAndTier,
+    tiers: Array.from(tierMap.values()),
+    tierMap,
+  };
+
+  return <EncyclopediaClient {...props} />;
+}
