@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import Image from "next/image";
 import type { OwnedSkin } from "@/types/inventory";
 import { getEditionIconPath } from "@/lib/edition-icons";
@@ -9,7 +9,7 @@ interface InventoryCardProps {
   skin: OwnedSkin;
 }
 
-export function InventoryCard({ skin }: InventoryCardProps) {
+export const InventoryCard = memo(function InventoryCard({ skin }: InventoryCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -134,4 +134,4 @@ export function InventoryCard({ skin }: InventoryCardProps) {
       </div>
     </div>
   );
-}
+});
