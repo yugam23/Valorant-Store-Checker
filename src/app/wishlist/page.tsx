@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { redirect } from "next/navigation";
+import dynamic from "next/dynamic";
 import type { WishlistItem } from "@/types/wishlist";
 import type { OwnedSkin } from "@/types/inventory";
-import { WishlistGrid } from "@/components/wishlist/WishlistGrid";
 
-function LoadingSkeleton() {
+function WishlistGridSkeleton() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {Array.from({ length: 8 }).map((_, i) => (
@@ -26,17 +26,23 @@ function LoadingSkeleton() {
   );
 }
 
+const WishlistGrid = dynamic(
+  () => import("@/components/wishlist/WishlistGrid"),
+  {
+    ssr: false,
+    loading: () => <WishlistGridSkeleton />,
+  }
+);
+
 export default function WishlistPage() {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [ownedSet, setOwnedSet] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      setIsLoading(true);
       setError(null);
 
       // Fetch wishlist
@@ -79,10 +85,6 @@ export default function WishlistPage() {
         }
       } catch {
         // Inventory is optional — ignore errors
-      }
-
-      if (!cancelled) {
-        setIsLoading(false);
       }
     }
 
@@ -139,8 +141,6 @@ export default function WishlistPage() {
         </div>
       </div>
 
-      {isLoading && <LoadingSkeleton />}
-
       {error && (
         <div className="angular-card bg-void-surface/50 border-red-500/20 p-6 text-center space-y-4">
           <p className="text-red-400">{error}</p>
@@ -153,7 +153,7 @@ export default function WishlistPage() {
         </div>
       )}
 
-      {!isLoading && !error && (
+      {!error && (
         <WishlistGrid
           items={wishlistItems}
           ownedSet={ownedSet}
