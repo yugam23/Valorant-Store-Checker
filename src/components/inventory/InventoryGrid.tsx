@@ -49,7 +49,7 @@ export function InventoryGrid({ skins, weaponCategories, editionCategories }: In
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: 280,
+    estimateSize: () => 280,
     overscan: 3,
   });
 
