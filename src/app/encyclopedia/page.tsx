@@ -9,6 +9,7 @@
 import dynamic from 'next/dynamic';
 import { getWeaponSkins, getContentTiers } from "@/lib/valorant-api";
 import { extractWeaponName } from "@/lib/encyclopedia";
+import { getBlurDataURL } from "@/lib/blur-utils";
 import { LoadingSkeleton } from '@/components/store/LoadingSkeleton';
 import type { EncyclopediaClientProps, EncyclopediaSkin, EncyclopediaTier } from "@/types/encyclopedia";
 import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
@@ -52,6 +53,7 @@ export default async function EncyclopediaPage() {
       displayName: skin.displayName,
       displayIcon: skin.displayIcon,
       wallpaper: skin.wallpaper,
+      blurDataURL: getBlurDataURL(skin.wallpaper),
       weaponName,
       tierName: tier?.displayName ?? "Unknown",
       tierColor,

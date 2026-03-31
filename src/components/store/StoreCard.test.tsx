@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StoreCard } from "./StoreCard";
 import type { StoreItem } from "@/types/store";
+import { DEFAULT_BLUR } from "@/lib/blur-utils";
 
 const mockStoreItem: StoreItem = {
   uuid: "skin-123",
@@ -10,6 +11,7 @@ const mockStoreItem: StoreItem = {
   displayIcon: "/images/prime-vandal.png",
   streamedVideo: null,
   wallpaper: null,
+  blurDataURL: DEFAULT_BLUR,
   cost: 1775,
   currencyId: "85ad13f7-3d1b-5128-8a35-80f2bb82406c",
   tierUuid: "e33df4d3-1c32-415c-899a-c6e47a16a936",

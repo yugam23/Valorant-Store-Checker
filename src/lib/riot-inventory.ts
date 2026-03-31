@@ -11,6 +11,7 @@ import { InventoryData, OwnedSkin, EditionCategory } from "@/types/inventory";
 import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { ITEM_TYPE_WEAPON_SKIN } from "@/lib/constants";
 import { createLogger } from "./logger";
+import { getBlurDataURL } from "@/lib/blur-utils";
 
 const log = createLogger("riot-inventory");
 
@@ -166,6 +167,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
           displayIcon: "",
           streamedVideo: null,
           wallpaper: null,
+          blurDataURL: getBlurDataURL(null),
           tierUuid: null,
           tierName: null,
           tierColor: DEFAULT_TIER_COLOR,
@@ -218,6 +220,7 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
       displayIcon: skin.levels?.[0]?.displayIcon || skin.displayIcon || "",
       streamedVideo,
       wallpaper: skin.wallpaper,
+      blurDataURL: getBlurDataURL(skin.wallpaper),
       tierUuid: tier?.uuid || null,
       tierName: tier?.displayName || null,
       tierColor,

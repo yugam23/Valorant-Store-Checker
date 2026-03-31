@@ -128,6 +128,8 @@ export const StoreCard = memo(({
                   src={item.displayIcon}
                   alt={item.displayName}
                   fill
+                  placeholder="blur"
+                  blurDataURL={item.blurDataURL}
                   className={`object-contain p-4 transition-all duration-300 ${
                     isHovered && item.streamedVideo ? "opacity-0" : "opacity-100 group-hover:scale-105"
                   }`}

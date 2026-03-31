@@ -17,6 +17,7 @@ export interface StoreItem {
   displayIcon: string; // Primary image URL
   streamedVideo: string | null; // Video preview URL (if available)
   wallpaper: string | null; // High-res background image
+  blurDataURL: string;
 
   // Pricing
   cost: number; // Price in VP

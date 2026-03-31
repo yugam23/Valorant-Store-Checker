@@ -65,6 +65,8 @@ export const InventoryCard = memo(function InventoryCard({ skin }: InventoryCard
                   src={skin.displayIcon}
                   alt={skin.displayName}
                   fill
+                  placeholder="blur"
+                  blurDataURL={skin.blurDataURL}
                   className={`object-contain p-3 transition-all duration-300 ${
                     isHovered && skin.streamedVideo ? "opacity-0" : "opacity-100 group-hover:scale-105"
                   }`}

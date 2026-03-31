@@ -11,6 +11,7 @@ import { StoreData, StoreItem, BundleItem, BundleData, TIER_COLORS, DEFAULT_TIER
 import { RiotStorefront, RiotBundle } from "@/types/riot";
 import { ITEM_TYPE_WEAPON_SKIN, ITEM_TYPE_BUDDY, ITEM_TYPE_PLAYER_CARD, ITEM_TYPE_SPRAY, ITEM_TYPE_PLAYER_TITLE, ITEM_TYPE_FLEX, CURRENCY_IDS } from "@/lib/constants";
 import { createLogger } from "@/lib/logger";
+import { getBlurDataURL } from "@/lib/blur-utils";
 
 const log = createLogger("Store Service");
 
@@ -92,6 +93,7 @@ export async function hydrateDailyItems(
         displayIcon: "",
         streamedVideo: null,
         wallpaper: null,
+        blurDataURL: getBlurDataURL(null),
         cost,
         currencyId: CURRENCY_IDS.VP,
         tierUuid: null,
@@ -114,6 +116,7 @@ export async function hydrateDailyItems(
       displayIcon: skin.levels?.[0]?.displayIcon || skin.displayIcon || "",
       streamedVideo: getSkinVideo(skin),
       wallpaper: skin.wallpaper,
+      blurDataURL: getBlurDataURL(skin.wallpaper),
       cost,
       currencyId: CURRENCY_IDS.VP,
       tierUuid: tier?.uuid || null,
@@ -160,6 +163,7 @@ export async function hydrateNightMarket(
       displayIcon: skin.levels?.[0]?.displayIcon || skin.displayIcon || "",
       streamedVideo: getSkinVideo(skin),
       wallpaper: skin.wallpaper,
+      blurDataURL: getBlurDataURL(skin.wallpaper),
       basePrice,
       discountedPrice,
       discountPercent,

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { WishlistItem } from "@/types/wishlist";
 import type { EncyclopediaSkin } from "@/types/encyclopedia";
+import { getBlurDataURL } from "@/lib/blur-utils";
 
 interface WishlistGridProps {
   items: WishlistItem[];
@@ -22,6 +23,7 @@ function toSkin(item: WishlistItem): EncyclopediaSkin {
     displayName: item.displayName,
     displayIcon: item.displayIcon,
     wallpaper: null,
+    blurDataURL: getBlurDataURL(null),
     weaponName: "",
     tierName: "",
     tierColor: item.tierColor,

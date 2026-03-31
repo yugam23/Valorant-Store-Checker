@@ -82,6 +82,8 @@ export const EncyclopediaCard = memo(function EncyclopediaCard({ skin, isWishlis
                   src={imageSrc}
                   alt={skin.displayName}
                   fill
+                  placeholder="blur"
+                  blurDataURL={skin.blurDataURL}
                   className="object-contain p-3 transition-all duration-300 group-hover:scale-105"
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                 />
