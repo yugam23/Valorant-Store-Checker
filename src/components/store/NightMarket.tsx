@@ -10,11 +10,11 @@ import type { NightMarketItem } from "@/types/store";
 
 interface NightMarketProps {
   nightMarket: NightMarketData;
-  wishlistedUuids?: string[];
+  wishlistSet?: Set<string>;
   onWishlistToggle?: (skinUuid: string, item: NightMarketItem) => Promise<void>;
 }
 
-export function NightMarket({ nightMarket, wishlistedUuids = [], onWishlistToggle }: NightMarketProps) {
+export function NightMarket({ nightMarket, wishlistSet, onWishlistToggle }: NightMarketProps) {
   const timeLeft = useCountdown(nightMarket.expiresAt);
 
   if (!nightMarket.items || nightMarket.items.length === 0) {
@@ -41,7 +41,7 @@ export function NightMarket({ nightMarket, wishlistedUuids = [], onWishlistToggl
       {/* Night Market Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" role="list" aria-label="Night market offers">
         {nightMarket.items.map((item, index) => {
-          const isWishlisted = wishlistedUuids.some(id => id.toLowerCase() === item.uuid.toLowerCase());
+          const isWishlisted = wishlistSet?.has(item.uuid.toLowerCase()) ?? false;
           return (
           <div
             key={item.uuid}
