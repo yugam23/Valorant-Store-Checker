@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import Image from "next/image";
 import type { EncyclopediaCardProps } from "@/types/encyclopedia";
 import { getEditionIconPath } from "@/lib/edition-icons";
-export function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle, staggerDelay = 0 }: EncyclopediaCardProps) {
+export const EncyclopediaCard = memo(function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle, staggerDelay = 0 }: EncyclopediaCardProps) {
   const [optimisticOverride, setOptimisticOverride] = useState<boolean | null>(null);
   const [isPulsing, setIsPulsing] = useState(false);
   const displayIsWishlisted = optimisticOverride ?? isWishlisted;
@@ -136,4 +136,4 @@ export function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle, stagger
       </div>
     </div>
   );
-}
+});
