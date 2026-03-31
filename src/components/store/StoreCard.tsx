@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import Image from "next/image";
 import type { StoreItem } from "../../types/store";
 import { getEditionIconPath } from "@/lib/edition-icons";
@@ -13,13 +13,13 @@ interface StoreCardProps {
   showInStoreNotification?: boolean;
 }
 
-export function StoreCard({
+export const StoreCard = memo(({
   item,
   staggerIndex = 0,
   isWishlisted = false,
   onWishlistToggle,
   showInStoreNotification = false
-}: StoreCardProps) {
+}: StoreCardProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   // Track optimistic override separately from prop-derived state
@@ -201,4 +201,4 @@ export function StoreCard({
       </div>
     </div>
   );
-}
+});
