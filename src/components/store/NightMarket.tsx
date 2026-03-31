@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useWishlist } from "@/hooks/useWishlist";
+import { useCountdown } from "@/hooks/useCountdown";
 import { NightMarketData } from "@/types/store";
 import Image from "next/image";
 import { getEditionIconPath } from "@/lib/edition-icons";
@@ -13,46 +14,9 @@ interface NightMarketProps {
   onWishlistToggle?: (skinUuid: string, item: NightMarketItem) => Promise<void>;
 }
 
-/** Live-updating countdown for Night Market expiration */
-function NightMarketTimer({ expiresAt }: { expiresAt: string | Date }) {
-  const calcTime = useCallback(() => {
-    const diff = new Date(expiresAt).getTime() - Date.now();
-    if (diff <= 0) return "Expired";
-
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-    if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m remaining`;
-    }
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${seconds}s remaining`;
-    }
-    return `${minutes}m ${seconds}s remaining`;
-  }, [expiresAt]);
-
-  const [timeRemaining, setTimeRemaining] = useState(calcTime);
-
-  useEffect(() => {
-    const id = setInterval(() => setTimeRemaining(calcTime()), 1000);
-    return () => clearInterval(id);
-  }, [calcTime]);
-
-  return (
-    <p
-      className="text-zinc-400 text-sm"
-      role="timer"
-      aria-live="polite"
-      aria-label={`Night market ${timeRemaining}`}
-    >
-      {timeRemaining}
-    </p>
-  );
-}
-
 export function NightMarket({ nightMarket, wishlistedUuids = [], onWishlistToggle }: NightMarketProps) {
+  const timeLeft = useCountdown(nightMarket.expiresAt);
+
   if (!nightMarket.items || nightMarket.items.length === 0) {
     return null;
   }
@@ -65,7 +29,9 @@ export function NightMarket({ nightMarket, wishlistedUuids = [], onWishlistToggl
           <h2 className="font-display text-4xl md:text-5xl font-bold uppercase text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 drop-shadow-[0_0_20px_rgba(168,85,247,0.4)]">
             Night Market
           </h2>
-          <NightMarketTimer expiresAt={nightMarket.expiresAt} />
+          <p className="text-zinc-400 text-sm" role="timer" aria-live="polite" aria-label={`Night market ${timeLeft.formatted}`}>
+            {timeLeft.formatted}
+          </p>
         </div>
         <div className="angular-card-sm px-4 py-2 bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30">
           <p className="text-xs text-purple-300 font-display uppercase tracking-wider">Bonus Store</p>
