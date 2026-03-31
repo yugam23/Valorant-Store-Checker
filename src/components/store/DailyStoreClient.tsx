@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect } from "react";
 import { StoreGrid } from "./StoreGrid";
 import type { StoreItem } from "@/types/store";
 import { logStoreRotation } from "@/lib/store-history";
 import { useWishlist } from "@/hooks/useWishlist";
+import { useCountdown } from "@/hooks/useCountdown";
 
 interface DailyStoreClientProps {
   items: StoreItem[];
@@ -26,44 +27,18 @@ function Separator() {
   return <span className="text-valorant-red text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>;
 }
 
-/** Inline countdown timer with individual digit cards */
-function CountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
-  const calcTime = useCallback(() => {
-    const diff = new Date(expiresAt).getTime() - Date.now();
-    if (diff <= 0) return { h: "00", m: "00", s: "00" };
-    const h = String(Math.floor(diff / 3600000)).padStart(2, "0");
-    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
-    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
-    return { h, m, s };
-  }, [expiresAt]);
-
-  const [timeLeft, setTimeLeft] = useState(calcTime);
-
-  useEffect(() => {
-    const id = setInterval(() => setTimeLeft(calcTime()), 1000);
-    return () => clearInterval(id);
-  }, [calcTime]);
-
-  return (
-    <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${timeLeft.h} hours ${timeLeft.m} minutes ${timeLeft.s} seconds remaining`}>
-      <DigitCard value={timeLeft.h[0] ?? "0"} />
-      <DigitCard value={timeLeft.h[1] ?? "0"} />
-      <Separator />
-      <DigitCard value={timeLeft.m[0] ?? "0"} />
-      <DigitCard value={timeLeft.m[1] ?? "0"} />
-      <Separator />
-      <DigitCard value={timeLeft.s[0] ?? "0"} />
-      <DigitCard value={timeLeft.s[1] ?? "0"} />
-    </div>
-  );
-}
-
 export function DailyStoreClient({ items, initialWishlistedUuids, expiresAt, puuid, account }: DailyStoreClientProps) {
   const { wishlistedUuids, toggleWishlist } = useWishlist(initialWishlistedUuids);
+  const timeLeft = useCountdown(expiresAt);
+
+  // Display as digit pairs: h[0]h[1]:m[0]m[1]:s[0]s[1]
+  const h = String(timeLeft.hours).padStart(2, "0");
+  const m = String(timeLeft.minutes).padStart(2, "0");
+  const s = String(timeLeft.seconds).padStart(2, "0");
 
   useEffect(() => {
     if (items.length > 0 && puuid) {
-      logStoreRotation(puuid, items, new Date(expiresAt), account).catch((e) => 
+      logStoreRotation(puuid, items, new Date(expiresAt), account).catch((e) =>
         console.error("Failed to log store history:", e)
       );
     }
@@ -79,7 +54,16 @@ export function DailyStoreClient({ items, initialWishlistedUuids, expiresAt, puu
             <span className="text-zinc-500 text-xs font-display uppercase tracking-wider">
                 Resets in
             </span>
-            <CountdownTimer expiresAt={expiresAt} />
+            <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${h}:${m}:${s} remaining`}>
+              <DigitCard value={h[0] ?? "0"} />
+              <DigitCard value={h[1] ?? "0"} />
+              <Separator />
+              <DigitCard value={m[0] ?? "0"} />
+              <DigitCard value={m[1] ?? "0"} />
+              <Separator />
+              <DigitCard value={s[0] ?? "0"} />
+              <DigitCard value={s[1] ?? "0"} />
+            </div>
         </div>
       </div>
       <StoreGrid
