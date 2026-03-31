@@ -1,13 +1,35 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import Image from "next/image";
 import type { EncyclopediaCardProps } from "@/types/encyclopedia";
 import { getEditionIconPath } from "@/lib/edition-icons";
+import { fetchAndCacheBlurDataURL } from "@/lib/blur-utils";
+
 export const EncyclopediaCard = memo(function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle, staggerDelay = 0 }: EncyclopediaCardProps) {
   const [optimisticOverride, setOptimisticOverride] = useState<boolean | null>(null);
   const [isPulsing, setIsPulsing] = useState(false);
+  const [wallpaperBlur, setWallpaperBlur] = useState<string>(skin.blurDataURL);
   const displayIsWishlisted = optimisticOverride ?? isWishlisted;
+
+  // Lazily fetch wallpaper blur after mount — avoids 1000+ concurrent requests at page load.
+  // Only visible cards (~20-30 in viewport) mount at once thanks to row virtualization.
+  // Results are cached in fetchAndCacheBlurDataURL module cache.
+  useEffect(() => {
+    if (!skin.wallpaper) return;
+    let mounted = true;
+    // Stagger: random delay 0–800ms to spread out concurrent wallpaper fetches
+    const delay = Math.random() * 800;
+    const timer = setTimeout(() => {
+      fetchAndCacheBlurDataURL(skin.wallpaper).then((blur) => {
+        if (mounted) setWallpaperBlur(blur);
+      });
+    }, delay);
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [skin.wallpaper]);
 
   const handleHeartClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -83,7 +105,7 @@ export const EncyclopediaCard = memo(function EncyclopediaCard({ skin, isWishlis
                   alt={skin.displayName}
                   fill
                   placeholder="blur"
-                  blurDataURL={skin.blurDataURL}
+                  blurDataURL={wallpaperBlur}
                   className="object-contain p-3 transition-all duration-300 group-hover:scale-105"
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                 />
