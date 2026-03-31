@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Encyclopedia page
  *
@@ -18,7 +16,6 @@ import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 const EncyclopediaClient = dynamic(
   () => import('@/components/encyclopedia/EncyclopediaClient').then(m => m.EncyclopediaClient),
   {
-    ssr: false,
     loading: () => <LoadingSkeleton text="Loading Encyclopedia..." />,
   }
 );
