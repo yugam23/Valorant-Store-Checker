@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Encyclopedia page — RSC
+ * Encyclopedia page
  *
  * Fetches all Valorant weapon skins and content tiers from Valorant-API,
  * enriches each skin with computed weapon name and tier info, then passes
@@ -22,9 +22,6 @@ const EncyclopediaClient = dynamic(
     loading: () => <LoadingSkeleton text="Loading Encyclopedia..." />,
   }
 );
-
-// Revalidate every hour — aligns with Redis cache TTL in valorant-api.ts
-export const revalidate = 3600;
 
 export default async function EncyclopediaPage() {
   const [skins, tiers] = await Promise.all([
