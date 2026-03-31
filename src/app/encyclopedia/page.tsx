@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Encyclopedia page — RSC
  *
@@ -6,11 +8,20 @@
  * to EncyclopediaClient for client-side filtering.
  */
 
+import dynamic from 'next/dynamic';
 import { getWeaponSkins, getContentTiers } from "@/lib/valorant-api";
 import { extractWeaponName } from "@/lib/encyclopedia";
-import { EncyclopediaClient } from "@/components/encyclopedia/EncyclopediaClient";
+import { LoadingSkeleton } from '@/components/store/LoadingSkeleton';
 import type { EncyclopediaClientProps, EncyclopediaSkin, EncyclopediaTier } from "@/types/encyclopedia";
 import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
+
+const EncyclopediaClient = dynamic(
+  () => import('@/components/encyclopedia/EncyclopediaClient').then(m => m.EncyclopediaClient),
+  {
+    ssr: false,
+    loading: () => <LoadingSkeleton text="Loading Encyclopedia..." />,
+  }
+);
 
 // Revalidate every hour — aligns with Redis cache TTL in valorant-api.ts
 export const revalidate = 3600;

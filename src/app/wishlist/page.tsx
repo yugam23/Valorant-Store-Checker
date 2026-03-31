@@ -27,7 +27,7 @@ function WishlistGridSkeleton() {
 }
 
 const WishlistGrid = dynamic(
-  () => import("@/components/wishlist/WishlistGrid"),
+  () => import("@/components/wishlist/WishlistGrid").then(m => m.WishlistGrid),
   {
     ssr: false,
     loading: () => <WishlistGridSkeleton />,

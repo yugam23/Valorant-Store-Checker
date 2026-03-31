@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { LoginForm } from "@/components/auth/LoginForm";
+import { LoginFormLoader } from "@/components/auth/LoginFormLoader";
 
 export const metadata = {
   title: "Sign In | Valorant Store Checker",
@@ -52,7 +52,7 @@ export default async function LoginPage({
         className="relative z-10 w-full max-w-md stagger-entrance"
         style={{ "--stagger-delay": "0ms" } as React.CSSProperties}
       >
-        <LoginForm />
+        <LoginFormLoader />
       </div>
     </div>
   );
