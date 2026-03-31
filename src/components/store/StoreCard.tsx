@@ -202,3 +202,5 @@ export const StoreCard = memo(({
     </div>
   );
 });
+
+StoreCard.displayName = "StoreCard";

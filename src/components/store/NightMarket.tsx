@@ -1,6 +1,5 @@
 "use client";
 
-import { useWishlist } from "@/hooks/useWishlist";
 import { useCountdown } from "@/hooks/useCountdown";
 import { NightMarketData } from "@/types/store";
 import Image from "next/image";

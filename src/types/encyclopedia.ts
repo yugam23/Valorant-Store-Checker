@@ -2,8 +2,6 @@
  * Encyclopedia page types
  */
 
-import type { WishlistItem } from "./wishlist";
-
 /**
  * Content tier for encyclopedia display (mirrors ValorantContentTier)
  */

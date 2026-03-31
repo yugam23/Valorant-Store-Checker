@@ -39,7 +39,7 @@ function WishlistSkinCard({
   onRemove: (skinUuid: string) => void;
 }) {
   const skin = toSkin(item);
-  const [optimisticOwned] = useState(isOwned);
+  const [_optimisticOwned] = useState(isOwned);
 
   return (
     <div role="article" aria-label={`${item.displayName}${isOwned ? ", owned" : ""}`}>

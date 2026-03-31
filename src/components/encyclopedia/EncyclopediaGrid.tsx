@@ -36,7 +36,7 @@ export function EncyclopediaGrid({
   activeEditions,
   setActiveEditions,
   wishlistSet,
-  loadingWishlist,
+  loadingWishlist: _loadingWishlist,
   toggleWishlist,
 }: EncyclopediaGridProps) {
   // Composable filtering: weapon -> edition -> search
@@ -81,6 +81,7 @@ export function EncyclopediaGrid({
     () => weaponCategories.map((_, index) => ({
       "--stagger-delay": `${(index + 1) * 50}ms`
     })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stagger styles keyed by length only
     [weaponCategories.length]
   );
 
@@ -88,6 +89,7 @@ export function EncyclopediaGrid({
     () => editionCategories.map((_, index) => ({
       "--stagger-delay": `${(index + 1) * 50}ms`
     })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stagger styles keyed by length only
     [editionCategories.length]
   );
 

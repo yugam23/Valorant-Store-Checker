@@ -9,6 +9,14 @@ const eslintConfig = defineConfig([
   security.configs.recommended,
   {
     rules: {
+      // Suppress TanStack Virtual incompatibility warnings — known false positives
+      // @tanstack/react-virtual is React 19 compatible but ESLint React hooks plugin
+      // detects the hook as incompatible due to static analysis limitations.
+      "react-hooks/incompatible-library": "off",
+    },
+  },
+  {
+    rules: {
       "@typescript-eslint/no-unused-vars": ["error", {
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_",
