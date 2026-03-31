@@ -3,8 +3,7 @@
 import Image from "next/image";
 import type { BundleData } from "@/types/store";
 import { getEditionIconPath } from "@/lib/edition-icons";
-import { BundleCountdownTimer } from "./BundleCountdownTimer";
-import { BundleHeroImage } from "./BundleHeroImage";
+import { BundleCountdownTimer, BundleHeroImage } from "./index";
 
 export interface FeaturedBundleCardProps {
   bundle: BundleData;
