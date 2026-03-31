@@ -45,10 +45,16 @@ const CACHE_TTL_SECONDS = 24 * 60 * 60;
 
 /**
  * Store data in Redis with timestamp
+ * Gracefully fails if Redis is unavailable (e.g., CI without Upstash credentials).
+ * Never throws — callers proceed with uncached data on failure.
  */
 async function setCache<T>(key: string, data: T): Promise<void> {
-  const payload = JSON.stringify({ data, timestamp: Date.now() });
-  await redis.set(key, payload, { ex: CACHE_TTL_SECONDS });
+  try {
+    const payload = JSON.stringify({ data, timestamp: Date.now() });
+    await redis.set(key, payload, { ex: CACHE_TTL_SECONDS });
+  } catch (err) {
+    log.warn("Failed to set Redis cache, proceeding without cache:", err);
+  }
 }
 
 /**

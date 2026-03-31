@@ -28,7 +28,7 @@ const blurCache = new Map<string, string>();
  * @param wallpaper - The wallpaper URL from Valorant-API (unused in sync path)
  * @returns DEFAULT_BLUR (sync) or a real wallpaper blur (via fetchAndCacheBlurDataURL)
  */
-export function getBlurDataURL(wallpaper: string | null): string {
+export function getBlurDataURL(_wallpaper: string | null): string {
   return DEFAULT_BLUR;
 }
 
