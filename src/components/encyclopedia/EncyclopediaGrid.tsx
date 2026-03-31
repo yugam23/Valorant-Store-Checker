@@ -67,7 +67,7 @@ export function EncyclopediaGrid({
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: 280,
+    estimateSize: () => 280,
     overscan: 3,
   });
 
@@ -75,6 +75,21 @@ export function EncyclopediaGrid({
   const handleToggleWishlist = useCallback((skinUuid: string, skin: EncyclopediaSkin) => {
     toggleWishlist(skinUuid, skin);
   }, [toggleWishlist]);
+
+  // Memoized stagger styles — eliminates 20+ object allocations per render
+  const weaponStaggerStyles = useMemo(
+    () => weaponCategories.map((_, index) => ({
+      "--stagger-delay": `${(index + 1) * 50}ms`
+    })),
+    [weaponCategories.length]
+  );
+
+  const editionStaggerStyles = useMemo(
+    () => editionCategories.map((_, index) => ({
+      "--stagger-delay": `${(index + 1) * 50}ms`
+    })),
+    [editionCategories.length]
+  );
 
   const toggleWeapon = (weapon: string) => {
     setActiveWeapons(
@@ -157,7 +172,7 @@ export function EncyclopediaGrid({
                     ? "bg-valorant-red text-white"
                     : "bg-void-deep border border-white/10 text-zinc-400 hover:border-valorant-red/50 hover:text-light"
                 }`}
-                style={{ "--stagger-delay": `${(index + 1) * 50}ms` } as React.CSSProperties}
+                style={weaponStaggerStyles[index] as React.CSSProperties}
               >
                 {weapon}
               </button>
@@ -198,8 +213,8 @@ export function EncyclopediaGrid({
                     }`}
                     style={
                       isSelected
-                        ? { backgroundColor: tierColor, borderColor: tierColor, "--stagger-delay": `${(index + 1) * 50}ms` } as React.CSSProperties
-                        : { borderColor: undefined, "--stagger-delay": `${(index + 1) * 50}ms` } as React.CSSProperties
+                        ? { backgroundColor: tierColor, borderColor: tierColor, ...editionStaggerStyles[index] } as React.CSSProperties
+                        : { borderColor: undefined, ...editionStaggerStyles[index] } as React.CSSProperties
                     }
                     onMouseEnter={(e) => {
                       if (!isSelected) {
