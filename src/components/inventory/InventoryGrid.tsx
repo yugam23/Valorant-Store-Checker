@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import Image from "next/image";
 import { InventoryCard } from "./InventoryCard";
 import type { OwnedSkin, EditionCategory } from "@/types/inventory";
@@ -41,6 +42,16 @@ export function InventoryGrid({ skins, weaponCategories, editionCategories }: In
 
     return result;
   }, [skins, activeWeapons, activeEditions, searchQuery]);
+
+  const COLUMNS_PER_ROW = 4;
+  const rowCount = Math.ceil(filteredSkins.length / COLUMNS_PER_ROW);
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: 280,
+    overscan: 3,
+  });
 
   const toggleWeapon = (weapon: string) => {
     setActiveWeapons((prev) =>
@@ -207,12 +218,42 @@ export function InventoryGrid({ skins, weaponCategories, editionCategories }: In
         </div>
       </div>
 
-      {/* Skins Grid */}
+      {/* Virtualized Skins Grid */}
       {filteredSkins.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredSkins.map((skin) => (
-            <InventoryCard key={skin.uuid} skin={skin} />
-          ))}
+        <div
+          ref={parentRef}
+          className="h-[calc(100vh-300px)] overflow-y-auto"
+        >
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              position: "relative",
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const startIdx = virtualRow.index * COLUMNS_PER_ROW;
+              const rowSkins = filteredSkins.slice(startIdx, startIdx + COLUMNS_PER_ROW);
+              return (
+                <div
+                  key={virtualRow.key}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 h-full">
+                    {rowSkins.map((skin) => (
+                      <InventoryCard key={skin.uuid} skin={skin} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 space-y-4">
