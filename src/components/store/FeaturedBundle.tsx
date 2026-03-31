@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import type { BundleData } from "@/types/store";
 import { getEditionIconPath } from "@/lib/edition-icons";
+import { useCountdown } from "@/hooks/useCountdown";
 
 interface FeaturedBundleCarouselProps {
   bundles: BundleData[];
@@ -23,38 +24,6 @@ function BundleDigitCard({ value }: { value: string }) {
 
 function BundleSeparator() {
   return <span className="text-[#F0B232] text-xl sm:text-2xl font-bold mx-0.5 animate-pulse-glow">:</span>;
-}
-
-/** Countdown timer for bundle expiration */
-function BundleCountdownTimer({ expiresAt }: { expiresAt: string | Date }) {
-  const calcTime = useCallback(() => {
-    const diff = new Date(expiresAt).getTime() - Date.now();
-    if (diff <= 0) return { h: "00", m: "00", s: "00" };
-    const h = String(Math.floor(diff / 3600000)).padStart(2, "0");
-    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
-    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
-    return { h, m, s };
-  }, [expiresAt]);
-
-  const [timeLeft, setTimeLeft] = useState(calcTime);
-
-  useEffect(() => {
-    const id = setInterval(() => setTimeLeft(calcTime()), 1000);
-    return () => clearInterval(id);
-  }, [calcTime]);
-
-  return (
-    <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${timeLeft.h} hours ${timeLeft.m} minutes ${timeLeft.s} seconds remaining`}>
-      <BundleDigitCard value={timeLeft.h[0] ?? "0"} />
-      <BundleDigitCard value={timeLeft.h[1] ?? "0"} />
-      <BundleSeparator />
-      <BundleDigitCard value={timeLeft.m[0] ?? "0"} />
-      <BundleDigitCard value={timeLeft.m[1] ?? "0"} />
-      <BundleSeparator />
-      <BundleDigitCard value={timeLeft.s[0] ?? "0"} />
-      <BundleDigitCard value={timeLeft.s[1] ?? "0"} />
-    </div>
-  );
 }
 
 /** Hero banner image with dynamic item-collage fallback */
@@ -147,6 +116,13 @@ function BundleHeroImage({ bundle }: FeaturedBundleProps) {
 
 /** Single bundle card */
 function FeaturedBundle({ bundle }: FeaturedBundleProps) {
+  const timeLeft = useCountdown(bundle.expiresAt);
+
+  // Display as digit pairs: h[0]h[1]:m[0]m[1]:s[0]s[1]
+  const h = String(timeLeft.hours).padStart(2, "0");
+  const m = String(timeLeft.minutes).padStart(2, "0");
+  const s = String(timeLeft.seconds).padStart(2, "0");
+
   return (
     <div
       className="glow-border angular-card"
@@ -191,7 +167,16 @@ function FeaturedBundle({ bundle }: FeaturedBundleProps) {
                 <span className="text-zinc-500 text-xs font-display uppercase tracking-wider">
                   Expires in
                 </span>
-                <BundleCountdownTimer expiresAt={bundle.expiresAt} />
+                <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${h}:${m}:${s} remaining`}>
+                  <BundleDigitCard value={h[0] ?? "0"} />
+                  <BundleDigitCard value={h[1] ?? "0"} />
+                  <BundleSeparator />
+                  <BundleDigitCard value={m[0] ?? "0"} />
+                  <BundleDigitCard value={m[1] ?? "0"} />
+                  <BundleSeparator />
+                  <BundleDigitCard value={s[0] ?? "0"} />
+                  <BundleDigitCard value={s[1] ?? "0"} />
+                </div>
               </div>
             </div>
 
