@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Image from "next/image";
 import type { EncyclopediaSkin, EncyclopediaTier } from "@/types/encyclopedia";
@@ -70,6 +70,11 @@ export function EncyclopediaGrid({
     estimateSize: 280,
     overscan: 3,
   });
+
+  // Stable callback wrapper for EncyclopediaCard to prevent re-renders
+  const handleToggleWishlist = useCallback((skinUuid: string, skin: EncyclopediaSkin) => {
+    toggleWishlist(skinUuid, skin);
+  }, [toggleWishlist]);
 
   const toggleWeapon = (weapon: string) => {
     setActiveWeapons(
@@ -282,7 +287,7 @@ export function EncyclopediaGrid({
                           key={skin.uuid}
                           skin={skin}
                           isWishlisted={isWishlisted}
-                          onWishlistToggle={toggleWishlist}
+                          onWishlistToggle={handleToggleWishlist}
                           staggerDelay={0}
                         />
                       );
