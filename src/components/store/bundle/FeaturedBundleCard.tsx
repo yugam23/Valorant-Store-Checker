@@ -3,9 +3,7 @@
 import Image from "next/image";
 import type { BundleData } from "@/types/store";
 import { getEditionIconPath } from "@/lib/edition-icons";
-import { useCountdown } from "@/hooks/useCountdown";
-import { BundleDigitCard } from "./BundleDigitCard";
-import { BundleSeparator } from "./BundleSeparator";
+import { BundleCountdownTimer } from "./BundleCountdownTimer";
 import { BundleHeroImage } from "./BundleHeroImage";
 
 export interface FeaturedBundleCardProps {
@@ -14,12 +12,6 @@ export interface FeaturedBundleCardProps {
 
 /** Single bundle card */
 function FeaturedBundleCard({ bundle }: FeaturedBundleCardProps) {
-  const timeLeft = useCountdown(bundle.expiresAt);
-
-  // Display as digit pairs: h[0]h[1]:m[0]m[1]:s[0]s[1]
-  const h = String(timeLeft.hours).padStart(2, "0");
-  const m = String(timeLeft.minutes).padStart(2, "0");
-  const s = String(timeLeft.seconds).padStart(2, "0");
 
   return (
     <div
@@ -65,16 +57,7 @@ function FeaturedBundleCard({ bundle }: FeaturedBundleCardProps) {
                 <span className="text-zinc-500 text-xs font-display uppercase tracking-wider">
                   Expires in
                 </span>
-                <div className="flex items-center gap-0.5" role="timer" aria-live="polite" aria-label={`${h}:${m}:${s} remaining`}>
-                  <BundleDigitCard value={h[0] ?? "0"} />
-                  <BundleDigitCard value={h[1] ?? "0"} />
-                  <BundleSeparator />
-                  <BundleDigitCard value={m[0] ?? "0"} />
-                  <BundleDigitCard value={m[1] ?? "0"} />
-                  <BundleSeparator />
-                  <BundleDigitCard value={s[0] ?? "0"} />
-                  <BundleDigitCard value={s[1] ?? "0"} />
-                </div>
+                <BundleCountdownTimer expiresAt={bundle.expiresAt} />
               </div>
             </div>
 
