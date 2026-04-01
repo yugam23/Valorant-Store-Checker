@@ -33,7 +33,6 @@ jobs:
           # Dummy secrets for build-time — real values live in Vercel env vars
           SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'ci-placeholder-secret-32-chars-long' }}
           HENRIK_API_KEY: ${{ secrets.HENRIK_API_KEY || 'ci-placeholder' }}
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY || '0'.repeat(64) }}
 
   test:
     name: Test
@@ -58,4 +57,3 @@ jobs:
           # Dummy secrets for test-time — real values live in Vercel env vars
           SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'ci-placeholder-secret-32-chars-long' }}
           HENRIK_API_KEY: ${{ secrets.HENRIK_API_KEY || 'ci-placeholder' }}
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY || '0'.repeat(64) }}
