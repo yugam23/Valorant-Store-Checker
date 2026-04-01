@@ -7,20 +7,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Extracts the client IP from a Next.js request.
+ * Extracts the client IP from a Next.js request or headers object.
  * Checks x-forwarded-for first (for proxy/load balancer setups),
  * then x-real-ip, with a fallback to 127.0.0.1.
  */
-export function getClientIP(request: NextRequest): string {
+export function getClientIP(requestOrHeaders: NextRequest | Headers): string {
+  const headers = requestOrHeaders instanceof NextRequest
+    ? requestOrHeaders.headers
+    : requestOrHeaders;
+
   // Check x-forwarded-for header (may contain multiple IPs)
-  const forwardedFor = request.headers.get("x-forwarded-for");
+  const forwardedFor = headers.get("x-forwarded-for");
   if (forwardedFor) {
     const ip = forwardedFor.split(",")[0]?.trim();
     if (ip) return ip;
   }
 
   // Check x-real-ip header
-  const realIP = request.headers.get("x-real-ip");
+  const realIP = headers.get("x-real-ip");
   if (realIP) {
     return realIP.trim();
   }

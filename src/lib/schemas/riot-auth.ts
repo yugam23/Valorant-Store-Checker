@@ -55,4 +55,4 @@ export const AuthResponseSchema = z.object({
       uri: z.string().optional(),
     }).optional(),
   }).optional(),
-}).strict();
+}).strip();

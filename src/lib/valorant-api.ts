@@ -49,6 +49,7 @@ const CACHE_TTL_SECONDS = 24 * 60 * 60;
  * Never throws — callers proceed with uncached data on failure.
  */
 async function setCache<T>(key: string, data: T): Promise<void> {
+  if (!redis) return;
   try {
     const payload = JSON.stringify({ data, timestamp: Date.now() });
     await redis.set(key, payload, { ex: CACHE_TTL_SECONDS });
@@ -62,6 +63,7 @@ async function setCache<T>(key: string, data: T): Promise<void> {
  * Returns null if not found or expired
  */
 async function getCache<T>(key: string): Promise<{ data: T; timestamp: number } | null> {
+  if (!redis) return null;
   const raw = await redis.get<string>(key);
   if (!raw) return null;
 
@@ -510,6 +512,7 @@ export async function getWeaponSkinsByLevelUuids(
  * Get stale cache data without TTL check (used for stale-while-revalidate)
  */
 async function getStaleCache<T>(key: string): Promise<T | null> {
+  if (!redis) return null;
   const raw = await redis.get<string>(key);
   if (!raw) return null;
 
@@ -568,6 +571,7 @@ export async function getCompetitiveTierIconByTier(tierId: number): Promise<stri
  * Clear all caches (useful for testing or manual refresh)
  */
 export async function clearCache(): Promise<void> {
+  if (!redis) return;
   await redis.del(KEYS.skins);
   await redis.del(KEYS.tiers);
   await redis.del(KEYS.bundles);

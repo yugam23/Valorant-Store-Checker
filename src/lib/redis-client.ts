@@ -10,22 +10,33 @@
  */
 
 import { Redis } from "@upstash/redis";
+import { createLogger } from "./logger";
+
+const log = createLogger("Redis");
 
 // ---------------------------------------------------------------------------
 // Global singleton (Next.js hot-reload safe)
 // ---------------------------------------------------------------------------
 
 declare global {
-  var __redis: Redis | undefined;
+  var __redis: Redis | null | undefined;
 }
 
-function getRedisClient(): Redis {
-  if (!global.__redis) {
-    global.__redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL!,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-      automaticDeserialization: false,
-    });
+function getRedisClient(): Redis | null {
+  if (global.__redis === undefined) {
+    const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+    const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    if (!redisUrl || !redisToken) {
+      log.warn("UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set — Redis disabled");
+      global.__redis = null;
+    } else {
+      global.__redis = new Redis({
+        url: redisUrl,
+        token: redisToken,
+        automaticDeserialization: false,
+      });
+    }
   }
   return global.__redis;
 }

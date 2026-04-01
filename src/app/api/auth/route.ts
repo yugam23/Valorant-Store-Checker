@@ -19,7 +19,7 @@ import {
   handleCookieAuth,
   handleBrowserAuth,
 } from "@/lib/auth-handlers";
-import { authRatelimit } from "@/lib/rate-limiter";
+import { rateLimit } from "@/lib/rate-limiter";
 import { getClientIP, addRateLimitHeaders, createRateLimitedResponse } from "@/lib/rate-limit-utils";
 
 const log = createLogger("Auth API");
@@ -27,7 +27,7 @@ const log = createLogger("Auth API");
 export async function POST(request: NextRequest) {
   // Rate limit check before any auth processing
   const ip = getClientIP(request);
-  const { success, limit, remaining, reset } = await authRatelimit.limit(ip);
+  const { success, limit, remaining, reset } = await rateLimit(ip);
   if (!success) {
     return createRateLimitedResponse({ limit, remaining, reset });
   }
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         return addRateLimitHeaders(response, { limit, remaining, reset });
       }
       case "cookie": {
-        const response = await handleCookieAuth(body);
+        const response = await handleCookieAuth(body, request.headers);
         return addRateLimitHeaders(response, { limit, remaining, reset });
       }
       case "multifactor": {

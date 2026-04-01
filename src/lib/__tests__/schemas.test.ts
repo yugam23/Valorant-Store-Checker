@@ -156,12 +156,13 @@ describe("AuthResponseSchema", () => {
   });
 
   // Negative validation tests
-  it("unknown fields: fails validation (no passthrough)", () => {
+  it("unknown fields: stripped and passes validation", () => {
     const result = AuthResponseSchema.safeParse({
       type: "response",
       unknownField: "value",
     });
-    expect(result.success).toBe(false);
+    // .strip() silently removes unknown fields instead of rejecting
+    expect(result.success).toBe(true);
   });
 
   it("empty string for accessToken: fails validation", () => {

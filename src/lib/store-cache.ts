@@ -32,6 +32,8 @@ const MAX_CACHE_ENTRIES = 10;
 export async function getCachedStore(puuid: string): Promise<StoreData | null> {
   const key = `${STORE_KEY_PREFIX}${puuid}`;
 
+  if (!redis) return null;
+
   let cached: string | null;
   try {
     cached = await redis.get<string>(key);
@@ -47,14 +49,14 @@ export async function getCachedStore(puuid: string): Promise<StoreData | null> {
     entry = JSON.parse(cached) as CacheEntry;
   } catch {
     // Malformed JSON — treat as miss
-    await redis.del(key);
+    if (redis) await redis.del(key);
     return null;
   }
 
   // Check if the store has rotated (expiresAt has passed)
   const expiresAt = new Date(entry.data.expiresAt).getTime();
   if (Date.now() > expiresAt) {
-    await redis.del(key);
+    if (redis) await redis.del(key);
     return null;
   }
 
@@ -67,6 +69,8 @@ export async function getCachedStore(puuid: string): Promise<StoreData | null> {
  */
 export async function setCachedStore(puuid: string, data: StoreData): Promise<void> {
   const key = `${STORE_KEY_PREFIX}${puuid}`;
+
+  if (!redis) return;
 
   // FIFO eviction: if adding a new entry and at capacity, evict oldest
   if (!(await redis.exists(key))) {
@@ -95,6 +99,7 @@ export async function setCachedStore(puuid: string, data: StoreData): Promise<vo
  * Clear cached store data for a player's PUUID.
  */
 export async function clearCachedStore(puuid: string): Promise<void> {
+  if (!redis) return;
   const key = `${STORE_KEY_PREFIX}${puuid}`;
   await redis.del(key);
 }
@@ -107,6 +112,7 @@ export async function clearCachedStore(puuid: string): Promise<void> {
  * Get cache size by scanning for store:* keys.
  */
 async function getCacheSize(): Promise<number> {
+  if (!redis) return 0;
   let cursor = "0";
   let count = 0;
 
@@ -126,6 +132,7 @@ async function getCacheSize(): Promise<number> {
  * Evict the entry with the oldest cachedAt timestamp.
  */
 async function evictOldestEntry(): Promise<void> {
+  if (!redis) return;
   let oldestKey: string | null = null;
   let oldestCachedAt = Infinity;
 

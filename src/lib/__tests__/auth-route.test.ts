@@ -37,8 +37,16 @@ vi.mock("@/lib/rate-limiter", () => ({
       limit: 10,
       remaining: 9,
       reset: Date.now() + 60000,
+      pending: Promise.resolve(0),
     }),
   },
+  rateLimit: vi.fn().mockResolvedValue({
+    success: true,
+    limit: 10,
+    remaining: 9,
+    reset: Date.now() + 60000,
+    pending: Promise.resolve(0),
+  }),
 }));
 
 vi.mock("@/lib/rate-limit-utils", () => ({
@@ -234,12 +242,13 @@ describe("POST /api/auth — invalid body", () => {
 
 describe("POST /api/auth — rate limiting", () => {
   it("returns 429 when rate limit is exceeded", async () => {
-    const { authRatelimit } = await import("@/lib/rate-limiter");
-    vi.mocked(authRatelimit.limit).mockResolvedValueOnce({
+    const { rateLimit } = await import("@/lib/rate-limiter");
+    vi.mocked(rateLimit).mockResolvedValueOnce({
       success: false,
       limit: 10,
       remaining: 0,
       reset: Date.now() + 60000,
+      pending: Promise.resolve(0),
     });
 
     const res = await POST(

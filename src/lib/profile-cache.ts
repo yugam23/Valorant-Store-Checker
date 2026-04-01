@@ -94,10 +94,12 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
 
   // Tier 0: Fresh cache hit — serve without hitting any APIs (INFR-03)
   let cached: string | null = null;
-  try {
-    cached = await redis.get<string>(key);
-  } catch {
-    // Redis error (timeout, connection failure) — treat as cache miss
+  if (redis) {
+    try {
+      cached = await redis.get<string>(key);
+    } catch {
+      // Redis error (timeout, connection failure) — treat as cache miss
+    }
   }
   if (cached) {
     try {
@@ -109,7 +111,7 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
       }
     } catch {
       // Malformed cache entry, treat as miss
-      await redis.del(key);
+      if (redis) await redis.del(key);
     }
   }
 
@@ -192,7 +194,7 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
   // Tier 1 success: at least some real data was obtained
   if (!profile.partial) {
     const entry: ProfileCacheEntry = { data: profile, cachedAt: Date.now() };
-    await redis.set(key, JSON.stringify(entry), { ex: PROFILE_CACHE_TTL_SECONDS });
+    if (redis) await redis.set(key, JSON.stringify(entry), { ex: PROFILE_CACHE_TTL_SECONDS });
     log.info("Profile fetched successfully for PUUID:", tokens.puuid.substring(0, 8));
     return profile;
   }
@@ -219,6 +221,7 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
  * If no puuid is provided, clears all cached profiles.
  */
 export async function clearProfileCache(puuid?: string): Promise<void> {
+  if (!redis) return;
   if (puuid) {
     const key = `${PROFILE_KEY_PREFIX}${puuid}`;
     await redis.del(key);

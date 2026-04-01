@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
 import { removeAccount, getActiveAccount } from "@/lib/accounts";
 import { clearCachedStore } from "@/lib/store-cache";
-import { authRatelimit } from "@/lib/rate-limiter";
+import { rateLimit } from "@/lib/rate-limiter";
 import { getClientIP, addRateLimitHeaders, createRateLimitedResponse } from "@/lib/rate-limit-utils";
 
 export async function POST(request: NextRequest) {
   // Rate limit check before processing logout
   const ip = getClientIP(request);
-  const { success, limit, remaining, reset } = await authRatelimit.limit(ip);
+  const { success, limit, remaining, reset } = await rateLimit(ip);
   if (!success) {
     return createRateLimitedResponse({ limit, remaining, reset });
   }

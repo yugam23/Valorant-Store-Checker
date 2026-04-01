@@ -9,6 +9,7 @@ vi.mock("@/lib/rate-limiter", () => ({
   authRatelimit: {
     limit: vi.fn(),
   },
+  rateLimit: vi.fn(),
 }));
 
 vi.mock("@/lib/rate-limit-utils", () => ({
@@ -61,12 +62,13 @@ beforeEach(() => {
 
 describe("POST /api/auth/logout", () => {
   it("success: rate limit passes, session exists, clears store, removes account, returns 200 with rate limit headers", async () => {
-    const { authRatelimit } = await import("@/lib/rate-limiter");
-    vi.mocked(authRatelimit.limit).mockResolvedValue({
+    const { rateLimit } = await import("@/lib/rate-limiter");
+    vi.mocked(rateLimit).mockResolvedValue({
       success: true,
       limit: 10,
       remaining: 9,
       reset: Date.now() + 60000,
+      pending: Promise.resolve(0),
     });
 
     const { getSession } = await import("@/lib/session");
@@ -95,13 +97,14 @@ describe("POST /api/auth/logout", () => {
     expect(addRateLimitHeaders).toHaveBeenCalled();
   });
 
-  it("rate limited: authRatelimit.limit returns success:false, returns 429 via createRateLimitedResponse", async () => {
-    const { authRatelimit } = await import("@/lib/rate-limiter");
-    vi.mocked(authRatelimit.limit).mockResolvedValue({
+  it("rate limited: rateLimit returns success:false, returns 429 via createRateLimitedResponse", async () => {
+    const { rateLimit } = await import("@/lib/rate-limiter");
+    vi.mocked(rateLimit).mockResolvedValue({
       success: false,
       limit: 10,
       remaining: 0,
       reset: Date.now() + 60000,
+      pending: Promise.resolve(0),
     });
 
     const { createRateLimitedResponse: _createRateLimitedResponse } = await import("@/lib/rate-limit-utils");
@@ -118,12 +121,13 @@ describe("POST /api/auth/logout", () => {
   });
 
   it("no active session: getSession returns null, skips clearCachedStore, still returns 200", async () => {
-    const { authRatelimit } = await import("@/lib/rate-limiter");
-    vi.mocked(authRatelimit.limit).mockResolvedValue({
+    const { rateLimit } = await import("@/lib/rate-limiter");
+    vi.mocked(rateLimit).mockResolvedValue({
       success: true,
       limit: 10,
       remaining: 9,
       reset: Date.now() + 60000,
+      pending: Promise.resolve(0),
     });
 
     const { getSession } = await import("@/lib/session");
@@ -140,12 +144,13 @@ describe("POST /api/auth/logout", () => {
   });
 
   it("no active account: getActiveAccount returns null, skips removeAccount, still returns 200", async () => {
-    const { authRatelimit } = await import("@/lib/rate-limiter");
-    vi.mocked(authRatelimit.limit).mockResolvedValue({
+    const { rateLimit } = await import("@/lib/rate-limiter");
+    vi.mocked(rateLimit).mockResolvedValue({
       success: true,
       limit: 10,
       remaining: 9,
       reset: Date.now() + 60000,
+      pending: Promise.resolve(0),
     });
 
     const { getSession } = await import("@/lib/session");
@@ -165,13 +170,14 @@ describe("POST /api/auth/logout", () => {
   });
 
   it("response includes X-RateLimit-* headers via addRateLimitHeaders", async () => {
-    const { authRatelimit } = await import("@/lib/rate-limiter");
+    const { rateLimit } = await import("@/lib/rate-limiter");
     const resetTime = Date.now() + 60000;
-    vi.mocked(authRatelimit.limit).mockResolvedValue({
+    vi.mocked(rateLimit).mockResolvedValue({
       success: true,
       limit: 10,
       remaining: 9,
       reset: resetTime,
+      pending: Promise.resolve(0),
     });
 
     const { getSession } = await import("@/lib/session");
