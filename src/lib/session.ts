@@ -173,8 +173,17 @@ export async function getSession(): Promise<SessionData | null> {
  * For general session data access, use getSession() instead.
  */
 export async function getCurrentSessionId(): Promise<string | null> {
-  const result = await getSessionInternal();
-  return result?.sessionId ?? null;
+  // Read sessionId directly from JWT — no DB round-trip needed
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) return null;
+
+  try {
+    const { payload } = await jwtVerify(token, getSecretKey());
+    return (payload as SessionTokenPayload).sessionId ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

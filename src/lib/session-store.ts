@@ -8,7 +8,9 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('session-store');
 
-let warnedNoKey = false;
+// Use global to survive Next.js hot-reload — warning fires once per process
+const _warnedKeys: Record<string, boolean> = (global as unknown as Record<string, Record<string, boolean>>).__sessionStoreWarnedKeys ?? {};
+(global as unknown as Record<string, Record<string, boolean>>).__sessionStoreWarnedKeys = _warnedKeys;
 
 function getEncryptionKey(): string | null {
   const key = env.ENCRYPTION_KEY;
@@ -16,14 +18,17 @@ function getEncryptionKey(): string | null {
     if (process.env.NODE_ENV === "production") {
       throw new Error("ENCRYPTION_KEY required in production — generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"");
     }
-    if (!warnedNoKey) {
+    if (!_warnedKeys['noKey']) {
       log.warn('ENCRYPTION_KEY not set — using fallback key. Generate a production key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
-      warnedNoKey = true;
+      _warnedKeys['noKey'] = true;
     }
     return '0'.repeat(64);
   }
   if (key.length !== 64) {
-    log.error('ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
+    if (!_warnedKeys['badKey']) {
+      log.error('ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
+      _warnedKeys['badKey'] = true;
+    }
     return null;
   }
   return key;

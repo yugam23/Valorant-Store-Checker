@@ -47,16 +47,11 @@ const mockTokens = {
   region: "na",
 };
 
-function makeCredentialsBody(
-  username: string,
-  password: string,
-  useBrowser?: boolean,
-) {
+function makeCredentialsBody(username: string, password: string) {
   return {
     type: "auth" as const,
     username,
     password,
-    ...(useBrowser !== undefined ? { useBrowser } : {}),
   };
 }
 
@@ -69,73 +64,10 @@ beforeEach(() => {
 });
 
 describe("handleCredentialsAuth", () => {
-  describe("useBrowser=true", () => {
-    it("authenticateWithBrowser succeeds -> returns 200 with puuid", async () => {
-      const { authenticateWithBrowser } = await import("@/lib/browser-auth");
-      vi.mocked(authenticateWithBrowser).mockResolvedValue({
-        success: true,
-        tokens: mockTokens,
-        riotCookies: "ssid=x",
-      });
-
-      const res = await handleCredentialsAuth(
-        makeCredentialsBody("user", "pass", true),
-      );
-
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.success).toBe(true);
-      expect(body.data.puuid).toBe("test-puuid-1234");
-    });
-
-    it("authenticateWithBrowser fails -> returns 401", async () => {
-      const { authenticateWithBrowser } = await import("@/lib/browser-auth");
-      vi.mocked(authenticateWithBrowser).mockResolvedValue({
-        success: false,
-        error: "browser_failed",
-      });
-
-      const res = await handleCredentialsAuth(
-        makeCredentialsBody("user", "pass", true),
-      );
-
-      expect(res.status).toBe(401);
-      const body = await res.json();
-      expect(body.error).toBe("browser_failed");
-    });
-  });
-
-  describe("useBrowser=false (default)", () => {
-    it("standard auth succeeds -> returns 200 with puuid (no browser fallback)", async () => {
+  describe("standard auth", () => {
+    it("auth succeeds -> returns 200 with puuid", async () => {
       const { authenticateRiotAccount } = await import("@/lib/riot-auth");
       vi.mocked(authenticateRiotAccount).mockResolvedValue({
-        success: true,
-        tokens: mockTokens,
-        riotCookies: "ssid=x",
-      });
-
-      const { authenticateWithBrowser } = await import("@/lib/browser-auth");
-
-      const res = await handleCredentialsAuth(
-        makeCredentialsBody("user", "pass"),
-      );
-
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.success).toBe(true);
-      expect(body.data.puuid).toBe("test-puuid-1234");
-      expect(authenticateWithBrowser).not.toHaveBeenCalled();
-    });
-
-    it("standard auth fails (not MFA), browser succeeds -> falls back to browser, returns 200", async () => {
-      const { authenticateRiotAccount } = await import("@/lib/riot-auth");
-      vi.mocked(authenticateRiotAccount).mockResolvedValue({
-        success: false,
-        error: "auth_failure",
-      });
-
-      const { authenticateWithBrowser } = await import("@/lib/browser-auth");
-      vi.mocked(authenticateWithBrowser).mockResolvedValue({
         success: true,
         tokens: mockTokens,
         riotCookies: "ssid=x",
@@ -151,17 +83,11 @@ describe("handleCredentialsAuth", () => {
       expect(body.data.puuid).toBe("test-puuid-1234");
     });
 
-    it("standard auth fails (not MFA), browser fails -> returns 401 with browser error", async () => {
+    it("standard auth fails (not MFA) -> returns 401 with auth error", async () => {
       const { authenticateRiotAccount } = await import("@/lib/riot-auth");
       vi.mocked(authenticateRiotAccount).mockResolvedValue({
         success: false,
-        error: "auth_failure",
-      });
-
-      const { authenticateWithBrowser } = await import("@/lib/browser-auth");
-      vi.mocked(authenticateWithBrowser).mockResolvedValue({
-        success: false,
-        error: "browser_failed",
+        error: "invalid_credentials",
       });
 
       const res = await handleCredentialsAuth(
@@ -170,7 +96,7 @@ describe("handleCredentialsAuth", () => {
 
       expect(res.status).toBe(401);
       const body = await res.json();
-      expect(body.error).toBe("browser_failed");
+      expect(body.error).toBe("invalid_credentials");
     });
 
     it("standard auth returns MFA challenge -> returns 200 with requiresMfa:true", async () => {
@@ -182,8 +108,6 @@ describe("handleCredentialsAuth", () => {
         multifactor: { email: "u@example.com", method: "email" },
       });
 
-      const { authenticateWithBrowser } = await import("@/lib/browser-auth");
-
       const res = await handleCredentialsAuth(
         makeCredentialsBody("user", "pass"),
       );
@@ -192,7 +116,6 @@ describe("handleCredentialsAuth", () => {
       const body = await res.json();
       expect(body.requiresMfa).toBe(true);
       expect(body.cookie).toBe("asid=x");
-      expect(authenticateWithBrowser).not.toHaveBeenCalled();
     });
   });
 

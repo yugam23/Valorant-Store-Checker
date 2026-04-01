@@ -480,21 +480,28 @@ export async function getWeaponSkinsByLevelUuids(
 
   const normalizedUuids = new Set(levelUuids.map((uuid) => uuid.toLowerCase()));
 
-  for (const skin of skins) {
-    // Check if any of this skin's level UUIDs match the requested UUIDs
-    if (skin.levels) {
-      for (const level of skin.levels) {
-        if (normalizedUuids.has(level.uuid.toLowerCase())) {
-          result.set(level.uuid.toLowerCase(), skin);
+  // Track which skin UUIDs we've already added to avoid duplicate entries
+    const addedSkinUuids = new Set<string>();
+
+    for (const skin of skins) {
+      // Check the parent skin UUID itself
+      if (normalizedUuids.has(skin.uuid.toLowerCase())) {
+        result.set(skin.uuid.toLowerCase(), skin);
+        addedSkinUuids.add(skin.uuid.toLowerCase());
+        continue;
+      }
+
+      // Check if any of this skin's level UUIDs match
+      const matchingLevel = skin.levels?.find((level) =>
+        normalizedUuids.has(level.uuid.toLowerCase())
+      );
+      if (matchingLevel) {
+        // Use level UUID as key, but don't overwrite if skin UUID was already added
+        if (!addedSkinUuids.has(skin.uuid.toLowerCase())) {
+          result.set(matchingLevel.uuid.toLowerCase(), skin);
         }
       }
     }
-
-    // Also check the parent skin UUID itself (some entitlements may use it)
-    if (normalizedUuids.has(skin.uuid.toLowerCase())) {
-      result.set(skin.uuid.toLowerCase(), skin);
-    }
-  }
 
   return result;
 }
