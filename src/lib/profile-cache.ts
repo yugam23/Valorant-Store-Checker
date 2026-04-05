@@ -142,13 +142,17 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     mmrResult.status === "rejected" ||
     (accountResult.status === "fulfilled" && !accountResult.value && mmrResult.status === "fulfilled" && !mmrResult.value);
 
-  // If loadout succeeded, hydrate card and title UUIDs to display data
+  // If loadout succeeded, hydrate card, title, and tier icon in parallel
   let cardData = null;
   let titleData = null;
+  let tierIcon: string | null = null;
   if (loadout) {
-    [cardData, titleData] = await Promise.all([
+    [cardData, titleData, tierIcon] = await Promise.all([
       getPlayerCardByUuid(loadout.Identity.PlayerCardID),
       getPlayerTitleByUuid(loadout.Identity.PlayerTitleID),
+      mmr?.current?.tier?.id !== undefined
+        ? getCompetitiveTierIconByTier(mmr.current.tier.id)
+        : Promise.resolve(null),
     ]);
   }
 
@@ -185,11 +189,8 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
     henrikFailed,
   };
 
-  // Hydrate competitive tier icon from valorant-api.com (v3 MMR no longer provides images)
-  if (profile.competitiveTier !== undefined) {
-    const tierIcon = await getCompetitiveTierIconByTier(profile.competitiveTier);
-    if (tierIcon) profile.competitiveTierIcon = tierIcon;
-  }
+  // Apply tier icon if we fetched it in parallel above
+  if (tierIcon) profile.competitiveTierIcon = tierIcon;
 
   // Tier 1 success: at least some real data was obtained
   if (!profile.partial) {

@@ -46,6 +46,7 @@ let _skinsCache: ValorantWeaponSkin[] | null = null;
 const _skinsByUuid = new Map<string, ValorantWeaponSkin>();
 const _skinsByLevelUuid = new Map<string, ValorantWeaponSkin>();
 const _skinsByChromaUuid = new Map<string, ValorantWeaponSkin>();
+let _tiersCache: ValorantContentTier[] | null = null;
 
 /** Reset the skins cache — for testing only */
 export function _resetSkinsCache(): void {
@@ -53,6 +54,11 @@ export function _resetSkinsCache(): void {
   _skinsByUuid.clear();
   _skinsByLevelUuid.clear();
   _skinsByChromaUuid.clear();
+}
+
+/** Reset the tiers cache — for testing only */
+export function _resetTiersCache(): void {
+  _tiersCache = null;
 }
 
 /**
@@ -163,10 +169,13 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
 
 /**
  * Fetch all content tiers (rarity levels) from Valorant-API
- * Results are cached in Redis for 24 hours
+ * Results are cached in Redis for 24 hours and in-memory for O(1) lookups
  */
 export async function getContentTiers(): Promise<ValorantContentTier[]> {
-  return fetchAndCache(KEYS.tiers, `${VALORANT_API_BASE}/contenttiers`, ValorantContentTierSchema.array(), "getContentTiers");
+  if (_tiersCache) return _tiersCache;
+  const tiers = await fetchAndCache(KEYS.tiers, `${VALORANT_API_BASE}/contenttiers`, ValorantContentTierSchema.array(), "getContentTiers");
+  _tiersCache = tiers;
+  return tiers;
 }
 
 /**

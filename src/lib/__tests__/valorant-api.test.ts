@@ -40,6 +40,7 @@ const {
   getBuddyLevelByUuid,
   getSprayByUuid,
   _resetSkinsCache,
+  _resetTiersCache,
 } = await import("@/lib/valorant-api");
 
 // ---------------------------------------------------------------------------
@@ -137,8 +138,9 @@ beforeEach(() => {
   vi.restoreAllMocks();
   // Default successful return values for set
   mockRedisSet.mockResolvedValue("OK");
-  // Reset module-level skins cache so tests are isolated
+  // Reset module-level caches so tests are isolated
   _resetSkinsCache();
+  _resetTiersCache();
 });
 
 describe("getWeaponSkins", () => {

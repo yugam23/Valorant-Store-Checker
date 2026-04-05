@@ -23,6 +23,7 @@ interface CacheEntry {
 }
 
 const STORE_KEY_PREFIX = "store:";
+const STORE_ORDER_KEY = "store:order"; // Sorted set for FIFO eviction — O(1) trim
 const MAX_CACHE_ENTRIES = 10;
 
 /**
@@ -65,34 +66,33 @@ export async function getCachedStore(puuid: string): Promise<StoreData | null> {
 
 /**
  * Cache store data for a player's PUUID.
- * Implements FIFO eviction when at capacity (10 entries).
+ * Uses a Redis Sorted Set for O(1) FIFO eviction — no SCAN needed.
  */
 export async function setCachedStore(puuid: string, data: StoreData): Promise<void> {
-  const key = `${STORE_KEY_PREFIX}${puuid}`;
-
   if (!redis) return;
 
-  // FIFO eviction: if adding a new entry and at capacity, evict oldest
-  if (!(await redis.exists(key))) {
-    const currentSize = await getCacheSize();
-    if (currentSize >= MAX_CACHE_ENTRIES) {
-      await evictOldestEntry();
-    }
-  }
-
-  const entry: CacheEntry = { data, cachedAt: Date.now() };
+  const key = `${STORE_KEY_PREFIX}${puuid}`;
 
   // Calculate TTL in seconds based on expiresAt
   const expiresAtMs = new Date(data.expiresAt).getTime();
   const ttlSeconds = Math.ceil((expiresAtMs - Date.now()) / 1000);
 
-  // Only set TTL if it's in the future
-  if (ttlSeconds > 0) {
-    await redis.set(key, JSON.stringify(entry), { ex: ttlSeconds });
-  } else {
-    // If expiresAt is in the past, don't cache it
+  // If expiresAt is in the past, don't cache it
+  if (ttlSeconds <= 0) {
     await redis.del(key);
+    return;
   }
+
+  const entry: CacheEntry = { data, cachedAt: Date.now() };
+
+  // Atomic: set value + add to sorted set + trim to MAX_CACHE_ENTRIES
+  // ZADD with score=timestamp for ordering, ZREMRANGEBYRANK to evict oldest
+  const pipeline = redis.pipeline();
+  pipeline.set(key, JSON.stringify(entry), { ex: ttlSeconds });
+  pipeline.zadd(STORE_ORDER_KEY, { score: Date.now(), member: puuid });
+  // Keep the newest MAX_CACHE_ENTRIES entries (negative indices = from end)
+  pipeline.zremrangebyrank(STORE_ORDER_KEY, 0, -(MAX_CACHE_ENTRIES + 1));
+  await pipeline.exec();
 }
 
 /**
@@ -101,67 +101,8 @@ export async function setCachedStore(puuid: string, data: StoreData): Promise<vo
 export async function clearCachedStore(puuid: string): Promise<void> {
   if (!redis) return;
   const key = `${STORE_KEY_PREFIX}${puuid}`;
-  await redis.del(key);
-}
-
-// ---------------------------------------------------------------------------
-// Helper functions
-// ---------------------------------------------------------------------------
-
-/**
- * Get cache size by scanning for store:* keys.
- */
-async function getCacheSize(): Promise<number> {
-  if (!redis) return 0;
-  let cursor = "0";
-  let count = 0;
-
-  do {
-    const [nextCursor, keys] = await redis.scan(cursor, {
-      match: `${STORE_KEY_PREFIX}*`,
-      count: 100,
-    });
-    cursor = nextCursor;
-    count += keys.length;
-  } while (cursor !== "0");
-
-  return count;
-}
-
-/**
- * Evict the entry with the oldest cachedAt timestamp.
- */
-async function evictOldestEntry(): Promise<void> {
-  if (!redis) return;
-  let oldestKey: string | null = null;
-  let oldestCachedAt = Infinity;
-
-  let cursor = "0";
-
-  do {
-    const [nextCursor, keys] = await redis.scan(cursor, {
-      match: `${STORE_KEY_PREFIX}*`,
-      count: 100,
-    });
-    cursor = nextCursor;
-
-    for (const key of keys) {
-      const cached = await redis.get<string>(key);
-      if (cached) {
-        try {
-          const entry: CacheEntry = JSON.parse(cached) as CacheEntry;
-          if (entry.cachedAt < oldestCachedAt) {
-            oldestCachedAt = entry.cachedAt;
-            oldestKey = key;
-          }
-        } catch {
-          // Malformed entry, skip
-        }
-      }
-    }
-  } while (cursor !== "0");
-
-  if (oldestKey) {
-    await redis.del(oldestKey);
-  }
+  const pipeline = redis.pipeline();
+  pipeline.del(key);
+  pipeline.zrem(STORE_ORDER_KEY, puuid);
+  await pipeline.exec();
 }
