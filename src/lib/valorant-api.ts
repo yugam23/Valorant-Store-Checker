@@ -44,11 +44,15 @@ const CACHE_TTL_SECONDS = 24 * 60 * 60;
 // Module-level caches for O(1) lookups
 let _skinsCache: ValorantWeaponSkin[] | null = null;
 const _skinsByUuid = new Map<string, ValorantWeaponSkin>();
+const _skinsByLevelUuid = new Map<string, ValorantWeaponSkin>();
+const _skinsByChromaUuid = new Map<string, ValorantWeaponSkin>();
 
 /** Reset the skins cache — for testing only */
 export function _resetSkinsCache(): void {
   _skinsCache = null;
   _skinsByUuid.clear();
+  _skinsByLevelUuid.clear();
+  _skinsByChromaUuid.clear();
 }
 
 /**
@@ -143,8 +147,16 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
   const skins = await fetchAndCache(KEYS.skins, `${VALORANT_API_BASE}/weapons/skins`, ValorantWeaponSkinSchema.array(), "getWeaponSkins");
   _skinsCache = skins;
   _skinsByUuid.clear();
+  _skinsByLevelUuid.clear();
+  _skinsByChromaUuid.clear();
   for (const skin of skins) {
     _skinsByUuid.set(skin.uuid.toLowerCase(), skin);
+    for (const level of skin.levels ?? []) {
+      _skinsByLevelUuid.set(level.uuid.toLowerCase(), skin);
+    }
+    for (const chroma of skin.chromas ?? []) {
+      _skinsByChromaUuid.set(chroma.uuid.toLowerCase(), skin);
+    }
   }
   return skins;
 }
@@ -394,39 +406,39 @@ export async function getWeaponSkinsByUuids(
 /**
  * Batch fetch weapon skins by their LEVEL UUIDs
  * The Riot entitlements API returns skin level UUIDs as ItemIDs,
- * not the parent skin UUIDs. This function builds a reverse lookup
- * map from level UUID → parent skin object.
+ * not the parent skin UUIDs. O(1) lookups via pre-built _skinsByLevelUuid Map.
  */
 export async function getWeaponSkinsByLevelUuids(
   levelUuids: string[]
 ): Promise<Map<string, ValorantWeaponSkin>> {
-  const skins = await getWeaponSkins();
+  await getWeaponSkins(); // Ensure cache is warm
   const result = new Map<string, ValorantWeaponSkin>();
 
-  const normalizedUuids = new Set(levelUuids.map((uuid) => uuid.toLowerCase()));
+  // Track which parent skin UUIDs we've already added to avoid duplicate entries
+  const addedSkinUuids = new Set<string>();
 
-  // Track which skin UUIDs we've already added to avoid duplicate entries
-    const addedSkinUuids = new Set<string>();
+  for (const uuid of levelUuids) {
+    const normalized = uuid.toLowerCase();
 
-    for (const skin of skins) {
-      // Check the parent skin UUID itself
-      if (normalizedUuids.has(skin.uuid.toLowerCase())) {
-        result.set(skin.uuid.toLowerCase(), skin);
-        addedSkinUuids.add(skin.uuid.toLowerCase());
-        continue;
-      }
+    // First try level UUID → skin (most common case for entitlements)
+    let skin = _skinsByLevelUuid.get(normalized);
 
-      // Check if any of this skin's level UUIDs match
-      const matchingLevel = skin.levels?.find((level) =>
-        normalizedUuids.has(level.uuid.toLowerCase())
-      );
-      if (matchingLevel) {
-        // Use level UUID as key, but don't overwrite if skin UUID was already added
-        if (!addedSkinUuids.has(skin.uuid.toLowerCase())) {
-          result.set(matchingLevel.uuid.toLowerCase(), skin);
-        }
-      }
+    // Fall back to direct skin UUID lookup (covers the case where the
+    // entitlement ItemID is already the parent skin UUID)
+    if (!skin) {
+      skin = _skinsByUuid.get(normalized);
     }
+
+    // Fall back to chroma UUID lookup (entitlements can return chroma ItemIDs)
+    if (!skin) {
+      skin = _skinsByChromaUuid.get(normalized);
+    }
+
+    if (skin && !addedSkinUuids.has(skin.uuid.toLowerCase())) {
+      addedSkinUuids.add(skin.uuid.toLowerCase());
+      result.set(normalized, skin);
+    }
+  }
 
   return result;
 }

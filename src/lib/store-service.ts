@@ -204,84 +204,110 @@ async function hydrateSingleBundle(
     log.warn("Bundle %s not found in valorant-api.com — using fallback display data", rawBundle.DataAssetID);
   }
 
-  // Hydrate bundle items
-  const bundleItems: BundleItem[] = (await Promise.all(
-    rawBundle.Items.map(async (item): Promise<BundleItem | null> => {
-      const itemTypeId = item.Item.ItemTypeID;
-      const itemId = item.Item.ItemID;
-      const itemTypeName = getItemTypeName(itemTypeId) ?? "Unknown";
+  // Separate skin items (fast in-memory lookup) from non-skin items (batch-fetch)
+  const skinItems = rawBundle.Items.filter((i) => i.Item.ItemTypeID === ITEM_TYPE_WEAPON_SKIN);
+  const nonSkinItems = rawBundle.Items.filter((i) => i.Item.ItemTypeID !== ITEM_TYPE_WEAPON_SKIN);
 
-      let displayName = itemTypeName !== "Unknown" ? `New ${itemTypeName}` : "Unknown Item";
-      let displayIcon = "";
-      let tierUuid: string | null = null;
-      let tierName: string | null = null;
-      let tierColor = DEFAULT_TIER_COLOR;
+  // Group non-skin items by type and batch-fetch metadata in parallel
+  const buddyItems = nonSkinItems.filter((i) => i.Item.ItemTypeID === ITEM_TYPE_BUDDY);
+  const sprayItems = nonSkinItems.filter((i) => i.Item.ItemTypeID === ITEM_TYPE_SPRAY);
+  const cardItems = nonSkinItems.filter((i) => i.Item.ItemTypeID === ITEM_TYPE_PLAYER_CARD);
+  const titleItems = nonSkinItems.filter((i) => i.Item.ItemTypeID === ITEM_TYPE_PLAYER_TITLE);
 
-      if (itemTypeId === ITEM_TYPE_WEAPON_SKIN) {
-        // ── Weapon Skin ──
-        const skin = findSkin(itemId, skins);
-        if (skin) {
-          const tier = skin.contentTierUuid ? findTier(skin.contentTierUuid, tiers) : null;
-          tierColor = tier
-            ? (TIER_COLORS[tier.displayName.replace(" Edition", "")] || `#${tier.highlightColor.slice(0, 6)}`)
-            : DEFAULT_TIER_COLOR;
-          tierUuid = tier?.uuid || null;
-          tierName = tier?.displayName || null;
-          displayName = skin.displayName;
-          displayIcon = skin.levels?.[0]?.displayIcon || skin.displayIcon || "";
-        } else {
-          // New skin not yet in static data — use cached fetcher
-          displayName = "New Skin";
-          const skinLevelData = await getSkinLevelByUuid(itemId);
-          if (skinLevelData) {
-            displayName = skinLevelData.displayName || displayName;
-            displayIcon = skinLevelData.displayIcon || "";
-          }
-        }
+  // Fire all batch fetches in parallel — eliminates serial await chain per item type
+  const [buddyData, sprayData, cardData, titleData] = await Promise.all([
+    Promise.all(buddyItems.map((i) => getBuddyLevelByUuid(i.Item.ItemID))),
+    Promise.all(sprayItems.map((i) => getSprayByUuid(i.Item.ItemID))),
+    Promise.all(cardItems.map((i) => getPlayerCardByUuid(i.Item.ItemID))),
+    Promise.all(titleItems.map((i) => getPlayerTitleByUuid(i.Item.ItemID))),
+  ]);
+
+  // Build O(1) lookup maps from itemId → metadata
+  const buddyMap = new Map(buddyItems.map((i, idx) => [i.Item.ItemID, buddyData[idx]]));
+  const sprayMap = new Map(sprayItems.map((i, idx) => [i.Item.ItemID, sprayData[idx]]));
+  const cardMap = new Map(cardItems.map((i, idx) => [i.Item.ItemID, cardData[idx]]));
+  const titleMap = new Map(titleItems.map((i, idx) => [i.Item.ItemID, titleData[idx]]));
+
+  // Pre-fetch new skin levels for any skins not found in static data
+  const newSkinItemIds = skinItems.filter((i) => !findSkin(i.Item.ItemID, skins)).map((i) => i.Item.ItemID);
+  const newSkinLevelData = await Promise.all(newSkinItemIds.map((id) => getSkinLevelByUuid(id)));
+  const newSkinLevelMap = new Map(newSkinItemIds.map((id, idx) => [id, newSkinLevelData[idx]]));
+
+  // Hydrate bundle items using pre-fetched metadata
+  const bundleItems: BundleItem[] = rawBundle.Items.map((item) => {
+    const itemTypeId = item.Item.ItemTypeID;
+    const itemId = item.Item.ItemID;
+    const itemTypeName = getItemTypeName(itemTypeId) ?? "Unknown";
+
+    let displayName = itemTypeName !== "Unknown" ? `New ${itemTypeName}` : "Unknown Item";
+    let displayIcon = "";
+    let tierUuid: string | null = null;
+    let tierName: string | null = null;
+    let tierColor = DEFAULT_TIER_COLOR;
+
+    if (itemTypeId === ITEM_TYPE_WEAPON_SKIN) {
+      // ── Weapon Skin: fast in-memory lookup; fallback to cached fetcher for new skins ──
+      const skin = findSkin(itemId, skins);
+      if (skin) {
+        const tier = skin.contentTierUuid ? findTier(skin.contentTierUuid, tiers) : null;
+        tierColor = tier
+          ? (TIER_COLORS[tier.displayName.replace(" Edition", "")] || `#${tier.highlightColor.slice(0, 6)}`)
+          : DEFAULT_TIER_COLOR;
+        tierUuid = tier?.uuid || null;
+        tierName = tier?.displayName || null;
+        displayName = skin.displayName;
+        displayIcon = skin.levels?.[0]?.displayIcon || skin.displayIcon || "";
       } else {
-        // ── Non-skin item: use cached fetchers ──
-        if (itemTypeId === ITEM_TYPE_BUDDY) {
-          const buddyData = await getBuddyLevelByUuid(itemId);
-          if (buddyData) {
-            displayName = buddyData.displayName || displayName;
-            displayIcon = buddyData.displayIcon || "";
-          }
-        } else if (itemTypeId === ITEM_TYPE_SPRAY) {
-          const sprayData = await getSprayByUuid(itemId);
-          if (sprayData) {
-            displayName = sprayData.displayName || displayName;
-            displayIcon = sprayData.displayIcon || sprayData.largeArt || sprayData.wideArt || "";
-          }
-        } else if (itemTypeId === ITEM_TYPE_PLAYER_CARD) {
-          const cardData = await getPlayerCardByUuid(itemId);
-          if (cardData) {
-            displayName = cardData.displayName || displayName;
-            displayIcon = cardData.displayIcon || cardData.largeArt || cardData.wideArt || "";
-          }
-        } else if (itemTypeId === ITEM_TYPE_PLAYER_TITLE) {
-          const titleData = await getPlayerTitleByUuid(itemId);
-          if (titleData) {
-            displayName = titleData.displayName || displayName;
-          }
+        displayName = "New Skin";
+        const skinLevelData = newSkinLevelMap.get(itemId);
+        if (skinLevelData) {
+          displayName = skinLevelData.displayName || displayName;
+          displayIcon = skinLevelData.displayIcon || "";
         }
       }
+    } else {
+      // ── Non-skin item: O(1) lookup via pre-fetched Map ──
+      if (itemTypeId === ITEM_TYPE_BUDDY) {
+        const buddy = buddyMap.get(itemId);
+        if (buddy) {
+          displayName = buddy.displayName || displayName;
+          displayIcon = buddy.displayIcon || "";
+        }
+      } else if (itemTypeId === ITEM_TYPE_SPRAY) {
+        const spray = sprayMap.get(itemId);
+        if (spray) {
+          displayName = spray.displayName || displayName;
+          displayIcon = spray.displayIcon || spray.largeArt || spray.wideArt || "";
+        }
+      } else if (itemTypeId === ITEM_TYPE_PLAYER_CARD) {
+        const card = cardMap.get(itemId);
+        if (card) {
+          displayName = card.displayName || displayName;
+          displayIcon = card.displayIcon || card.largeArt || card.wideArt || "";
+        }
+      } else if (itemTypeId === ITEM_TYPE_PLAYER_TITLE) {
+        const title = titleMap.get(itemId);
+        if (title) {
+          displayName = title.displayName || displayName;
+        }
+      }
+    }
 
-      return {
-        uuid: itemId,
-        displayName,
-        displayIcon,
-        basePrice: item.BasePrice,
-        discountedPrice: item.DiscountedPrice,
-        discountPercent: item.DiscountPercent,
-        currencyId: item.CurrencyID,
-        tierUuid,
-        tierName,
-        tierColor,
-        isPromoItem: item.IsPromoItem,
-        itemType: itemTypeName,
-      };
-    })
-  )).filter((item): item is BundleItem => item !== null);
+    return {
+      uuid: itemId,
+      displayName,
+      displayIcon,
+      basePrice: item.BasePrice,
+      discountedPrice: item.DiscountedPrice,
+      discountPercent: item.DiscountPercent,
+      currencyId: item.CurrencyID,
+      tierUuid,
+      tierName,
+      tierColor,
+      isPromoItem: item.IsPromoItem,
+      itemType: itemTypeName,
+    };
+  }).filter((item): item is BundleItem => item !== null);
 
   if (bundleItems.length === 0) return null;
 

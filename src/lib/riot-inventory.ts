@@ -6,7 +6,7 @@
  */
 
 import { StoreTokens, fetchWithShardFallback } from "@/lib/riot-store";
-import { getWeaponSkinsByLevelUuids, getContentTierByUuid } from "@/lib/valorant-api";
+import { getWeaponSkinsByLevelUuids, getContentTiers } from "@/lib/valorant-api";
 import { InventoryData, OwnedSkin, EditionCategory } from "@/types/inventory";
 import { TIER_COLORS, DEFAULT_TIER_COLOR } from "@/types/store";
 import { ITEM_TYPE_WEAPON_SKIN } from "@/lib/constants";
@@ -142,6 +142,10 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
   const editionMap = new Map<string, string>(); // tierName → tierColor
   const seenSkinUuids = new Set<string>();
 
+  // Pre-fetch ALL content tiers once — eliminates N serial getContentTierByUuid() calls
+  const allTiers = await getContentTiers();
+  const tierMap = new Map(allTiers.map((t) => [t.uuid.toLowerCase(), t]));
+
   for (const uuid of skinUuids) {
     const skin = skinsMap.get(uuid.toLowerCase());
 
@@ -183,9 +187,9 @@ export async function getOwnedSkins(tokens: StoreTokens): Promise<InventoryData>
     // Mark this parent skin as seen
     seenSkinUuids.add(skin.uuid.toLowerCase());
 
-    // Get tier information
+    // Get tier information — O(1) lookup via pre-fetched Map (avoids N+1 serial fetches)
     const tier = skin.contentTierUuid
-      ? await getContentTierByUuid(skin.contentTierUuid)
+      ? tierMap.get(skin.contentTierUuid.toLowerCase()) ?? null
       : null;
 
     const tierColor = tier
