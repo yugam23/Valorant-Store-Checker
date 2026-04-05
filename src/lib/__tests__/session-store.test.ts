@@ -64,8 +64,8 @@ beforeEach(async () => {
 
 describe("saveSessionToStore / getSessionFromStore", () => {
   it("save then get: returns session with matching fields", async () => {
-    await saveSessionToStore("s1", validSession, 3600);
-    const result = await getSessionFromStore("s1");
+    await saveSessionToStore("11111111-1111-1111-1111-111111111111", validSession, 3600);
+    const result = await getSessionFromStore("11111111-1111-1111-1111-111111111111");
 
     expect(result).not.toBeNull();
     expect(result!.accessToken).toBe("test-access-token");
@@ -74,7 +74,7 @@ describe("saveSessionToStore / getSessionFromStore", () => {
   });
 
   it("get non-existent session: returns null", async () => {
-    const result = await getSessionFromStore("nonexistent");
+    const result = await getSessionFromStore("22222222-2222-2222-2222-222222222222");
     expect(result).toBeNull();
   });
 });
@@ -86,19 +86,19 @@ describe("TTL enforcement", () => {
     await testClient.execute({
       sql: "INSERT INTO sessions (id, data, expires_at) VALUES (?, ?, ?)",
       args: [
-        "expired",
+        "33333333-3333-3333-3333-333333333333",
         JSON.stringify(validSession),
         expiredAt,
       ],
     });
 
-    const result = await getSessionFromStore("expired");
+    const result = await getSessionFromStore("33333333-3333-3333-3333-333333333333");
     expect(result).toBeNull();
 
     // Confirm the row was lazily deleted
     const check = await testClient.execute({
       sql: "SELECT id FROM sessions WHERE id = ?",
-      args: ["expired"],
+      args: ["33333333-3333-3333-3333-333333333333"],
     });
     expect(check.rows.length).toBe(0);
   });
@@ -106,10 +106,10 @@ describe("TTL enforcement", () => {
 
 describe("deleteSessionFromStore", () => {
   it("save then delete: get returns null", async () => {
-    await saveSessionToStore("del", validSession, 3600);
-    await deleteSessionFromStore("del");
+    await saveSessionToStore("44444444-4444-4444-4444-444444444444", validSession, 3600);
+    await deleteSessionFromStore("44444444-4444-4444-4444-444444444444");
 
-    const result = await getSessionFromStore("del");
+    const result = await getSessionFromStore("44444444-4444-4444-4444-444444444444");
     expect(result).toBeNull();
   });
 });
@@ -121,25 +121,25 @@ describe("cleanupExpiredSessions", () => {
     // Insert expired session
     await testClient.execute({
       sql: "INSERT INTO sessions (id, data, expires_at) VALUES (?, ?, ?)",
-      args: ["exp-session", JSON.stringify(validSession), now - 5000],
+      args: ["55555555-5555-5555-5555-555555555555", JSON.stringify(validSession), now - 5000],
     });
 
     // Insert valid session
     await testClient.execute({
       sql: "INSERT INTO sessions (id, data, expires_at) VALUES (?, ?, ?)",
-      args: ["valid-session", JSON.stringify(validSession), now + 3_600_000],
+      args: ["66666666-6666-6666-6666-666666666666", JSON.stringify(validSession), now + 3_600_000],
     });
 
     await cleanupExpiredSessions();
 
     // Valid session should remain
-    const valid = await getSessionFromStore("valid-session");
+    const valid = await getSessionFromStore("66666666-6666-6666-6666-666666666666");
     expect(valid).not.toBeNull();
 
     // Expired session should be gone
     const expired = await testClient.execute({
       sql: "SELECT id FROM sessions WHERE id = ?",
-      args: ["exp-session"],
+      args: ["55555555-5555-5555-5555-555555555555"],
     });
     expect(expired.rows.length).toBe(0);
   });
@@ -152,24 +152,24 @@ describe("refreshSessionExpiration", () => {
     // Insert a session with a known expires_at
     await testClient.execute({
       sql: "INSERT INTO sessions (id, data, expires_at) VALUES (?, ?, ?)",
-      args: ["refresh-test", JSON.stringify(validSession), now + 60_000],
+      args: ["77777777-7777-7777-7777-777777777777", JSON.stringify(validSession), now + 60_000],
     });
 
     // Verify initial expires_at
     let row = await testClient.execute({
       sql: "SELECT expires_at FROM sessions WHERE id = ?",
-      args: ["refresh-test"],
+      args: ["77777777-7777-7777-7777-777777777777"],
     });
     const initialExpiresAt = (row.rows[0]!.expires_at as number);
     expect(initialExpiresAt).toBe(now + 60_000);
 
     // Refresh with a longer maxAge
-    await refreshSessionExpiration("refresh-test", 7200); // 2 hours
+    await refreshSessionExpiration("77777777-7777-7777-7777-777777777777", 7200); // 2 hours
 
     // Verify expires_at was updated
     row = await testClient.execute({
       sql: "SELECT expires_at FROM sessions WHERE id = ?",
-      args: ["refresh-test"],
+      args: ["77777777-7777-7777-7777-777777777777"],
     });
     const newExpiresAt = (row.rows[0]!.expires_at as number);
     // Should be approximately Date.now() + 7200*1000
@@ -178,7 +178,7 @@ describe("refreshSessionExpiration", () => {
 
   it("is a no-op for non-existent session (no throw)", async () => {
     // Should not throw even if session doesn't exist
-    await expect(refreshSessionExpiration("nonexistent-session", 3600)).resolves.toBeUndefined();
+    await expect(refreshSessionExpiration("88888888-8888-8888-8888-888888888888", 3600)).resolves.toBeUndefined();
   });
 });
 
@@ -200,13 +200,13 @@ describe("getSessionFromStore — defensive error handling", () => {
       }),
     } as unknown as Awaited<ReturnType<typeof initSessionDb>>);
 
-    const result = await getSessionFromStore("corrupt-id");
+    const result = await getSessionFromStore("99999999-9999-9999-9999-999999999999");
 
     expect(result).toBeNull();
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("[session-store]"),
       expect.stringContaining("corrupt session data"),
-      "corrupt-id",
+      "99999999-9999-9999-9999-999999999999",
     );
   });
 
@@ -215,7 +215,7 @@ describe("getSessionFromStore — defensive error handling", () => {
       execute: vi.fn().mockRejectedValueOnce(new Error("SQLITE_CANTOPEN")),
     } as unknown as Awaited<ReturnType<typeof initSessionDb>>);
 
-    await expect(getSessionFromStore("db-error-id")).rejects.toThrow("SQLITE_CANTOPEN");
+    await expect(getSessionFromStore("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")).rejects.toThrow("SQLITE_CANTOPEN");
   });
 
   it("ERR-03: missing session returns null silently (no warn, no error)", async () => {
@@ -226,7 +226,7 @@ describe("getSessionFromStore — defensive error handling", () => {
       execute: vi.fn().mockResolvedValueOnce({ rows: [] }),
     } as unknown as Awaited<ReturnType<typeof initSessionDb>>);
 
-    const result = await getSessionFromStore("missing-id");
+    const result = await getSessionFromStore("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
     expect(result).toBeNull();
     expect(warnSpy).not.toHaveBeenCalled();
@@ -250,10 +250,10 @@ describe("getSessionFromStore — encrypted riotCookies decryption", () => {
 
     await testClient.execute({
       sql: "INSERT INTO sessions (id, data, expires_at) VALUES (?, ?, ?)",
-      args: ["encrypted-session", JSON.stringify(sessionWithEncrypted), Date.now() + 60_000],
+      args: ["cccccccc-cccc-cccc-cccc-cccccccccccc", JSON.stringify(sessionWithEncrypted), Date.now() + 60_000],
     });
 
-    const result = await getSessionFromStore("encrypted-session");
+    const result = await getSessionFromStore("cccccccc-cccc-cccc-cccc-cccccccccccc");
 
     expect(result).not.toBeNull();
     expect(result!.riotCookies).toBe("original-cookie-value");
@@ -270,10 +270,10 @@ describe("getSessionFromStore — encrypted riotCookies decryption", () => {
 
     await testClient.execute({
       sql: "INSERT INTO sessions (id, data, expires_at) VALUES (?, ?, ?)",
-      args: ["corrupt-session", JSON.stringify(sessionWithCorrupt), Date.now() + 60_000],
+      args: ["dddddddd-dddd-dddd-dddd-dddddddddddd", JSON.stringify(sessionWithCorrupt), Date.now() + 60_000],
     });
 
-    const result = await getSessionFromStore("corrupt-session");
+    const result = await getSessionFromStore("dddddddd-dddd-dddd-dddd-dddddddddddd");
 
     expect(result).toBeNull();
     expect(warnSpy).toHaveBeenCalledWith(

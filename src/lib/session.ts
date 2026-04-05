@@ -68,7 +68,7 @@ export async function createSession(tokens: {
   // 2. Prepare Session Data
   const sessionData: SessionData = {
     accessToken: tokens.accessToken,
-    // idToken: tokens.idToken,
+    idToken: tokens.idToken,
     entitlementsToken: tokens.entitlementsToken,
     puuid: tokens.puuid,
     region: tokens.region,

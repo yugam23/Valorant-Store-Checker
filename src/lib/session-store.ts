@@ -8,11 +8,25 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('session-store');
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUuid(id: string): boolean {
+  return UUID_REGEX.test(id);
+}
+
 /** Sentinel thrown when a session is not found in the DB — callers treat this as a null return */
 export class SessionNotFoundError extends Error {
   constructor(sessionId: string) {
     super(`Session not found: ${sessionId}`);
     this.name = 'SessionNotFoundError';
+  }
+}
+
+/** Thrown when a sessionId fails UUID format validation */
+export class InvalidSessionIdError extends TypeError {
+  constructor(sessionId: string) {
+    super(`Invalid session ID format (not a UUID): ${sessionId}`);
+    this.name = 'InvalidSessionIdError';
   }
 }
 
@@ -43,6 +57,7 @@ function getEncryptionKey(): string | null {
 }
 
 export async function saveSessionToStore(sessionId: string, data: SessionData, maxAgeSeconds: number): Promise<void> {
+  if (!isValidUuid(sessionId)) throw new InvalidSessionIdError(sessionId);
   const db = await initSessionDb();
   const expiresAt = Date.now() + (maxAgeSeconds * 1000);
 
@@ -63,6 +78,7 @@ export async function saveSessionToStore(sessionId: string, data: SessionData, m
 }
 
 export async function getSessionFromStore(sessionId: string): Promise<SessionData | null> {
+  if (!isValidUuid(sessionId)) throw new InvalidSessionIdError(sessionId);
   const db = await initSessionDb();
 
   let result: Awaited<ReturnType<typeof db.execute>>;
@@ -123,6 +139,7 @@ export async function getSessionFromStore(sessionId: string): Promise<SessionDat
 }
 
 export async function deleteSessionFromStore(sessionId: string): Promise<void> {
+  if (!isValidUuid(sessionId)) throw new InvalidSessionIdError(sessionId);
   const db = await initSessionDb();
   await db.execute({
     sql: 'DELETE FROM sessions WHERE id = ?',
@@ -144,6 +161,7 @@ export async function cleanupExpiredSessions(): Promise<void> {
  * creating a new sessionId (avoids delete+insert race condition).
  */
 export async function refreshSessionExpiration(sessionId: string, maxAgeSeconds: number): Promise<void> {
+  if (!isValidUuid(sessionId)) throw new InvalidSessionIdError(sessionId);
   const db = await initSessionDb();
   const expiresAt = Date.now() + (maxAgeSeconds * 1000);
   await db.execute({
