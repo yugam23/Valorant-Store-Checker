@@ -7,13 +7,11 @@ import type { ValorantWeaponSkin } from "@/types/riot";
 
 const mockRedisGet = vi.fn();
 const mockRedisSet = vi.fn();
-const mockRedisDel = vi.fn();
 
 vi.mock("@/lib/redis-client", () => ({
   redis: {
     get: (...args: unknown[]) => mockRedisGet(...args),
     set: (...args: unknown[]) => mockRedisSet(...args),
-    del: (...args: unknown[]) => mockRedisDel(...args),
   },
 }));
 
@@ -38,7 +36,9 @@ const {
   getPlayerTitleByUuid,
   getCompetitiveTierIconByTier,
   getSkinVideo,
-  clearCache,
+  getSkinLevelByUuid,
+  getBuddyLevelByUuid,
+  getSprayByUuid,
 } = await import("@/lib/valorant-api");
 
 // ---------------------------------------------------------------------------
@@ -133,11 +133,9 @@ beforeEach(() => {
   // Reset ALL mock functions completely to clear implementations AND call history
   mockRedisGet.mockReset();
   mockRedisSet.mockReset();
-  mockRedisDel.mockReset();
   vi.restoreAllMocks();
-  // Default successful return values for set/del
+  // Default successful return values for set
   mockRedisSet.mockResolvedValue("OK");
-  mockRedisDel.mockResolvedValue(1);
 });
 
 describe("getWeaponSkins", () => {
@@ -477,18 +475,6 @@ describe("getSkinVideo", () => {
   });
 });
 
-describe("clearCache", () => {
-  it("calls redis.del with all 4 KEYS values", async () => {
-    await clearCache();
-
-    expect(mockRedisDel).toHaveBeenCalledTimes(4);
-    expect(mockRedisDel).toHaveBeenCalledWith("valorant:skins");
-    expect(mockRedisDel).toHaveBeenCalledWith("valorant:tiers");
-    expect(mockRedisDel).toHaveBeenCalledWith("valorant:bundles");
-    expect(mockRedisDel).toHaveBeenCalledWith("valorant:competitive");
-  });
-});
-
 describe("getCacheStatus", () => {
   it("returns cached:true with count and age for all three cached items", async () => {
     const ts = Date.now() - 3600000;
@@ -660,5 +646,224 @@ describe("getWeaponSkinsByLevelUuids", () => {
 
     expect(result.size).toBe(1);
     expect(result.get("skin-parent")!.displayName).toBe("Vandal");
+  });
+});
+
+describe("getSkinLevelByUuid", () => {
+  it("cache hit: returns data without fetch", async () => {
+    const levelData = { uuid: "level-1", displayName: "Level 1", levelItem: null, displayIcon: "icon.png", streamedVideo: null, assetPath: "asset" };
+    mockRedisGet.mockResolvedValue(makeCachedPayload(levelData));
+
+    const result = await getSkinLevelByUuid("level-1");
+
+    expect(result).toEqual(levelData);
+  });
+
+  it("cache miss, fetch succeeds: stores in cache, returns data", async () => {
+    const levelData = { uuid: "level-2", displayName: "Level 2", levelItem: null, displayIcon: "icon2.png", streamedVideo: null, assetPath: "asset2" };
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 200, data: levelData }),
+    } as Response);
+
+    const result = await getSkinLevelByUuid("level-2");
+
+    expect(result).toEqual(levelData);
+    expect(mockRedisSet).toHaveBeenCalled();
+  });
+
+  it("cache miss, fetch fails, stale cache exists: returns stale data", async () => {
+    const levelData = { uuid: "level-3", displayName: "Level 3", levelItem: null, displayIcon: "icon3.png", streamedVideo: null, assetPath: "asset3" };
+    mockRedisGet
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(makeCachedPayload(levelData));
+    vi.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network failure"));
+
+    const result = await getSkinLevelByUuid("level-3");
+
+    expect(result).toEqual(levelData);
+  });
+
+  it("cache miss, fetch returns non-ok: returns null", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({ ok: false, status: 404 } as Response);
+
+    const result = await getSkinLevelByUuid("level-404");
+
+    expect(result).toBeNull();
+  });
+
+  it("cache miss, fetch returns non-200: returns null", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 500,
+      json: async () => ({ status: 500, data: null }),
+    } as Response);
+
+    const result = await getSkinLevelByUuid("level-500");
+
+    expect(result).toBeNull();
+  });
+
+  it("cache miss, fetch returns null data: returns null", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 200, data: null }),
+    } as Response);
+
+    const result = await getSkinLevelByUuid("level-null");
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("getBuddyLevelByUuid", () => {
+  it("cache hit: returns data without fetch", async () => {
+    const buddyData = { uuid: "buddy-1", displayName: "Buddy 1", displayIcon: "buddy.png", assetPath: "buddy-asset" };
+    mockRedisGet.mockResolvedValue(makeCachedPayload(buddyData));
+
+    const result = await getBuddyLevelByUuid("buddy-1");
+
+    expect(result).toEqual(buddyData);
+  });
+
+  it("cache miss, fetch succeeds: stores in cache, returns data", async () => {
+    const buddyData = { uuid: "buddy-2", displayName: "Buddy 2", displayIcon: "buddy2.png", assetPath: "buddy-asset2" };
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 200, data: buddyData }),
+    } as Response);
+
+    const result = await getBuddyLevelByUuid("buddy-2");
+
+    expect(result).toEqual(buddyData);
+    expect(mockRedisSet).toHaveBeenCalled();
+  });
+
+  it("cache miss, fetch fails, stale cache exists: returns stale data", async () => {
+    const buddyData = { uuid: "buddy-3", displayName: "Buddy 3", displayIcon: "buddy3.png", assetPath: "buddy-asset3" };
+    mockRedisGet
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(makeCachedPayload(buddyData));
+    vi.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network failure"));
+
+    const result = await getBuddyLevelByUuid("buddy-3");
+
+    expect(result).toEqual(buddyData);
+  });
+
+  it("cache miss, fetch returns non-ok: returns null", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({ ok: false, status: 404 } as Response);
+
+    const result = await getBuddyLevelByUuid("buddy-404");
+
+    expect(result).toBeNull();
+  });
+
+  it("cache miss, fetch returns non-200: returns null", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 500,
+      json: async () => ({ status: 500, data: null }),
+    } as Response);
+
+    const result = await getBuddyLevelByUuid("buddy-500");
+
+    expect(result).toBeNull();
+  });
+
+  it("cache miss, fetch returns null data: returns null", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 200, data: null }),
+    } as Response);
+
+    const result = await getBuddyLevelByUuid("buddy-null");
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("getSprayByUuid", () => {
+  it("cache hit: returns data without fetch", async () => {
+    const sprayData = { uuid: "spray-1", displayName: "Spray 1", displayIcon: "spray.png", largeArt: "large.png", wideArt: "wide.png", assetPath: "spray-asset" };
+    mockRedisGet.mockResolvedValue(makeCachedPayload(sprayData));
+
+    const result = await getSprayByUuid("spray-1");
+
+    expect(result).toEqual(sprayData);
+  });
+
+  it("cache miss, fetch succeeds: stores in cache, returns data", async () => {
+    const sprayData = { uuid: "spray-2", displayName: "Spray 2", displayIcon: "spray2.png", largeArt: null, wideArt: null, assetPath: "spray-asset2" };
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 200, data: sprayData }),
+    } as Response);
+
+    const result = await getSprayByUuid("spray-2");
+
+    expect(result).toEqual(sprayData);
+    expect(mockRedisSet).toHaveBeenCalled();
+  });
+
+  it("cache miss, fetch fails, stale cache exists: returns stale data", async () => {
+    const sprayData = { uuid: "spray-3", displayName: "Spray 3", displayIcon: "spray3.png", largeArt: null, wideArt: null, assetPath: "spray-asset3" };
+    mockRedisGet
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(makeCachedPayload(sprayData));
+    vi.spyOn(global, "fetch").mockRejectedValueOnce(new Error("Network failure"));
+
+    const result = await getSprayByUuid("spray-3");
+
+    expect(result).toEqual(sprayData);
+  });
+
+  it("cache miss, fetch returns non-ok: returns null", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({ ok: false, status: 404 } as Response);
+
+    const result = await getSprayByUuid("spray-404");
+
+    expect(result).toBeNull();
+  });
+
+  it("cache miss, fetch returns non-200: returns null", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 500,
+      json: async () => ({ status: 500, data: null }),
+    } as Response);
+
+    const result = await getSprayByUuid("spray-500");
+
+    expect(result).toBeNull();
+  });
+
+  it("cache miss, fetch returns null data: returns null", async () => {
+    mockRedisGet.mockResolvedValue(null);
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 200, data: null }),
+    } as Response);
+
+    const result = await getSprayByUuid("spray-null");
+
+    expect(result).toBeNull();
   });
 });

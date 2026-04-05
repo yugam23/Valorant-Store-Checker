@@ -475,16 +475,6 @@ export async function getCompetitiveTierIconByTier(tierId: number): Promise<stri
   return tier?.largeIcon ?? null;
 }
 
-/**
- * Clear all caches (useful for testing or manual refresh)
- */
-export async function clearCache(): Promise<void> {
-  if (!redis) return;
-  await redis.del(KEYS.skins);
-  await redis.del(KEYS.tiers);
-  await redis.del(KEYS.bundles);
-  await redis.del(KEYS.competitive);
-}
 
 /**
  * Get the best video URL for a skin

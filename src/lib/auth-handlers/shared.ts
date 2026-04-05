@@ -17,7 +17,6 @@ export const AuthBodySchema = z.discriminatedUnion("type", [
     type: z.literal("auth"),
     username: z.string(),
     password: z.string(),
-    useBrowser: z.boolean().optional(),
   }),
   z.object({
     type: z.literal("multifactor"),
