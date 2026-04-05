@@ -5,12 +5,11 @@
  * Extracted from riot-auth.ts (Phase 10 decomposition).
  */
 
-import { createLogger } from "./logger";
 import { UserInfo } from "./riot-auth";
 import { parseWithLog } from "@/lib/schemas/parse";
 import { EntitlementsResponseSchema, UserInfoSchema } from "@/lib/schemas/riot-auth";
 
-const log = createLogger("riot-tokens");
+export { determineRegion } from "@/lib/region-utils";
 
 // Riot API base URL — configurable for E2E testing via MSW mock server
 export const RIOT_API_BASE = process.env.RIOT_API_BASE ?? "https://auth.riotgames.com";
@@ -156,124 +155,3 @@ export async function getUserInfo(
   }
 }
 
-/**
- * Determines the game region/shard from user information
- * @param userInfo User information object
- * @returns Region identifier (na, eu, ap, kr, latam, br)
- */
-export function determineRegion(userInfo: UserInfo): string {
-  log.debug(
-    "Determining region. Country:",
-    userInfo.country,
-    "Affinity:",
-    JSON.stringify(userInfo.affinity),
-  );
-
-  // Primary: use the affinity field which contains the actual shard assignment
-  // The "pp" key (player platform) maps directly to the PD shard
-  if (userInfo.affinity) {
-    const shard =
-      userInfo.affinity.pp ||
-      userInfo.affinity.live ||
-      Object.values(userInfo.affinity)[0];
-    if (shard) {
-      log.info(`Using affinity shard: ${shard}`);
-      return shard;
-    }
-  }
-
-  // Fallback to country-based mapping
-  // Map both 2-letter and 3-letter codes just in case
-  const countryToRegion: { [key: string]: string } = {
-    // North America
-    US: "na",
-    USA: "na",
-    CA: "na",
-    CAN: "na",
-    MX: "na",
-    MEX: "na",
-
-    // Europe
-    GB: "eu",
-    GBR: "eu",
-    DE: "eu",
-    DEU: "eu",
-    FR: "eu",
-    FRA: "eu",
-    IT: "eu",
-    ITA: "eu",
-    ES: "eu",
-    ESP: "eu",
-    RU: "eu",
-    RUS: "eu",
-    TR: "eu",
-    TUR: "eu",
-    PL: "eu",
-    POL: "eu",
-    NL: "eu",
-    NLD: "eu",
-    SE: "eu",
-    SWE: "eu",
-    NO: "eu",
-    NOR: "eu",
-    DK: "eu",
-    DNK: "eu",
-    FI: "eu",
-    FIN: "eu",
-    UA: "eu",
-    UKR: "eu",
-
-    // Asia Pacific
-    JP: "ap",
-    JPN: "ap",
-    KR: "kr",
-    KOR: "kr",
-    CN: "ap",
-    CHN: "ap",
-    TW: "ap",
-    TWN: "ap",
-    HK: "ap",
-    HKG: "ap",
-    SG: "ap",
-    SGP: "ap",
-    TH: "ap",
-    THA: "ap",
-    VN: "ap",
-    VNM: "ap",
-    ID: "ap",
-    IDN: "ap",
-    MY: "ap",
-    MYS: "ap",
-    PH: "ap",
-    PHL: "ap",
-    IN: "ap",
-    IND: "ap",
-    AU: "ap",
-    AUS: "ap",
-    NZ: "ap",
-    NZL: "ap",
-
-    // Latin America
-    BR: "br",
-    BRA: "br",
-    AR: "latam",
-    ARG: "latam",
-    CL: "latam",
-    CHL: "latam",
-    CO: "latam",
-    COL: "latam",
-    PE: "latam",
-    PER: "latam",
-  };
-
-  const countryCode = userInfo.country?.toUpperCase();
-  const region = countryToRegion[countryCode];
-
-  if (region) {
-    log.info(`Mapped country ${countryCode} to region ${region}`);
-    return region;
-  }
-
-  log.warn(`Unknown country code: ${countryCode}, defaulting to 'na'`);
-  return "na";
-}

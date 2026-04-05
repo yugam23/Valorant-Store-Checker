@@ -14,6 +14,7 @@ import { env } from "./env";
 import { createLogger } from "./logger";
 import { parseWithLog } from "@/lib/schemas/parse";
 import { HenrikAccountSchema, HenrikMMRSchema } from "@/lib/schemas/henrik";
+import { toHenrikRegion } from "@/lib/region-utils";
 
 const log = createLogger("henrik-api");
 
@@ -96,23 +97,6 @@ function henrikHeaders(): Record<string, string> {
     log.warn("HENRIK_API_KEY not set — Henrik API calls may fail without a key");
   }
   return headers;
-}
-
-/**
- * Normalize a Riot region/shard name to a valid Henrik API region.
- * Henrik supports: eu, na, latam, br, ap, kr
- * Riot may return shards like "ind", "as", "oce", "ru", "tr" that Henrik doesn't accept.
- */
-function toHenrikRegion(region: string): string {
-  const map: Record<string, string> = {
-    ind: "ap",
-    as:  "ap",
-    oce: "ap",
-    jp:  "ap",
-    ru:  "eu",
-    tr:  "eu",
-  };
-  return map[region.toLowerCase()] ?? region.toLowerCase();
 }
 
 // ---------------------------------------------------------------------------
