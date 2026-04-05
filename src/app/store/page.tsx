@@ -10,6 +10,9 @@ import { LoadingSkeleton } from "@/components/store/LoadingSkeleton";
 import { LogoutButtonClient } from "@/components/store/LogoutButtonClient";
 import { SectionErrorBoundary } from "@/components/store/SectionErrorBoundary";
 
+// Store page reads session cookies — must be dynamically rendered per request.
+export const dynamic = "force-dynamic";
+
 /**
  * Store Page — async Server Component
  *

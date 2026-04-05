@@ -18,7 +18,12 @@ const cspHeader = `
 `;
 
 const nextConfig: NextConfig = {
+  experimental: {
+    optimizeCss: true,
+  },
   images: {
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 86400,
     remotePatterns: [
       {
         protocol: "https",

@@ -3,9 +3,9 @@ import { Teko, Outfit } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 
-// Every page in this app reads session cookies, so static pre-rendering
-// at build time always fails. This single export opts the entire app out.
-export const dynamic = "force-dynamic";
+// Per-page dynamic rendering is used instead of app-wide force-dynamic.
+// Pages that need session data (store, profile, inventory, accounts) use
+// "force-dynamic" at the page level. Static pages (encyclopedia) use ISR.
 
 const teko = Teko({
   subsets: ["latin"],
