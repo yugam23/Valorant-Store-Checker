@@ -21,6 +21,8 @@ const EncyclopediaClient = dynamic(
   }
 );
 
+export const revalidate = 3600; // Rebuild at most once per hour — skins data changes at most once per game patch
+
 export default async function EncyclopediaPage() {
   const [skins, tiers] = await Promise.all([
     getWeaponSkins(),

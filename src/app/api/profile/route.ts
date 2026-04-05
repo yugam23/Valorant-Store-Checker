@@ -45,9 +45,7 @@ export const GET = withSession(async (_request, session, reqId?: string) => {
       },
       {
         headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=240",
         },
       }
     );
