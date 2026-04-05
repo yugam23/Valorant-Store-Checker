@@ -341,7 +341,7 @@ async function fetchWithRetry(
   }
 
   // For 4xx errors during sequential fallback, consume the body before throwing
-  const bodyText = await response.text().catch(() => "");
+  const _bodyText = await response.text().catch(() => "");
   return response;
 }
 
