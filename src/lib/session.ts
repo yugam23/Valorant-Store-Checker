@@ -31,6 +31,70 @@ import { getSecretKey } from "./jwt-utils";
 const log = createLogger("session");
 
 const SESSION_COOKIE_NAME = "valorant_session";
+
+// ---------------------------------------------------------------------------
+// Module-level LRU cache for Route Handler session deduplication
+//
+// React.cache() (getCachedSessionInternal) dedups RSC tree calls within a
+// single render pass. But Route Handlers each get a fresh module instance,
+// so every handler call still does JWT verify + SQLite read.
+//
+// This LRU caches the full {sessionId, data} result keyed by token value.
+// TTL of 30s means stale tokens are never served (refresh path still runs).
+// Max 10 entries prevents memory bloat in long-running processes.
+// ---------------------------------------------------------------------------
+interface LRUEntry {
+  result: { sessionId: string; data: SessionData };
+  expiresAt: number;
+}
+
+class LRUCache {
+  private cache = new Map<string, LRUEntry>();
+  private readonly maxEntries: number;
+  private readonly ttlMs: number;
+
+  constructor(maxEntries = 10, ttlMs = 30_000) {
+    this.maxEntries = maxEntries;
+    this.ttlMs = ttlMs;
+  }
+
+  get(token: string): { sessionId: string; data: SessionData } | null {
+    const entry = this.cache.get(token);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.cache.delete(token);
+      return null;
+    }
+    // Move to end (most recently used) — approximate LRU
+    this.cache.delete(token);
+    this.cache.set(token, entry);
+    return entry.result;
+  }
+
+  set(token: string, result: { sessionId: string; data: SessionData }): void {
+    // Evict oldest if at capacity
+    if (this.cache.size >= this.maxEntries) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest) this.cache.delete(oldest);
+    }
+    this.cache.set(token, { result, expiresAt: Date.now() + this.ttlMs });
+  }
+
+  invalidate(token: string): void {
+    this.cache.delete(token);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+const _sessionCache = new LRUCache(10, 30_000);
+
+/** Resets the LRU cache — for test isolation only */
+export function _resetSessionCache(): void {
+  _sessionCache.clear();
+}
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
 const TOKEN_EXPIRY_THRESHOLD = 55 * 60 * 1000; // 55 minutes in ms
 const TOKEN_HARD_EXPIRY = 65 * 60 * 1000; // 65 minutes
@@ -120,6 +184,13 @@ async function getSessionInternal(): Promise<{ sessionId: string; data: SessionD
 
     if (!token) return null;
 
+    // LRU cache check: skip JWT + SQLite if token was just verified
+    const cached = _sessionCache.get(token);
+    if (cached) {
+      log.debug("Session %s served from LRU cache", cached.sessionId);
+      return cached;
+    }
+
     const { payload } = await jwtVerify(token, getSecretKey());
     const sessionId = (payload as SessionTokenPayload).sessionId;
 
@@ -135,7 +206,9 @@ async function getSessionInternal(): Promise<{ sessionId: string; data: SessionD
       return null;
     }
 
-    return { sessionId, data: sessionData };
+    const result = { sessionId, data: sessionData };
+    _sessionCache.set(token, result);
+    return result;
 
   } catch (error) {
     log.error("Session retrieval failed:", error);
@@ -191,6 +264,7 @@ export async function deleteSession(): Promise<void> {
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
   if (token) {
+    _sessionCache.invalidate(token);
     try {
       const { payload } = await jwtVerify(token, getSecretKey());
       const sessionId = (payload as SessionTokenPayload).sessionId;
@@ -292,6 +366,12 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
     };
 
     await saveSessionToStore(sessionId, freshSession, SESSION_MAX_AGE);
+
+    // Invalidate LRU cache so next getSessionInternal() call fetches fresh data
+    const cookieStore = await cookies();
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    if (token) _sessionCache.invalidate(token);
+
     log.info("Session refreshed successfully (in-place update)");
 
     return freshSession;

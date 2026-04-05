@@ -23,13 +23,15 @@ const SESSION_COOKIE_NAME = "valorant_session";
 const PROTECTED_ROUTES = ["/store", "/api/store", "/inventory", "/api/inventory", "/api/profile", "/profile"];
 
 export function middleware(request: NextRequest) {
-  const requestId = crypto.randomUUID();
+  const { pathname } = request.nextUrl;
+
+  // Only generate request ID for protected/API routes — static assets pass through
+  const needsRequestId = PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
+  const requestId = needsRequestId ? crypto.randomUUID() : undefined;
 
   // Forward in request headers for downstream
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-request-id", requestId);
-
-  const { pathname } = request.nextUrl;
+  if (requestId) requestHeaders.set("x-request-id", requestId);
 
   // Check if session cookie exists
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
@@ -43,7 +45,7 @@ export function middleware(request: NextRequest) {
   if (!hasSession && PROTECTED_ROUTES.some((route) => pathname.startsWith(route))) {
     const loginUrl = new URL("/login", request.url);
     const redirectResponse = NextResponse.redirect(loginUrl);
-    redirectResponse.headers.set("x-request-id", requestId);
+    if (requestId) redirectResponse.headers.set("x-request-id", requestId);
     return redirectResponse;
   }
 

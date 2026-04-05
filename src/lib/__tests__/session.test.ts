@@ -53,7 +53,7 @@ vi.mock("next/headers", () => ({
 // Import module under test AFTER mocks are declared
 // ---------------------------------------------------------------------------
 
-const { getSessionWithRefresh, getCurrentSessionId } = await import("@/lib/session");
+const { getSessionWithRefresh, getCurrentSessionId, _resetSessionCache } = await import("@/lib/session");
 
 // ---------------------------------------------------------------------------
 // Session fixture factory
@@ -77,6 +77,7 @@ function makeSession(overrides: Partial<SessionData> = {}): SessionData {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  _resetSessionCache();
 });
 
 describe("getSessionWithRefresh — branching logic", () => {
