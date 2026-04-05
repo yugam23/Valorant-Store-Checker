@@ -22,6 +22,8 @@ export const StoredSessionSchema = z.object({
   country: z.string().optional(),
   riotCookies: z.string().optional(),
   createdAt: z.number(),
+  /** Set to true when token refresh failed but stale session was returned */
+  _refreshFailed: z.boolean().optional(),
 }).passthrough();
 
 /** Inferred type from the session schema — replaces the manual SessionData interface */

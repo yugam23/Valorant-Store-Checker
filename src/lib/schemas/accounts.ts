@@ -20,7 +20,7 @@ export const AccountEntrySchema = z.object({
 
 export const AccountsPayloadSchema = z.object({
   accounts: z.array(AccountEntrySchema),
-  activePuuid: z.string(),
+  activePuuid: z.string().nullable(),
 }).passthrough();
 
 /** Inferred type from the accounts entry schema */

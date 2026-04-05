@@ -8,6 +8,14 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('session-store');
 
+/** Sentinel thrown when a session is not found in the DB — callers treat this as a null return */
+export class SessionNotFoundError extends Error {
+  constructor(sessionId: string) {
+    super(`Session not found: ${sessionId}`);
+    this.name = 'SessionNotFoundError';
+  }
+}
+
 // Use global to survive Next.js hot-reload — warning fires once per process
 const _warnedKeys: Record<string, boolean> = (global as unknown as Record<string, Record<string, boolean>>).__sessionStoreWarnedKeys ?? {};
 (global as unknown as Record<string, Record<string, boolean>>).__sessionStoreWarnedKeys = _warnedKeys;
@@ -65,7 +73,7 @@ export async function getSessionFromStore(sessionId: string): Promise<SessionDat
     });
   } catch (err) {
     log.error('session-store: database error fetching session %s:', sessionId, err);
-    return null;
+    throw err; // Re-throw so callers can distinguish DB errors from not-found
   }
 
   if (result.rows.length === 0) {

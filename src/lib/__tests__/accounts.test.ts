@@ -138,7 +138,7 @@ beforeEach(async () => {
   mockDeleteSessionFromStore.mockReset();
 
   // Default resolved values
-  mockJwtVerify.mockResolvedValue({ payload: { accounts: [], activePuuid: "" } });
+  mockJwtVerify.mockResolvedValue({ payload: { accounts: [], activePuuid: null } });
   mockCookiesGet.mockReturnValue(undefined);
   mockGetSession.mockResolvedValue(null);
   mockGetSessionFromStore.mockResolvedValue(null);
@@ -225,11 +225,11 @@ describe("getActiveAccount", () => {
     expect(result).toBeNull();
   });
 
-  it("returns null when activePuuid is empty string", async () => {
+  it("returns null when activePuuid is null", async () => {
     mockJwtVerify.mockResolvedValue({
       payload: {
         accounts: [{ puuid: "some-puuid", region: "na", addedAt: Date.now() }],
-        activePuuid: "",
+        activePuuid: null,
       },
     });
     mockCookiesGet.mockReturnValue({ value: "valid-token" });

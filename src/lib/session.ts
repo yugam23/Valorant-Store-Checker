@@ -270,7 +270,7 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
       await deleteSessionFromStore(sessionId);
       return null;
     }
-    return session;
+    return { ...session, _refreshFailed: true };
   }
 
   try {
@@ -282,7 +282,7 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
         await deleteSessionFromStore(sessionId);
         return null;
       }
-      return session;
+      return { ...session, _refreshFailed: true };
     }
 
     // Update store in-place with refreshed data (no cookie change needed)
@@ -309,6 +309,6 @@ export async function getSessionWithRefresh(): Promise<SessionData | null> {
       await deleteSessionFromStore(sessionId);
       return null;
     }
-    return session;
+    return { ...session, _refreshFailed: true };
   }
 }

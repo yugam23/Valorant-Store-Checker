@@ -352,7 +352,7 @@ export async function removeAccount(puuid: string): Promise<void> {
         // Session not found, clear everything
         const cookieStore = await cookies();
         cookieStore.delete(SESSION_COOKIE_NAME);
-        registry.activePuuid = "";
+        registry.activePuuid = null;
         log.warn("Next account session not found, cleared active session");
       }
     } else {

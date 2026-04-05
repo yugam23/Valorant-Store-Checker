@@ -210,22 +210,12 @@ describe("getSessionFromStore — defensive error handling", () => {
     );
   });
 
-  it("ERR-03: DB error returns null and logs an error", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
+  it("ERR-03: DB error re-throws so callers can distinguish from not-found", async () => {
     vi.mocked(initSessionDb).mockResolvedValueOnce({
       execute: vi.fn().mockRejectedValueOnce(new Error("SQLITE_CANTOPEN")),
     } as unknown as Awaited<ReturnType<typeof initSessionDb>>);
 
-    const result = await getSessionFromStore("db-error-id");
-
-    expect(result).toBeNull();
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[session-store]"),
-      expect.stringContaining("database error"),
-      "db-error-id",
-      expect.any(Error),
-    );
+    await expect(getSessionFromStore("db-error-id")).rejects.toThrow("SQLITE_CANTOPEN");
   });
 
   it("ERR-03: missing session returns null silently (no warn, no error)", async () => {
