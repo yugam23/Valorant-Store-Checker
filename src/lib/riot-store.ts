@@ -115,7 +115,11 @@ async function tryFetchFromRiotManifest(): Promise<string | null> {
     }
 
     attempts++;
-    if (attempts < maxAttempts) await new Promise(r => setTimeout(r, 1000));
+    if (attempts < maxAttempts) {
+      // Exponential backoff: 500ms, 1000ms, 2000ms
+      const delay = 500 * Math.pow(2, attempts - 1);
+      await new Promise(r => setTimeout(r, delay));
+    }
   }
 
   log.warn("Riot manifest endpoint failed after %d attempts. Last error: %s", maxAttempts, lastError?.message);
@@ -198,7 +202,7 @@ async function getStoreHeaders(tokens: StoreTokens) {
 }
 
 /**
- * Fetches the player's storefront (Daily Shop, Night Market, Bundles)
+ * Fetch the player's storefront (Daily Shop, Night Market, Bundles)
  * Endpoint: /store/v2/storefront/{puuid}
  */
 // In-memory cache for the correct shard to avoid repeated discovery.
@@ -206,15 +210,17 @@ async function getStoreHeaders(tokens: StoreTokens) {
 const cachedShardByPuuid = new Map<string, string>();
 
 /**
- * Helper to fetch data with automatic shard fallback
- * If the primary shard returns 404, it tries other shards (na, eu, ap, kr)
+ * Helper to fetch data with automatic shard fallback.
+ * For initial shard discovery (no cached shard), tries all shards in parallel
+ * and uses whichever responds first. On failure, falls back to sequential
+ * retry with reduced timeout.
  */
 export async function fetchWithShardFallback(
   tokens: StoreTokens,
   endpointBuilder: (pdUrl: string) => string
 ): Promise<Response> {
   const regions = ["na", "eu", "ap", "kr"];
-  
+
   // Determine the order of regions to try
   const cachedShard = cachedShardByPuuid.get(tokens.puuid);
   const attempts: string[] = [cachedShard || tokens.region];
@@ -224,32 +230,60 @@ export async function fetchWithShardFallback(
   // Deduplicate to prevent redundant fetch calls when cachedShard === tokens.region
   const uniqueAttempts = [...new Set(attempts)];
 
-  let lastError: Error | null = null;
   const baseHeaders = await getStoreHeaders(tokens);
 
-  for (const region of uniqueAttempts) {
+  // Fast path: try cached shard first with a shorter timeout
+  if (cachedShard && cachedShard !== tokens.region) {
+    const pdUrl = getPdUrl(cachedShard);
+    const url = endpointBuilder(pdUrl);
+    log.info(`Fetching store for PUUID: ${tokens.puuid.substring(0, 8)} on cached shard: ${cachedShard.toUpperCase()}`);
+
+    try {
+      const response = await fetchWithRetry(url, baseHeaders, 10_000, false);
+      if (response.ok) {
+        return response;
+      }
+    } catch {
+      // Cached shard failed, fall through to parallel discovery
+      log.warn(`Cached shard ${cachedShard.toUpperCase()} failed, trying all shards in parallel`);
+    }
+  }
+
+  // Initial discovery: try all remaining shards in parallel
+  const remainingRegions = uniqueAttempts.filter(r => r !== cachedShard || !cachedShard);
+  if (remainingRegions.length > 1) {
+    const results = await Promise.allSettled(
+      remainingRegions.map(region => {
+        const pdUrl = getPdUrl(region);
+        const url = endpointBuilder(pdUrl);
+        log.info(`Parallel shard probe: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
+        return fetchWithRetry(url, baseHeaders, 10_000, true).then(r => ({ response: r, region }));
+      })
+    );
+
+    // Use first successful response
+    for (const result of results) {
+      if (result.status === "fulfilled" && result.value.response.ok) {
+        const region = result.value.region;
+        log.info(`Shard discovery success: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
+        if (region !== tokens.region) {
+          cachedShardByPuuid.set(tokens.puuid, region);
+        }
+        return result.value.response;
+      }
+    }
+  }
+
+  // Fallback: try remaining regions sequentially with longer timeout
+  let lastError: Error | null = null;
+  for (const region of remainingRegions) {
     const pdUrl = getPdUrl(region);
     const url = endpointBuilder(pdUrl);
 
-    log.info(`Fetching store for PUUID: ${tokens.puuid.substring(0, 8)} on shard: ${region.toUpperCase()} (${url})`);
+    log.info(`Fetching store for PUUID: ${tokens.puuid.substring(0, 8)} on shard: ${region.toUpperCase()}`);
 
     try {
-      // Determine method based on endpoint (v3 requires POST)
-      const isV3 = url.includes("/v3/");
-      const method = isV3 ? "POST" : "GET";
-      const body = isV3 ? "{}" : undefined;
-      const headers = isV3 
-        ? { ...baseHeaders, "Content-Type": "application/json" }
-        : baseHeaders;
-
-      const response = await fetch(url, {
-        method,
-        headers,
-        body,
-        cache: "no-store",
-        signal: AbortSignal.timeout(30_000),
-      });
-
+      const response = await fetchWithRetry(url, baseHeaders, 30_000, false);
       if (response.ok) {
         if (region !== tokens.region && region !== cachedShard) {
           log.info(`Discovered correct shard: ${region.toUpperCase()}`);
@@ -266,7 +300,6 @@ export async function fetchWithShardFallback(
         continue;
       }
 
-      // Important: catch the body for 400 errors to debug "Bad Request"
       const errorBody = await response.text().catch(() => "No error body");
       throw new Error(`Request failed with status ${response.status}: ${errorBody}`);
     } catch (err) {
@@ -276,6 +309,40 @@ export async function fetchWithShardFallback(
   }
 
   throw lastError || new Error("Failed to find correct shard for user data");
+}
+
+/**
+ * Perform a fetch with retry logic and configurable timeout.
+ */
+async function fetchWithRetry(
+  url: string,
+  baseHeaders: Record<string, string>,
+  timeoutMs: number,
+  isProbe: boolean
+): Promise<Response> {
+  const isV3 = url.includes("/v3/");
+  const method = isV3 ? "POST" : "GET";
+  const body = isV3 ? "{}" : undefined;
+  const headers = isV3
+    ? { ...baseHeaders, "Content-Type": "application/json" }
+    : baseHeaders;
+
+  const response = await fetch(url, {
+    method,
+    headers,
+    body,
+    cache: "no-store",
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  // On probe success or non-error response, return immediately
+  if (isProbe || response.ok || ![403, 404, 405].includes(response.status)) {
+    return response;
+  }
+
+  // For 4xx errors during sequential fallback, consume the body before throwing
+  const bodyText = await response.text().catch(() => "");
+  return response;
 }
 
 export async function getStorefront(tokens: StoreTokens): Promise<RiotStorefront | null> {

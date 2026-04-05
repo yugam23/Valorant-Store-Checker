@@ -123,7 +123,7 @@ export async function getHenrikAccount(puuid: string, region: string): Promise<H
       {
         cache: "no-store",
         headers: henrikHeaders(),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(15_000),
       }
     );
 
@@ -165,7 +165,7 @@ export async function getHenrikMMR(puuid: string, region: string): Promise<Henri
       {
         cache: "no-store",
         headers: henrikHeaders(),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(15_000),
       }
     );
 

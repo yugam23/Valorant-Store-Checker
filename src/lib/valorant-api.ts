@@ -114,7 +114,7 @@ async function fetchAndCache<T>(
     const response = await fetch(url, {
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(15_000),
     });
 
     if (!response.ok) {
@@ -271,7 +271,7 @@ export async function getPlayerCardByUuid(uuid: string): Promise<ValorantPlayerC
   try {
     const response = await fetch(`${VALORANT_API_BASE}/playercards/${uuid}`, {
       next: { revalidate: 86400 },
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantPlayerCard> = await response.json();
@@ -291,7 +291,7 @@ export async function getPlayerTitleByUuid(uuid: string): Promise<ValorantPlayer
   try {
     const response = await fetch(`${VALORANT_API_BASE}/playertitles/${uuid}`, {
       next: { revalidate: 86400 },
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantPlayerTitle> = await response.json();
@@ -318,7 +318,7 @@ export async function getSkinLevelByUuid(uuid: string): Promise<ValorantSkinLeve
     const response = await fetch(`${VALORANT_API_BASE}/weapons/skinlevels/${uuid}`, {
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantSkinLevel> = await response.json();
@@ -349,7 +349,7 @@ export async function getBuddyLevelByUuid(uuid: string): Promise<ValorantBuddyLe
     const response = await fetch(`${VALORANT_API_BASE}/buddies/levels/${uuid}`, {
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantBuddyLevel> = await response.json();
@@ -379,7 +379,7 @@ export async function getSprayByUuid(uuid: string): Promise<ValorantSpray | null
     const response = await fetch(`${VALORANT_API_BASE}/sprays/${uuid}`, {
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return null;
     const result: ValorantAPIResponse<ValorantSpray> = await response.json();
@@ -482,7 +482,7 @@ export async function getCompetitiveTierIconByTier(tierId: number): Promise<stri
     try {
       const response = await fetch(`${VALORANT_API_BASE}/competitivetiers`, {
         next: { revalidate: 86400 },
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) return null;
       const result = await response.json();
