@@ -12,10 +12,10 @@
 
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { env } from "./env";
 import { createLogger } from "./logger";
 import { AccountsPayloadSchema, AccountEntry, AccountsData } from "./schemas/accounts";
 import { parseWithLog } from "./schemas/parse";
+import { getSecretKey } from "./jwt-utils";
 
 // Re-export for backwards compatibility with existing imports from @/lib/accounts
 export type { AccountEntry, AccountsData };
@@ -34,10 +34,6 @@ const SESSION_COOKIE_NAME = "valorant_session";
 const ACCOUNTS_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 const MAX_ACCOUNTS = 5;
-
-const getSecretKey = (): Uint8Array => {
-  return new TextEncoder().encode(env.SESSION_SECRET);
-};
 
 export interface SessionTokens {
   accessToken: string;

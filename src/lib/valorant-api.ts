@@ -6,6 +6,7 @@
 import { createLogger } from "./logger";
 import { redis } from "./redis-client";
 import { parseWithLog } from "@/lib/schemas/parse";
+import { z } from "zod";
 import {
   ValorantWeaponSkinSchema,
   ValorantContentTierSchema,
@@ -37,10 +38,7 @@ const KEYS = {
   competitive: "valorant:competitive",
 } as const;
 
-// Cache expiration: 24 hours in milliseconds
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-
-// Redis TTL: 24 hours in seconds
+// Cache TTL: 24 hours
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
 
 /**
@@ -70,7 +68,7 @@ async function getCache<T>(key: string): Promise<{ data: T; timestamp: number } 
   try {
     const parsed = JSON.parse(raw) as { data: T; timestamp: number };
     // Check if cache is still within TTL
-    if (Date.now() - parsed.timestamp > CACHE_TTL_MS) {
+    if (Date.now() - parsed.timestamp > CACHE_TTL_SECONDS * 1000) {
       return null;
     }
     return parsed;
@@ -80,56 +78,56 @@ async function getCache<T>(key: string): Promise<{ data: T; timestamp: number } 
 }
 
 /**
- * Fetch all weapon skins from Valorant-API
- * Results are cached in Redis for 24 hours
+ * Shared fetch-and-cache helper for list-type Valorant-API endpoints.
+ * Handles cache-check, fetch, validation, cache-set, and stale-while-revalidate fallback.
  */
-export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
-  const cached = await getCache<ValorantWeaponSkin[]>(KEYS.skins);
-  if (cached) {
-    return cached.data;
-  }
+async function fetchAndCache<T>(
+  key: string,
+  url: string,
+  schema: z.ZodSchema<T>,
+  logName: string
+): Promise<T> {
+  const cached = await getCache<T>(key);
+  if (cached) return cached.data;
 
   try {
-    const response = await fetch(`${VALORANT_API_BASE}/weapons/skins`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
+    const response = await fetch(url, {
+      headers: { "Content-Type": "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Valorant-API returned ${response.status}: ${response.statusText}`
-      );
+      throw new Error(`Valorant-API returned ${response.status}: ${response.statusText}`);
     }
 
-    const result: ValorantAPIResponse<ValorantWeaponSkin[]> =
-      await response.json();
-
+    const result: ValorantAPIResponse<T> = await response.json();
     if (result.status !== 200) {
       throw new Error(`Valorant-API error: status ${result.status}`);
     }
 
-    const parsed = parseWithLog(ValorantWeaponSkinSchema.array(), result.data, "getWeaponSkins");
-    if (!parsed) throw new Error("Valorant-API validation failed for weapon skins");
+    const parsed = parseWithLog(schema, result.data, logName);
+    if (!parsed) throw new Error(`Valorant-API validation failed for ${logName}`);
 
-    // Store in Redis with 24h TTL
-    await setCache(KEYS.skins, parsed);
-
+    await setCache(key, parsed);
     return parsed;
   } catch (error) {
-    log.error("Failed to fetch weapon skins:", error);
-
-    // Try to return expired cache on fetch failure (stale-while-revalidate)
-    const stale = await getStaleCache<ValorantWeaponSkin[]>(KEYS.skins);
+    log.error(`Failed to fetch ${logName}:`, error);
+    const stale = await getStaleCache<T>(key);
     if (stale) {
       log.warn("Using expired cache due to fetch failure");
       return stale;
     }
-
     throw error;
   }
+}
+
+/**
+ * Fetch all weapon skins from Valorant-API
+ * Results are cached in Redis for 24 hours
+ */
+export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
+  return fetchAndCache(KEYS.skins, `${VALORANT_API_BASE}/weapons/skins`, ValorantWeaponSkinSchema.array(), "getWeaponSkins");
 }
 
 /**
@@ -137,52 +135,7 @@ export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
  * Results are cached in Redis for 24 hours
  */
 export async function getContentTiers(): Promise<ValorantContentTier[]> {
-  const cached = await getCache<ValorantContentTier[]>(KEYS.tiers);
-  if (cached) {
-    return cached.data;
-  }
-
-  try {
-    const response = await fetch(`${VALORANT_API_BASE}/contenttiers`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Valorant-API returned ${response.status}: ${response.statusText}`
-      );
-    }
-
-    const result: ValorantAPIResponse<ValorantContentTier[]> =
-      await response.json();
-
-    if (result.status !== 200) {
-      throw new Error(`Valorant-API error: status ${result.status}`);
-    }
-
-    const parsed = parseWithLog(ValorantContentTierSchema.array(), result.data, "getContentTiers");
-    if (!parsed) throw new Error("Valorant-API validation failed for content tiers");
-
-    // Store in Redis with 24h TTL
-    await setCache(KEYS.tiers, parsed);
-
-    return parsed;
-  } catch (error) {
-    log.error("Failed to fetch content tiers:", error);
-
-    // Try to return expired cache on fetch failure (stale-while-revalidate)
-    const stale = await getStaleCache<ValorantContentTier[]>(KEYS.tiers);
-    if (stale) {
-      log.warn("Using expired cache due to fetch failure");
-      return stale;
-    }
-
-    throw error;
-  }
+  return fetchAndCache(KEYS.tiers, `${VALORANT_API_BASE}/contenttiers`, ValorantContentTierSchema.array(), "getContentTiers");
 }
 
 /**
@@ -190,52 +143,7 @@ export async function getContentTiers(): Promise<ValorantContentTier[]> {
  * Results are cached in Redis for 24 hours
  */
 export async function getBundles(): Promise<ValorantBundle[]> {
-  const cached = await getCache<ValorantBundle[]>(KEYS.bundles);
-  if (cached) {
-    return cached.data;
-  }
-
-  try {
-    const response = await fetch(`${VALORANT_API_BASE}/bundles`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Valorant-API returned ${response.status}: ${response.statusText}`
-      );
-    }
-
-    const result: ValorantAPIResponse<ValorantBundle[]> =
-      await response.json();
-
-    if (result.status !== 200) {
-      throw new Error(`Valorant-API error: status ${result.status}`);
-    }
-
-    const parsed = parseWithLog(ValorantBundleSchema.array(), result.data, "getBundles");
-    if (!parsed) throw new Error("Valorant-API validation failed for bundles");
-
-    // Store in Redis with 24h TTL
-    await setCache(KEYS.bundles, parsed);
-
-    return parsed;
-  } catch (error) {
-    log.error("Failed to fetch bundles:", error);
-
-    // Try to return expired cache on fetch failure (stale-while-revalidate)
-    const stale = await getStaleCache<ValorantBundle[]>(KEYS.bundles);
-    if (stale) {
-      log.warn("Using expired cache due to fetch failure");
-      return stale;
-    }
-
-    throw error;
-  }
+  return fetchAndCache(KEYS.bundles, `${VALORANT_API_BASE}/bundles`, ValorantBundleSchema.array(), "getBundles");
 }
 
 /**

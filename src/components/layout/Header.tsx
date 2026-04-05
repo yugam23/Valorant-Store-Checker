@@ -1,14 +1,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "../ui/button";
-import { hasValidSession } from "@/lib/session";
+import { getSession } from "@/lib/session";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { WishlistButton } from "./WishlistButton";
 import { NAV_LINKS } from "@/lib/nav";
 import { MobileNav } from "./MobileNav";
 
 export async function Header() {
-  const isLoggedIn = await hasValidSession();
+  const isLoggedIn = (await getSession()) !== null;
 
   return (
     <header className="sticky top-0 z-40 w-full">

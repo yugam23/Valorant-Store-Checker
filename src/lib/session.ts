@@ -16,7 +16,6 @@ import { cache } from "react";
 import { SignJWT, jwtVerify } from "jose";
 import { refreshTokensWithCookies } from "./riot-reauth";
 import { cookies } from "next/headers";
-import { env } from "./env";
 import { createLogger } from "./logger";
 import { randomUUID } from "crypto";
 import {
@@ -27,6 +26,7 @@ import {
 } from "./session-store";
 import type { StoredSession as SessionData } from "./schemas/session";
 import { ESSENTIAL_COOKIE_NAMES } from "./constants";
+import { getSecretKey } from "./jwt-utils";
 
 const log = createLogger("session");
 
@@ -34,10 +34,6 @@ const SESSION_COOKIE_NAME = "valorant_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days in seconds
 const TOKEN_EXPIRY_THRESHOLD = 55 * 60 * 1000; // 55 minutes in ms
 const TOKEN_HARD_EXPIRY = 65 * 60 * 1000; // 65 minutes
-
-const getSecretKey = (): Uint8Array => {
-  return new TextEncoder().encode(env.SESSION_SECRET);
-};
 
 // Export SessionData for other consumers (re-export)
 export type { StoredSession as SessionData } from "./schemas/session";
@@ -208,10 +204,6 @@ export async function deleteSession(): Promise<void> {
   }
 
   cookieStore.delete(SESSION_COOKIE_NAME);
-}
-
-export async function hasValidSession(): Promise<boolean> {
-  return (await getSession()) !== null;
 }
 
 export async function refreshSession(): Promise<boolean> {

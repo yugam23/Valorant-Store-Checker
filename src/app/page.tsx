@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { hasValidSession } from "@/lib/session";
+import { getSession } from "@/lib/session";
 import { ShoppingCart, Moon, Package } from "lucide-react";
 
 export default async function Home() {
-  const isLoggedIn = await hasValidSession();
+  const isLoggedIn = (await getSession()) !== null;
   return (
     <div className="relative flex flex-col items-center justify-center min-h-[80vh] pt-10 md:pt-10 pb-10 text-center px-4 overflow-hidden">
       {/* Animated background: diagonal grid lines */}
