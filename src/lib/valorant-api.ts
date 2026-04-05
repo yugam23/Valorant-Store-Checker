@@ -41,6 +41,16 @@ const KEYS = {
 // Cache TTL: 24 hours
 const CACHE_TTL_SECONDS = 24 * 60 * 60;
 
+// Module-level caches for O(1) lookups
+let _skinsCache: ValorantWeaponSkin[] | null = null;
+const _skinsByUuid = new Map<string, ValorantWeaponSkin>();
+
+/** Reset the skins cache — for testing only */
+export function _resetSkinsCache(): void {
+  _skinsCache = null;
+  _skinsByUuid.clear();
+}
+
 /**
  * Store data in Redis with timestamp
  * Gracefully fails if Redis is unavailable (e.g., CI without Upstash credentials).
@@ -124,10 +134,19 @@ async function fetchAndCache<T>(
 
 /**
  * Fetch all weapon skins from Valorant-API
- * Results are cached in Redis for 24 hours
+ * Results are cached in Redis for 24 hours.
+ * Also populates _skinsByUuid for O(1) lookups via getWeaponSkinsByUuids().
  */
 export async function getWeaponSkins(): Promise<ValorantWeaponSkin[]> {
-  return fetchAndCache(KEYS.skins, `${VALORANT_API_BASE}/weapons/skins`, ValorantWeaponSkinSchema.array(), "getWeaponSkins");
+  if (_skinsCache) return _skinsCache;
+
+  const skins = await fetchAndCache(KEYS.skins, `${VALORANT_API_BASE}/weapons/skins`, ValorantWeaponSkinSchema.array(), "getWeaponSkins");
+  _skinsCache = skins;
+  _skinsByUuid.clear();
+  for (const skin of skins) {
+    _skinsByUuid.set(skin.uuid.toLowerCase(), skin);
+  }
+  return skins;
 }
 
 /**
@@ -355,22 +374,18 @@ export async function getSprayByUuid(uuid: string): Promise<ValorantSpray | null
 }
 
 /**
- * Batch fetch weapon skins by UUIDs
- * More efficient than calling getWeaponSkinByUuid() multiple times
+ * Batch fetch weapon skins by UUIDs.
+ * O(1) lookup via module-level _skinsByUuid Map.
  */
 export async function getWeaponSkinsByUuids(
   uuids: string[]
 ): Promise<Map<string, ValorantWeaponSkin>> {
-  const skins = await getWeaponSkins();
+  await getWeaponSkins(); // Ensure cache is warm
   const result = new Map<string, ValorantWeaponSkin>();
 
-  const normalizedUuids = new Set(uuids.map((uuid) => uuid.toLowerCase()));
-
-  for (const skin of skins) {
-    const skinUuid = skin.uuid.toLowerCase();
-    if (normalizedUuids.has(skinUuid)) {
-      result.set(skinUuid, skin);
-    }
+  for (const uuid of uuids) {
+    const skin = _skinsByUuid.get(uuid.toLowerCase());
+    if (skin) result.set(uuid.toLowerCase(), skin);
   }
 
   return result;

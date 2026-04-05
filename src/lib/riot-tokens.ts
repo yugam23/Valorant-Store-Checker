@@ -47,10 +47,14 @@ export function generateTraceParent(): string {
 }
 
 /**
- * Common headers for Riot auth requests.
+ * Per-request header factory for Riot auth requests.
  * Matches RadiantConnect's header set: Riot Client UA + baggage + traceparent.
+ *
+ * Generates fresh tracing IDs (baggage, traceparent) on every call — this is
+ * correct because each call represents a distinct request context. Call this
+ * once per outgoing request rather than sharing a single header object.
  */
-export function riotHeaders(
+export function createRiotHeaders(
   extra: Record<string, string> = {},
 ): Record<string, string> {
   return {
@@ -64,6 +68,9 @@ export function riotHeaders(
     ...extra,
   };
 }
+
+/** @deprecated Use createRiotHeaders — kept for backwards compatibility */
+export const riotHeaders = createRiotHeaders;
 
 /**
  * Extracts access_token and id_token from redirect URI fragment

@@ -17,7 +17,7 @@ import { parseWithLog } from "@/lib/schemas/parse";
 import { AuthResponseSchema } from "@/lib/schemas/riot-auth";
 import {
   randomHex,
-  riotHeaders,
+  createRiotHeaders,
   extractTokensFromUri,
   getEntitlementsToken,
   getUserInfo,
@@ -205,7 +205,7 @@ export async function authenticateRiotAccount(
     // Step 1: Initialize authorization session
     const initResponse = await fetch(RIOT_AUTH_URL, {
       method: "POST",
-      headers: riotHeaders(),
+      headers: createRiotHeaders(),
       body: JSON.stringify({
         acr_values: "",
         client_id: CLIENT_ID,
@@ -245,7 +245,7 @@ export async function authenticateRiotAccount(
     // Step 2: Submit credentials
     const authResponse = await fetch(RIOT_AUTH_URL, {
       method: "PUT",
-      headers: riotHeaders({ Cookie: cookies }),
+      headers: createRiotHeaders({ Cookie: cookies }),
       body: JSON.stringify({
         type: "auth",
         username,
@@ -394,7 +394,7 @@ export async function submitMfa(
   try {
     const mfaResponse = await fetch(RIOT_AUTH_URL, {
       method: "PUT",
-      headers: riotHeaders({ Cookie: cookie }),
+      headers: createRiotHeaders({ Cookie: cookie }),
       body: JSON.stringify({
         type: "multifactor",
         code,
