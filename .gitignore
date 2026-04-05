@@ -43,6 +43,7 @@ next-env.d.ts
 .agent/
 .agents/
 .claude/
+.code-review-graph
 .gemini/
 .planning/
 .playwright-mcp/
@@ -56,3 +57,5 @@ Refactoring Plan.md
 playwright-report/
 test-results/
 docs/
+.mcp.json
+AGENTS.md
