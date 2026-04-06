@@ -296,7 +296,7 @@ export function EncyclopediaGrid({
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 h-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {rowSkins.map((skin) => {
                       const isWishlisted = wishlistSet.has(skin.uuid);
                       return (
