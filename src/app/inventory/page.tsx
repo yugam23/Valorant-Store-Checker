@@ -38,8 +38,9 @@ export default function InventoryPage() {
   };
 
   useEffect(() => {
-    // Always force-refresh on page load so newly purchased skins appear immediately
-    fetchInventory(true);
+    // Use cache by default — only force-refresh when navigating from store
+    // (where a purchase may have happened and user explicitly wants fresh data)
+    fetchInventory(false);
   }, []);
 
   return (

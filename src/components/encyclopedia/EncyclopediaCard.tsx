@@ -4,12 +4,12 @@ import { memo, useEffect, useState } from "react";
 import Image from "next/image";
 import type { EncyclopediaCardProps } from "@/types/encyclopedia";
 import { getEditionIconPath } from "@/lib/edition-icons";
-import { fetchAndCacheBlurDataURL } from "@/lib/blur-utils";
+import { fetchAndCacheBlurDataURL, DEFAULT_BLUR } from "@/lib/blur-utils";
 
 export const EncyclopediaCard = memo(function EncyclopediaCard({ skin, isWishlisted, onWishlistToggle, staggerDelay = 0 }: EncyclopediaCardProps) {
   const [optimisticOverride, setOptimisticOverride] = useState<boolean | null>(null);
   const [isPulsing, setIsPulsing] = useState(false);
-  const [wallpaperBlur, setWallpaperBlur] = useState<string>(skin.blurDataURL);
+  const [wallpaperBlur, setWallpaperBlur] = useState<string>(DEFAULT_BLUR);
   const displayIsWishlisted = optimisticOverride ?? isWishlisted;
 
   // Lazily fetch wallpaper blur after mount — avoids 1000+ concurrent requests at page load.

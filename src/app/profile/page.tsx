@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { PlayerCardBanner } from "@/components/profile/PlayerCardBanner";
 import { IdentityInfo } from "@/components/profile/IdentityInfo";
 import { AccountLevelBadge } from "@/components/profile/AccountLevelBadge";
@@ -16,36 +16,81 @@ function formatCachedAt(cachedAt: number): string {
 
 type LoadingState = "idle" | "loading" | "success" | "error";
 
+// Module-level profile cache (SWR-style) — survives across page navigations
+// Keyed by nothing since there's only one profile per session
+const CACHE_TTL_MS = 60_000; // 60 seconds
+let _cachedProfile: ProfilePageData | null = null;
+let _cachedAt = 0;
+
 export default function ProfilePage() {
   const [state, setState] = useState<LoadingState>("idle");
   const [profileData, setProfileData] = useState<ProfilePageData | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
-  const fetchProfile = async () => {
-    setState("loading");
-    setErrorMessage("");
-
-    try {
-      const response = await fetch("/api/profile");
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to fetch profile");
-      }
-
-      const data: ProfilePageData = await response.json();
-      setProfileData(data);
-      setState("success");
-    } catch (error) {
-      console.error("Failed to fetch profile:", error);
-      setErrorMessage(error instanceof Error ? error.message : "Unknown error");
-      setState("error");
-    }
-  };
+  // Track whether this component is still mounted to avoid state updates after unmount
+  const mountedRef = useRef(true);
+  // Capture the initial state at mount — used for SWR cache-first decision
+  const initialStateRef = useRef<LoadingState>(state);
 
   useEffect(() => {
-    fetchProfile();
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      const now = Date.now();
+      const isCacheStale = !_cachedProfile || (now - _cachedAt) > CACHE_TTL_MS;
+
+      // Serve stale cache immediately while revalidating in background (SWR pattern)
+      if (_cachedProfile && initialStateRef.current === "idle") {
+        setProfileData(_cachedProfile);
+        setState("success");
+      }
+
+      // Always fetch fresh data in background if cache is stale
+      if (isCacheStale) {
+        try {
+          const response = await fetch("/api/profile");
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || "Failed to fetch profile");
+          }
+          const data: ProfilePageData = await response.json();
+          _cachedProfile = data;
+          _cachedAt = Date.now();
+          if (!cancelled && mountedRef.current) {
+            setProfileData(data);
+            setState("success");
+          }
+        } catch (error) {
+          console.error("Failed to fetch profile:", error);
+          if (!cancelled && mountedRef.current) {
+            // Only show error if we have no cached data to fall back on
+            if (!_cachedProfile) {
+              setErrorMessage(error instanceof Error ? error.message : "Unknown error");
+              setState("error");
+            }
+          }
+        }
+      } else if (initialStateRef.current === "idle") {
+        // Cache is fresh — ensure we show success state
+        setState("success");
+      }
+    }
+
+    loadProfile();
+    return () => { cancelled = true; };
+  }, []);
+
+  const retryFetch = () => {
+    _cachedProfile = null; // Invalidate cache
+    _cachedAt = 0;
+    setState("idle");
+    setErrorMessage("");
+  };
 
   return (
     <div className="min-h-screen bg-void p-6 md:p-8">
@@ -99,7 +144,7 @@ export default function ProfilePage() {
               {errorMessage || "Failed to load profile"}
             </p>
             <button
-              onClick={fetchProfile}
+              onClick={retryFetch}
               className="px-6 py-3 bg-valorant-red hover:bg-valorant-red/90 text-white font-semibold uppercase tracking-wide angular-card transition-all"
             >
               Retry

@@ -20,7 +20,6 @@ export interface EncyclopediaSkin {
   displayName: string;
   displayIcon: string | null;
   wallpaper: string | null;
-  blurDataURL: string;
   weaponName: string;
   tierName: string;
   tierColor: string;
