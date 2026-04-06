@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useMemo } from "react";
 import Image from "next/image";
 import type { EncyclopediaSkin, EncyclopediaTier } from "@/types/encyclopedia";
 import { EncyclopediaCard } from "./EncyclopediaCard";
@@ -60,16 +59,6 @@ export function EncyclopediaGrid({
 
     return result;
   }, [skins, activeWeapons, activeEditions, searchQuery]);
-
-  const COLUMNS_PER_ROW = 4;
-  const rowCount = Math.ceil(filteredSkins.length / COLUMNS_PER_ROW);
-  const parentRef = useRef<HTMLDivElement>(null);
-  const rowVirtualizer = useVirtualizer({
-    count: rowCount,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 280,
-    overscan: 3,
-  });
 
   // Stable callback wrapper for EncyclopediaCard to prevent re-renders
   const handleToggleWishlist = useCallback((skinUuid: string, skin: EncyclopediaSkin) => {
@@ -272,48 +261,21 @@ export function EncyclopediaGrid({
       {/* Virtualized Skins Grid */}
       {filteredSkins.length > 0 ? (
         <div
-          ref={parentRef}
-          className="h-[calc(100vh-300px)] overflow-y-auto"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-y-auto"
+          style={{ maxHeight: "calc(100vh - 300px)" }}
         >
-          <div
-            style={{
-              height: `${rowVirtualizer.getTotalSize()}px`,
-              position: "relative",
-            }}
-          >
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const startIdx = virtualRow.index * COLUMNS_PER_ROW;
-              const rowSkins = filteredSkins.slice(startIdx, startIdx + COLUMNS_PER_ROW);
-              return (
-                <div
-                  key={virtualRow.key}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {rowSkins.map((skin) => {
-                      const isWishlisted = wishlistSet.has(skin.uuid);
-                      return (
-                        <EncyclopediaCard
-                          key={skin.uuid}
-                          skin={skin}
-                          isWishlisted={isWishlisted}
-                          onWishlistToggle={handleToggleWishlist}
-                          staggerDelay={0}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {filteredSkins.map((skin) => {
+            const isWishlisted = wishlistSet.has(skin.uuid);
+            return (
+              <EncyclopediaCard
+                key={skin.uuid}
+                skin={skin}
+                isWishlisted={isWishlisted}
+                onWishlistToggle={handleToggleWishlist}
+                staggerDelay={0}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 space-y-4">
