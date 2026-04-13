@@ -12,9 +12,31 @@ import { NextRequest, NextResponse } from "next/server";
  * then x-real-ip, with a fallback to 127.0.0.1.
  */
 export function getClientIP(requestOrHeaders: NextRequest | Headers): string {
-  const headers = requestOrHeaders instanceof NextRequest
-    ? requestOrHeaders.headers
-    : requestOrHeaders;
+  let headers: Headers;
+
+  if (requestOrHeaders instanceof NextRequest) {
+    headers = requestOrHeaders.headers;
+  } else if (typeof requestOrHeaders.get === "function") {
+    // Covers Headers and any duck-typed header-like object
+    headers = requestOrHeaders;
+  } else {
+    // Defensive: headers is an unknown object — try to extract IPs via .get() or direct property access
+    const asRecord = requestOrHeaders as unknown as Record<string, unknown>;
+    const forwardedFor = typeof requestOrHeaders.get === "function"
+      ? requestOrHeaders.get("x-forwarded-for")
+      : asRecord["x-forwarded-for"];
+    if (typeof forwardedFor === "string" && forwardedFor) {
+      const ip = forwardedFor.split(",")[0]?.trim();
+      if (ip) return ip;
+    }
+    const realIP = typeof requestOrHeaders.get === "function"
+      ? (requestOrHeaders as Headers).get("x-real-ip")
+      : asRecord["x-real-ip"];
+    if (typeof realIP === "string" && realIP) {
+      return realIP.trim();
+    }
+    return "127.0.0.1";
+  }
 
   // Check x-forwarded-for header (may contain multiple IPs)
   const forwardedFor = headers.get("x-forwarded-for");
