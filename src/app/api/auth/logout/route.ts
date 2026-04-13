@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, deleteSession } from "@/lib/session";
 import { removeAccount, getActiveAccount } from "@/lib/accounts";
 import { clearCachedStore } from "@/lib/store-cache";
 import { rateLimit } from "@/lib/rate-limiter";
@@ -24,6 +24,10 @@ export async function POST(request: NextRequest) {
   if (activeAccount) {
     await removeAccount(activeAccount.puuid);
   }
+
+  // Explicitly delete the main session to clear the session store and invalidate cache
+  // This ensures complete logout even if removeAccount switched to another account
+  await deleteSession();
 
   const response = NextResponse.json({ success: true });
   return addRateLimitHeaders(response, { limit, remaining, reset });

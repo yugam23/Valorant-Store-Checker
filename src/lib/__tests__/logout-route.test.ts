@@ -25,6 +25,7 @@ vi.mock("@/lib/rate-limit-utils", () => ({
 
 vi.mock("@/lib/session", () => ({
   getSession: vi.fn(),
+  deleteSession: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/accounts", () => ({
