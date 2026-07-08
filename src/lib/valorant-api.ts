@@ -462,9 +462,6 @@ export async function getWeaponSkinsByLevelUuids(
   await getWeaponSkins(); // Ensure cache is warm
   const result = new Map<string, ValorantWeaponSkin>();
 
-  // Track which parent skin UUIDs we've already added to avoid duplicate entries
-  const addedSkinUuids = new Set<string>();
-
   for (const uuid of levelUuids) {
     const normalized = uuid.toLowerCase();
 
@@ -482,8 +479,7 @@ export async function getWeaponSkinsByLevelUuids(
       skin = _skinsByChromaUuid.get(normalized);
     }
 
-    if (skin && !addedSkinUuids.has(skin.uuid.toLowerCase())) {
-      addedSkinUuids.add(skin.uuid.toLowerCase());
+    if (skin) {
       result.set(normalized, skin);
     }
   }
