@@ -104,8 +104,16 @@ export const ValorantSpraySchema = z.object({
   uuid: z.string(),
   displayName: z.string(),
   displayIcon: z.string().nullable(),
-  largeArt: z.string().nullable(),
-  wideArt: z.string().nullable(),
+  fullIcon: z.string().nullish(),
+  fullTransparentIcon: z.string().nullish(),
+  assetPath: z.string(),
+});
+
+export const ValorantSprayLevelSchema = z.object({
+  uuid: z.string(),
+  sprayLevel: z.number(),
+  displayName: z.string(),
+  displayIcon: z.string().nullable(),
   assetPath: z.string(),
 });
 

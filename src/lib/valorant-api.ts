@@ -14,6 +14,7 @@ import {
   ValorantSkinLevelSchema,
   ValorantBuddyLevelSchema,
   ValorantSpraySchema,
+  ValorantSprayLevelSchema,
   ValorantPlayerCardSchema,
   ValorantPlayerTitleSchema,
   CompetitiveSeasonSchema,
@@ -258,8 +259,16 @@ export interface ValorantSpray {
   uuid: string;
   displayName: string;
   displayIcon: string | null;
-  largeArt: string | null;
-  wideArt: string | null;
+  fullIcon?: string | null;
+  fullTransparentIcon?: string | null;
+  assetPath: string;
+}
+
+export interface ValorantSprayLevel {
+  uuid: string;
+  sprayLevel: number;
+  displayName: string;
+  displayIcon: string | null;
   assetPath: string;
 }
 
@@ -390,6 +399,36 @@ export async function getSprayByUuid(uuid: string): Promise<ValorantSpray | null
     return parsed;
   } catch {
     const stale = await getStaleCache<ValorantSpray>(cacheKey);
+    return stale;
+  }
+}
+
+/**
+ * Fetch a spray level by UUID from Valorant-API
+ * Results are cached in Redis for 24 hours
+ */
+export async function getSprayLevelByUuid(uuid: string): Promise<ValorantSprayLevel | null> {
+  const cacheKey = `valorant:spraylevel:${uuid}`;
+  const cached = await getCache<ValorantSprayLevel>(cacheKey);
+  if (cached) {
+    return cached.data;
+  }
+
+  try {
+    const response = await fetch(`${VALORANT_API_BASE}/sprays/levels/${uuid}`, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return null;
+    const result: ValorantAPIResponse<ValorantSprayLevel> = await response.json();
+    if (result.status !== 200 || !result.data) return null;
+    const parsed = parseWithLog(ValorantSprayLevelSchema, result.data, "getSprayLevelByUuid");
+    if (!parsed) return null;
+    await setCache(cacheKey, parsed);
+    return parsed;
+  } catch {
+    const stale = await getStaleCache<ValorantSprayLevel>(cacheKey);
     return stale;
   }
 }

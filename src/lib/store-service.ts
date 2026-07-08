@@ -239,6 +239,10 @@ async function hydrateSingleBundle(
     const itemId = item.Item.ItemID;
     const itemTypeName = getItemTypeName(itemTypeId) ?? "Unknown";
 
+    if (itemTypeName === "Unknown") {
+      log.warn(`Unknown item type ID encountered: ${itemTypeId} for item ${itemId}`);
+    }
+
     let displayName = itemTypeName !== "Unknown" ? `New ${itemTypeName}` : "Unknown Item";
     let displayIcon = "";
     let tierUuid: string | null = null;
@@ -277,7 +281,7 @@ async function hydrateSingleBundle(
         const spray = sprayMap.get(itemId);
         if (spray) {
           displayName = spray.displayName || displayName;
-          displayIcon = spray.displayIcon || spray.largeArt || spray.wideArt || "";
+          displayIcon = spray.displayIcon || spray.fullTransparentIcon || spray.fullIcon || "";
         }
       } else if (itemTypeId === ITEM_TYPE_PLAYER_CARD) {
         const card = cardMap.get(itemId);
