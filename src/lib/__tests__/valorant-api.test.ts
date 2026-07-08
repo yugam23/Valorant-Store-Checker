@@ -802,7 +802,7 @@ describe("getBuddyLevelByUuid", () => {
 
 describe("getSprayByUuid", () => {
   it("cache hit: returns data without fetch", async () => {
-    const sprayData = { uuid: "spray-1", displayName: "Spray 1", displayIcon: "spray.png", largeArt: "large.png", wideArt: "wide.png", assetPath: "spray-asset" };
+    const sprayData = { uuid: "spray-1", displayName: "Spray 1", displayIcon: "spray.png", fullIcon: "large.png", fullTransparentIcon: "wide.png", assetPath: "spray-asset" };
     mockRedisGet.mockResolvedValue(makeCachedPayload(sprayData));
 
     const result = await getSprayByUuid("spray-1");
@@ -811,7 +811,7 @@ describe("getSprayByUuid", () => {
   });
 
   it("cache miss, fetch succeeds: stores in cache, returns data", async () => {
-    const sprayData = { uuid: "spray-2", displayName: "Spray 2", displayIcon: "spray2.png", largeArt: null, wideArt: null, assetPath: "spray-asset2" };
+    const sprayData = { uuid: "spray-2", displayName: "Spray 2", displayIcon: "spray2.png", fullIcon: null, fullTransparentIcon: null, assetPath: "spray-asset2" };
     mockRedisGet.mockResolvedValue(null);
     vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,
@@ -826,7 +826,7 @@ describe("getSprayByUuid", () => {
   });
 
   it("cache miss, fetch fails, stale cache exists: returns stale data", async () => {
-    const sprayData = { uuid: "spray-3", displayName: "Spray 3", displayIcon: "spray3.png", largeArt: null, wideArt: null, assetPath: "spray-asset3" };
+    const sprayData = { uuid: "spray-3", displayName: "Spray 3", displayIcon: "spray3.png", fullIcon: null, fullTransparentIcon: null, assetPath: "spray-asset3" };
     mockRedisGet
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(makeCachedPayload(sprayData));
