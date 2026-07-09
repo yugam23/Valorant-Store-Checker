@@ -120,7 +120,7 @@ function buildSkinCard(skin: OwnedSkin): string {
  */
 function buildPdfPageHtml(
   skinsChunk: OwnedSkin[],
-  meta: { playerName?: string } | undefined,
+  meta: { playerName?: string; rankIcon?: string } | undefined,
   pageNumber: number,
   totalPages: number,
   totalSkinsCount: number
@@ -135,9 +135,12 @@ function buildPdfPageHtml(
   const logoUrl = `${baseUrl}/icons/Valorant_Store_Checker.webp`;
 
   const playerLine = meta?.playerName
-    ? `<span style="color:${COLORS.zinc400}; font-size:14px; font-weight:400; text-transform:none; letter-spacing:normal;">
-         ${escapeHtml(meta.playerName)}
-       </span>`
+    ? `<div style="display:flex; align-items:center; gap:8px;">
+         ${meta.rankIcon ? `<img src="${escapeHtml(meta.rankIcon)}" alt="Rank" crossorigin="anonymous" style="width:30px; height:30px; object-fit:contain;" />` : ''}
+         <span style="color:${COLORS.zinc400}; font-size:24px; font-weight:400; text-transform:none; letter-spacing:normal;">
+           ${escapeHtml(meta.playerName)}
+         </span>
+       </div>`
     : "";
 
   const headerHtml = `
@@ -145,8 +148,8 @@ function buildPdfPageHtml(
          border-bottom:2px solid ${COLORS.valorantRed}; padding-bottom:16px;">
       <div style="display:flex; flex-direction:column; align-items:flex-start; gap:16px;">
         <img src="${logoUrl}" alt="Logo" crossorigin="anonymous" style="width:200px; height:auto; object-fit:contain;" />
-        <div>
-          <h1 style="margin:0 0 4px; font-size:32px; text-transform:uppercase; letter-spacing:0.1em; line-height:1;">
+        <div style="display:flex; align-items:center; gap:16px;">
+          <h1 style="margin:0; font-size:32px; text-transform:uppercase; letter-spacing:0.1em; line-height:1;">
             <span style="color:${COLORS.valorantRed};">VALORANT</span> COLLECTION
           </h1>
           ${playerLine}
@@ -212,7 +215,7 @@ function buildPdfPageHtml(
  */
 export function buildPdfHtml(
   skins: OwnedSkin[],
-  meta?: { playerName?: string },
+  meta?: { playerName?: string; rankIcon?: string },
 ): string {
   if (skins.length === 0) {
     return buildPdfPageHtml([], meta, 1, 1, 0);
@@ -241,7 +244,7 @@ export function buildPdfHtml(
  */
 export async function generateCollectionPdf(
   skins: OwnedSkin[],
-  meta?: { playerName?: string },
+  meta?: { playerName?: string; rankIcon?: string },
 ): Promise<void> {
   // Dynamic imports — these never land in the main bundle.
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([

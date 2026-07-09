@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PdfDownloadButton } from "./PdfDownloadButton";
@@ -32,7 +32,21 @@ vi.mock("@/lib/pdf", () => ({
 }));
 
 describe("PdfDownloadButton", () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        gameName: "TestPlayer",
+        tagLine: "NA1",
+        competitiveTierIcon: "https://media.valorant-api.com/competitivetiers/564d8e28-c226-3180-6285-e19a411523a5/0/largeicon.png"
+      }),
+    }) as any;
+  });
+
   afterEach(() => {
+    global.fetch = originalFetch;
     cleanup();
     vi.clearAllMocks();
   });
@@ -66,7 +80,10 @@ describe("PdfDownloadButton", () => {
     await user.click(screen.getByRole("button", { name: /export pdf/i }));
 
     expect(mockGenerate).toHaveBeenCalledOnce();
-    expect(mockGenerate).toHaveBeenCalledWith(skins);
+    expect(mockGenerate).toHaveBeenCalledWith(skins, {
+      playerName: "TestPlayer#NA1",
+      rankIcon: "https://media.valorant-api.com/competitivetiers/564d8e28-c226-3180-6285-e19a411523a5/0/largeicon.png"
+    });
   });
 
   it("shows loading state during PDF generation", async () => {

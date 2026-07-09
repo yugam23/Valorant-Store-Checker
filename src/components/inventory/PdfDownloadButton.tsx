@@ -26,8 +26,22 @@ export function PdfDownloadButton({ skins }: PdfDownloadButtonProps) {
     setErrorMsg("");
 
     try {
-      const { generateCollectionPdf } = await import("@/lib/pdf");
-      await generateCollectionPdf(skins);
+      const [{ generateCollectionPdf }, profileRes] = await Promise.all([
+        import("@/lib/pdf"),
+        fetch("/api/profile")
+      ]);
+
+      let profileData = null;
+      if (profileRes.ok) {
+        profileData = await profileRes.json();
+      }
+
+      const meta = profileData ? {
+        playerName: profileData.gameName ? `${profileData.gameName}#${profileData.tagLine}` : undefined,
+        rankIcon: profileData.competitiveTierIcon,
+      } : undefined;
+
+      await generateCollectionPdf(skins, meta);
       setState("idle");
     } catch (err) {
       console.error("PDF generation failed:", err);
