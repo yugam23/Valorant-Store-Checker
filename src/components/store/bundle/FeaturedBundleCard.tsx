@@ -87,6 +87,13 @@ function FeaturedBundleCard({ bundle }: FeaturedBundleCardProps) {
                             className="object-contain p-4"
                             sizes="256px"
                           />
+                        ) : item.itemType === "Title" || item.itemType === "Flex" ? (
+                          /* Elegant text display for Title items */
+                          <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
+                            <span className="font-display text-xl font-bold text-light uppercase leading-tight">
+                              {item.displayName.replace(/ Title$/i, '')}
+                            </span>
+                          </div>
                         ) : (
                           /* Placeholder for items without icons */
                           <div className="absolute inset-0 flex items-center justify-center">

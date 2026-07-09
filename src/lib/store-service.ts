@@ -212,7 +212,7 @@ async function hydrateSingleBundle(
   const buddyItems = nonSkinItems.filter((i) => i.Item.ItemTypeID === ITEM_TYPE_BUDDY);
   const sprayItems = nonSkinItems.filter((i) => i.Item.ItemTypeID === ITEM_TYPE_SPRAY);
   const cardItems = nonSkinItems.filter((i) => i.Item.ItemTypeID === ITEM_TYPE_PLAYER_CARD);
-  const titleItems = nonSkinItems.filter((i) => i.Item.ItemTypeID === ITEM_TYPE_PLAYER_TITLE);
+  const titleItems = nonSkinItems.filter((i) => i.Item.ItemTypeID === ITEM_TYPE_PLAYER_TITLE || i.Item.ItemTypeID === ITEM_TYPE_FLEX);
 
   // Fire all batch fetches in parallel — eliminates serial await chain per item type
   const [buddyData, sprayData, cardData, titleData] = await Promise.all([
@@ -289,7 +289,7 @@ async function hydrateSingleBundle(
           displayName = card.displayName || displayName;
           displayIcon = card.displayIcon || card.largeArt || card.wideArt || "";
         }
-      } else if (itemTypeId === ITEM_TYPE_PLAYER_TITLE) {
+      } else if (itemTypeId === ITEM_TYPE_PLAYER_TITLE || itemTypeId === ITEM_TYPE_FLEX) {
         const title = titleMap.get(itemId);
         if (title) {
           displayName = title.displayName || displayName;

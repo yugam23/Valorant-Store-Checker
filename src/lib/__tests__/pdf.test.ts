@@ -193,3 +193,74 @@ describe("buildPdfHtml", () => {
     expect(html).toContain("#0f1923"); // void — odd rows
   });
 });
+
+import { generateCollectionPdf } from "../pdf";
+import { vi } from "vitest";
+
+// Mock the dynamic imports for pdf generation
+vi.mock("html2canvas-pro", () => {
+  return {
+    default: vi.fn().mockResolvedValue({
+      toDataURL: vi.fn().mockReturnValue("data:image/jpeg;base64,mock"),
+    }),
+  };
+});
+
+const mockSave = vi.fn();
+const mockAddPage = vi.fn();
+const mockAddImage = vi.fn();
+
+vi.mock("jspdf", () => {
+  return {
+    jsPDF: class {
+      internal = {
+        pageSize: {
+          getWidth: () => 297,
+          getHeight: () => 210,
+        },
+      };
+      addPage = mockAddPage;
+      addImage = mockAddImage;
+      save = mockSave;
+    }
+  };
+});
+
+describe("generateCollectionPdf", () => {
+  it("generates and saves a PDF with correct pages", async () => {
+    const skins = [
+      makeSkin(),
+    ];
+    
+    const mockContainer = {
+      style: {},
+      querySelectorAll: vi.fn().mockReturnValue([{}]), // Return a mock element
+    };
+
+    const appendSpy = vi.fn();
+    const removeSpy = vi.fn();
+
+    vi.stubGlobal('document', {
+      createElement: vi.fn().mockReturnValue(mockContainer),
+      body: {
+        appendChild: appendSpy,
+        removeChild: removeSpy,
+      }
+    });
+
+    await generateCollectionPdf(skins, { playerName: "TestPlayer#1234" });
+
+    // Ensure the container was temporarily added to the DOM
+    expect(appendSpy).toHaveBeenCalledWith(mockContainer);
+    expect(removeSpy).toHaveBeenCalledWith(mockContainer);
+
+    // Ensure it saved with the correct date format in filename
+    const dateStr = new Date().toISOString().slice(0, 10);
+    expect(mockSave).toHaveBeenCalledWith(`Valorant_Collection_${dateStr}.pdf`);
+    
+    // Ensure images were added
+    expect(mockAddImage).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+});
