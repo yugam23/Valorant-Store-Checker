@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Image from "next/image";
 import { InventoryCard } from "./InventoryCard";
+import { PdfDownloadButton } from "./PdfDownloadButton";
 import type { OwnedSkin, EditionCategory } from "@/types/inventory";
 import { getEditionIconPath } from "@/lib/edition-icons";
 
@@ -207,14 +208,17 @@ export function InventoryGrid({ skins, weaponCategories, editionCategories }: In
             Showing <span className="text-light font-semibold">{filteredSkins.length}</span> of{" "}
             <span className="text-light font-semibold">{skins.length}</span> skins
           </p>
-          {hasActiveFilters && (
-            <button
-              onClick={clearAllFilters}
-              className="text-xs text-valorant-red hover:text-valorant-red/80 uppercase tracking-wide font-semibold transition-colors"
-            >
-              Clear All Filters
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            <PdfDownloadButton skins={filteredSkins} />
+            {hasActiveFilters && (
+              <button
+                onClick={clearAllFilters}
+                className="text-xs text-valorant-red hover:text-valorant-red/80 uppercase tracking-wide font-semibold transition-colors"
+              >
+                Clear All Filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
