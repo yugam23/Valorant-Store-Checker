@@ -68,6 +68,8 @@ function makeTokens(puuid = "test-puuid", region = "na") {
   };
 }
 
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+
 function makeCacheEntry(data: ProfileData, cachedAt: number = Date.now() - 60000) {
   return JSON.stringify({ data, cachedAt });
 }
@@ -123,31 +125,34 @@ beforeEach(() => {
 });
 
 describe("getProfileData — Tier 0 (cache)", () => {
-  it("Tier 0: fresh cache hit (< 5min) returns with fromCache:true, does NOT call any APIs", async () => {
+  it("Tier 0: fresh cache hit (< 6h) returns with fromCache:true, does NOT call any APIs", async () => {
     const cachedProfile: ProfileData = {
       playerCardId: "card-123",
       fromCache: false,
       partial: false,
       henrikFailed: false,
     };
-    mockRedisGet.mockResolvedValue(makeCacheEntry(cachedProfile, Date.now() - 60000)); // 1 min ago
+    const cachedAt = Date.now() - 5 * 60 * 60 * 1000; // 5h ago
+    mockRedisGet.mockResolvedValue(makeCacheEntry(cachedProfile, cachedAt));
 
     const result = await getProfileData(makeTokens(), "na");
 
     expect(result.fromCache).toBe(true);
+    expect(result.cachedAt).toBe(cachedAt);
+    expect(result.nextUpdateAt).toBe(cachedAt + SIX_HOURS_MS);
     expect(mockGetPlayerLoadout).not.toHaveBeenCalled();
     expect(mockGetHenrikAccount).not.toHaveBeenCalled();
     expect(mockGetHenrikMMR).not.toHaveBeenCalled();
   });
 
-  it("Tier 0: stale cache (>= 5min) proceeds to Tier 1 API fetch", async () => {
+  it("Tier 0: stale cache (>= 6h) proceeds to Tier 1 API fetch", async () => {
     const cachedProfile: ProfileData = {
       playerCardId: "card-123",
       fromCache: false,
       partial: false,
       henrikFailed: false,
     };
-    mockRedisGet.mockResolvedValue(makeCacheEntry(cachedProfile, Date.now() - 400000)); // ~6.6 min ago
+    mockRedisGet.mockResolvedValue(makeCacheEntry(cachedProfile, Date.now() - 7 * 60 * 60 * 1000)); // 7h ago
 
     mockGetPlayerLoadout.mockResolvedValue(makeMockLoadout());
     mockGetHenrikAccount.mockResolvedValue(makeMockAccount());
@@ -201,7 +206,28 @@ describe("getProfileData — Tier 1 (API fetch)", () => {
 
     expect(result.partial).toBe(false);
     expect(result.henrikFailed).toBe(false);
-    expect(mockRedisSet).toHaveBeenCalled(); // cached
+    expect(mockRedisSet).toHaveBeenCalledWith(
+      "profile:test-puuid",
+      expect.any(String),
+      { ex: SIX_HOURS_MS / 1000 },
+    );
+    expect(result.nextUpdateAt).toBe(result.cachedAt! + SIX_HOURS_MS);
+  });
+
+  it("Tier 1: Henrik account returns nothing (404) but loadout succeeds → still cached", async () => {
+    mockRedisGet.mockResolvedValue(null);
+
+    mockGetPlayerLoadout.mockResolvedValue(makeMockLoadout());
+    mockGetHenrikAccount.mockResolvedValue(null);
+    mockGetHenrikMMR.mockResolvedValue(makeMockMMR());
+    mockGetPlayerCardByUuid.mockResolvedValue({ smallArt: "", wideArt: "", largeArt: "" });
+    mockGetPlayerTitleByUuid.mockResolvedValue({ titleText: "Test Title" });
+    mockGetCompetitiveTierIconByTier.mockResolvedValue("https://ranked.icon");
+
+    const result = await getProfileData(makeTokens(), "na");
+
+    expect(result.partial).toBe(false);
+    expect(mockRedisSet).toHaveBeenCalled();
   });
 
   it("Tier 1: redis.get rejects with timeout → proceeds to API fetch (does not throw)", async () => {

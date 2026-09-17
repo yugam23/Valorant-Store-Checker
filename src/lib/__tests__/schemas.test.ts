@@ -265,6 +265,30 @@ describe("UserInfoSchema", () => {
     const result = UserInfoSchema.safeParse(withoutSub);
     expect(result.success).toBe(false);
   });
+
+  it("social-login payload without email_verified / pw / age: parses successfully", () => {
+    // Accounts created via Google / Apple login omit several fields that
+    // password accounts return. Only `sub` is guaranteed.
+    const socialLogin = {
+      sub: "test-puuid",
+      country: "bra",
+      phone_number_verified: true,
+      account_verified: true,
+      acct: { game_name: "Player", tag_line: "BR1", state: "ENABLED" },
+      affinity: { pp: "br" },
+    };
+    const result = UserInfoSchema.safeParse(socialLogin);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.sub).toBe("test-puuid");
+      expect(result.data.acct?.game_name).toBe("Player");
+    }
+  });
+
+  it("only sub present: parses successfully", () => {
+    const result = UserInfoSchema.safeParse({ sub: "test-puuid" });
+    expect(result.success).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

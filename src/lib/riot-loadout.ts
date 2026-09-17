@@ -22,7 +22,7 @@ export interface PlayerLoadoutIdentity {
 }
 
 /**
- * Response from /personalization/v2/players/{puuid}/playerloadout
+ * Response from /personalization/v3/players/{puuid}/playerloadout
  * Guns and Sprays are omitted — only Identity is needed for the profile feature.
  */
 export interface PlayerLoadoutResponse {
@@ -36,12 +36,12 @@ export interface PlayerLoadoutResponse {
  * Fetch the player's equipped loadout from the Riot PD endpoint.
  * Uses fetchWithShardFallback from riot-store for shard discovery and correct headers.
  *
- * Endpoint: /personalization/v2/players/{puuid}/playerloadout
+ * Endpoint: /personalization/v3/players/{puuid}/playerloadout
  */
 export async function getPlayerLoadout(tokens: StoreTokens): Promise<PlayerLoadoutResponse> {
   const response = await fetchWithShardFallback(
     tokens,
-    (pdUrl) => `${pdUrl}/personalization/v2/players/${tokens.puuid}/playerloadout`
+    (pdUrl) => `${pdUrl}/personalization/v3/players/${tokens.puuid}/playerloadout`
   );
 
   if (!response.ok) {

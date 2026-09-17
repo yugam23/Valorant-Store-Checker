@@ -29,7 +29,7 @@
 
 Valorant Store Checker is a production-grade, security-hardened Next.js application that authenticates with Riot's OAuth flow and surfaces your personalized in-game store. It supports multi-step authentication (including MFA and browser-based fallback), multi-account switching, store rotation history, wishlists, inventory browsing, and full profile/rank display — all without ever opening the Valorant client.
 
-Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server, and all Riot cookies are stored server-side only. The project ships with a comprehensive Vitest test suite and is designed for self-hosting on Vercel.
+Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server, and all Riot cookies are stored server-side only. The project ships with a comprehensive Vitest test suite and can be self-hosted on Vercel or with Docker.
 
 ---
 
@@ -61,6 +61,7 @@ Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server,
 | **UI Primitives** | [Radix UI](https://www.radix-ui.com), [Lucide Icons](https://lucide.dev), [CVA](https://cva.style)      |
 | **Validation**    | [Zod](https://zod.dev)                                                                                  |
 | **Server DB**     | [LibSQL / Turso](https://turso.tech) (SQLite)                                                           |
+| **Cache**         | [Upstash Redis](https://upstash.com) (REST) — or bundled Redis + [SRH](https://github.com/hiett/serverless-redis-http) in Docker |
 | **Client DB**     | [Dexie.js](https://dexie.org) (IndexedDB — store history)                                               |
 | **PDF Export**    | [jspdf](https://github.com/parallax/jsPDF) & [html2canvas-pro](https://github.com/niklasvh/html2canvas) |
 | **Auth Fallback** | [Playwright](https://playwright.dev) (headless browser cookie extraction)                               |
@@ -98,10 +99,11 @@ Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server,
 │  └── riot-inventory.ts  (cosmetics)                  │
 └──────────────────────┬──────────────────────────────┘
                        │
-         ┌─────────────┴──────────────┐
-         ▼                            ▼
-  LibSQL / Turso               Riot Servers
-  (encrypted sessions)         (auth + store APIs)
+         ┌─────────────┼──────────────┐
+         ▼             ▼              ▼
+  LibSQL / Turso   Redis (REST)   Riot + HenrikDev APIs
+  (encrypted       (cache +       (auth, store, loadout,
+   sessions)        rate limit)    rank)
 ```
 
 **Key patterns:**
@@ -109,7 +111,9 @@ Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server,
 - **Reference-token sessions** — JWT in cookie carries only a session ID; all data stays in SQLite
 - **RSC deduplication** — `React.cache()` wraps `getSession()` to deduplicate DB reads per render pass
 - **withSession HOF** — all protected API routes wrapped with `withSession(handler)` for zero-boilerplate auth
-- **FIFO in-memory cache** — capped at 10 entries per cache (profile, store, inventory) to prevent unbounded memory growth
+- **Redis-backed caches** — store (until the next rotation), profile (6 hours) and Valorant catalog data (24 hours) are cached in Redis, so page reloads don't re-hit Riot or HenrikDev; inventory is cached in memory. Without Redis the app still works, just without these caches
+- **Auth rate limiting** — sliding-window limit on login attempts per IP, backed by Redis (fails open when Redis is not configured)
+- **Shard memoization** — the first Riot PD request tries the session's shard alone and remembers the one that works, instead of probing every shard
 - **Section-level error boundaries** — each store section fails independently; the rest of the page renders
 
 ---
@@ -136,6 +140,16 @@ Sessions are encrypted at rest using AES-256-GCM, tokens never leave the server,
 | `TURSO_DATABASE_URL` | LibSQL connection URL from [Turso](https://turso.tech) (e.g. `libsql://...`) |
 | `TURSO_AUTH_TOKEN`   | Turso auth token for the above database                                      |
 | `SESSION_DB_PATH`    | Override local SQLite path (default: `.session-data/sessions.db`)            |
+
+### Cache & Rate Limiting (Recommended)
+
+| Variable                   | Description                                                                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UPSTASH_REDIS_REST_URL`   | Upstash Redis REST URL. Enables the store/profile/catalog caches and auth rate limiting                                                      |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token                                                                                                                     |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Used as a fallback for the two variables above — these are the names the Vercel Marketplace Upstash integration injects             |
+| `RATE_LIMIT_REQS_PER_MIN`  | Max auth requests per minute per IP (default: `10`)                                                                                          |
+| `SRH_TOKEN`                | **Docker only.** Token for the bundled Redis REST proxy. Generate: `openssl rand -hex 32`                                                    |
 
 > **Important:** Without `ENCRYPTION_KEY`, Riot session cookies are stored in plaintext in the database. Setting this variable is strongly recommended for any deployment accessible to others.
 
@@ -169,14 +183,79 @@ For more information, visit [diploi.com](https://diploi.com/).
    - `ENCRYPTION_KEY` ← strongly recommended
    - `HENRIK_API_KEY` ← optional (rank data)
    - `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` ← for persistent sessions across deployments
+   - Upstash Redis ← recommended (cache + auth rate limiting)
+
+   Both Turso and Upstash can be added from the project's **Storage** tab (Vercel Marketplace), which injects the variables automatically.
 
 3. Click **Deploy**.
 
+> **Turso integration:** when connecting the Turso database, leave **"Create Database Branch For Deployment"** unchecked for Production. When it is checked, every production deploy gets a brand-new empty database, which logs every user out and wipes wishlists on each deploy.
+
 > Every push to `main` triggers an automatic redeployment.
+
+### Option 3: Self-host with Docker
+
+Run the app on your own server (VPS, home lab, NAS) so that Riot session
+cookies never leave infrastructure you control.
+
+1. **Clone and configure:**
+
+   ```bash
+   git clone https://github.com/yugam23/Valorant-Store-Checker.git
+   cd Valorant-Store-Checker
+   cp .env.example .env
+   ```
+
+2. **Generate the three secrets** and paste them into `.env`:
+
+   ```bash
+   openssl rand -base64 32   # SESSION_SECRET
+   openssl rand -hex 32      # ENCRYPTION_KEY (must be 64 hex chars)
+   openssl rand -hex 32      # SRH_TOKEN (bundled Redis REST proxy)
+   ```
+
+3. **Build and start:**
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000). If port 3000 is taken, set `APP_PORT` in `.env`.
+
+What the Docker setup does:
+
+- Multi-stage build on `node:22-bookworm-slim` using Next.js standalone output (no dev dependencies, no Playwright browsers in the image).
+- Runs as an unprivileged user with a read-only root filesystem, all capabilities dropped and `no-new-privileges`.
+- Stores the encrypted SQLite session database in a named volume (`session-data`), so sessions survive rebuilds. Set `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` in `.env` if you prefer a remote database.
+- Runs a bundled Redis plus [serverless-redis-http](https://github.com/hiett/serverless-redis-http) (SRH), which exposes Redis over the Upstash REST API the app uses. This enables the profile/store cache and auth rate limiting without an Upstash account. Neither is published outside the Docker network. Set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in `.env` to use hosted Upstash instead.
+- Publishes the port on `127.0.0.1` only. To expose it on a LAN or the internet, put a TLS reverse proxy in front of it. Production session cookies are marked `Secure`, so browsers only send them over HTTPS (plain `http://localhost` also works). Minimal Caddy example:
+
+  ```caddyfile
+  store.example.com {
+      reverse_proxy 127.0.0.1:3000
+  }
+  ```
+
+- Refuses to start if `SESSION_SECRET`, `ENCRYPTION_KEY` or `SRH_TOKEN` is missing, so cookies are never written to disk unencrypted.
+
+**Prebuilt image:** every push to `main` publishes a multi-arch image (`linux/amd64`, `linux/arm64`) to GitHub Container Registry, and version tags (`v1.2.3`) publish `:1.2.3` / `:1.2`. To use it instead of building locally, create a `docker-compose.override.yml` next to `docker-compose.yml`:
+
+```yaml
+services:
+  app:
+    image: ghcr.io/yugam23/valorant-store-checker:latest
+    pull_policy: always
+```
+
+Then start with `docker compose up -d` (without `--build`).
+
+> **Tip:** the same setup works as a production-like local environment on your own machine — `docker compose up -d --build` gives you the app plus Redis, so caching and rate limiting behave the same as on a hosted deployment. Use `docker compose logs -f app` to follow the server logs (set `LOG_LEVEL=info` or `debug` in `.env` for more detail) and `docker compose down` to stop it.
+
+> **Note:** the "Launch Riot Login" button opens a browser _on the machine running the server_ (via `xdg-open` / `open`), so it does nothing useful inside a container. Use the credentials + MFA login, or log in on any browser and paste the redirect URL / cookies.
 
 ### Turso Database (Optional but Recommended)
 
-Without a persistent Turso database, sessions are stored in a local SQLite file that is ephemeral on Vercel (wiped on each deployment). To persist sessions:
+Without a persistent Turso database, sessions are stored in a local SQLite file that is ephemeral on Vercel (wiped on each deployment). The easiest way on Vercel is the Turso integration in the **Storage** tab (see the note about database branches above). To set it up manually instead:
 
 1. Create a free database at [turso.tech](https://turso.tech):
    ```bash
@@ -225,6 +304,8 @@ Without a persistent Turso database, sessions are stored in a local SQLite file 
 
 5. Open [http://localhost:3000](http://localhost:3000).
 
+`npm run dev` runs without Redis unless you set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`, so every page load goes straight to Riot and HenrikDev. To test with caching and rate limiting, use the [Docker setup](#option-3-self-host-with-docker) instead.
+
 ### Running Tests
 
 ```bash
@@ -268,7 +349,12 @@ src/
     ├── session-db.ts         # LibSQL client + migrations
     ├── api-validate.ts       # parseBody<T> + withSession HOF
     ├── riot-auth.ts          # Riot OAuth + MFA + SSID refresh
-    ├── riot-store.ts         # Storefront API
+    ├── riot-store.ts         # Storefront API + shard selection
+    ├── riot-loadout.ts       # Player loadout (card, title, level)
+    ├── redis-client.ts       # Upstash Redis client (REST)
+    ├── rate-limiter.ts       # Auth rate limiting (Upstash Ratelimit)
+    ├── store-cache.ts        # Store cache (Redis)
+    ├── profile-cache.ts      # Profile cache (Redis, 6h)
     ├── riot-tokens.ts        # Token + entitlements extraction
     ├── riot-inventory.ts     # Owned cosmetics
     └── valorant-api.ts       # HenrikDev integration (rank, skins metadata)

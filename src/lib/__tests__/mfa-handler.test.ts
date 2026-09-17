@@ -50,6 +50,7 @@ describe("handleMfaAuth", () => {
       success: true,
       tokens: mockTokens,
       riotCookies: "ssid=x",
+      namedCookies: { raw: "ssid=x" },
     });
 
     const { registerAuthenticatedSession } = await import("@/lib/auth-handlers/shared");

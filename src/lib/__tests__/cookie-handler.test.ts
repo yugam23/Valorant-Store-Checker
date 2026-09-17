@@ -54,6 +54,7 @@ describe("handleCookieAuth", () => {
       success: true,
       tokens: mockTokens,
       riotCookies: "ssid=new",
+      namedCookies: { raw: "ssid=new" },
     });
 
     const { registerAuthenticatedSession } = await import("@/lib/auth-handlers/shared");
@@ -94,6 +95,7 @@ describe("handleCookieAuth", () => {
       limit: 5,
       remaining: 0,
       reset: Date.now() + 60000,
+      pending: Promise.resolve(0),
     });
 
     const headers = new Headers();
@@ -118,6 +120,7 @@ describe("handleCookieAuth", () => {
       limit: 5,
       remaining: 4,
       reset: Date.now() + 60000,
+      pending: Promise.resolve(0),
     });
 
     const { refreshTokensWithCookies } = await import("@/lib/riot-reauth");
@@ -148,6 +151,7 @@ describe("handleCookieAuth", () => {
       limit: 5,
       remaining: 4,
       reset: Date.now() + 60000,
+      pending: Promise.resolve(0),
     });
 
     const { refreshTokensWithCookies } = await import("@/lib/riot-reauth");
@@ -155,6 +159,7 @@ describe("handleCookieAuth", () => {
       success: true,
       tokens: mockTokens,
       riotCookies: "ssid=fresh",
+      namedCookies: { raw: "ssid=fresh" },
     });
 
     const headers = new Headers();

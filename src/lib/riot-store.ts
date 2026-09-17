@@ -31,15 +31,15 @@ const CLIENT_PLATFORM = btoa(JSON.stringify({
   platformChipset: "Unknown",
 }));
 
-/** Cached client version fetched from Riot manifest endpoint */
+/** Cached client version fetched from valorant-api.com */
 let clientVersionCache: string | null = null;
 let clientVersionFetchedAt = 0;
 const VERSION_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 /**
- * Fetches the current Valorant client version from Riot's official manifest endpoint.
- * Retries up to 3 times before trying fallback endpoints.
- * Fallback order: riotclient.riotgames.com -> valorant-api.com -> hardcoded fallback
+ * Fetches the current Valorant client version from valorant-api.com.
+ * riotclient.riotgames.com is not used: it no longer resolves in DNS, and every
+ * attempt only added retries and delay before falling back here anyway.
  */
 async function getClientVersion(): Promise<string> {
   const now = Date.now();
@@ -47,35 +47,18 @@ async function getClientVersion(): Promise<string> {
     return clientVersionCache;
   }
 
-  let lastError: Error | null = null;
-
-  // Try riotclient.riotgames.com first (primary source)
-  const primaryVersion = await tryFetchFromRiotManifest();
-  if (primaryVersion) {
-    clientVersionCache = primaryVersion;
-    clientVersionFetchedAt = now;
-    log.info("Updated Client Version (Riot): %s", primaryVersion);
-    return primaryVersion;
-  }
-
-  // Fallback to valorant-api.com (public API with version info)
-  log.warn("Riot manifest endpoint failed, trying valorant-api.com fallback");
   try {
-    const fallbackVersion = await tryFetchFromValorantAPI();
-    if (fallbackVersion) {
-      clientVersionCache = fallbackVersion;
+    const version = await tryFetchFromValorantAPI();
+    if (version) {
+      clientVersionCache = version;
       clientVersionFetchedAt = now;
-      log.info("Updated Client Version (ValorantAPI): %s", fallbackVersion);
-      return fallbackVersion;
+      log.info("Updated Client Version (ValorantAPI): %s", version);
+      return version;
     }
   } catch (error) {
-    log.warn("Valorant-API fallback also failed:", error);
-    lastError = error instanceof Error ? error : new Error(String(error));
-  }
-
-  // All sources failed — throw the last error
-  if (lastError) {
-    throw new Error(`Failed to fetch client version after 3 attempts: ${lastError.message}`);
+    log.warn("Valorant-API version fetch failed:", error);
+    const lastError = error instanceof Error ? error : new Error(String(error));
+    throw new Error(`Failed to fetch client version: ${lastError.message}`);
   }
 
   // Last resort: use hardcoded fallback version
@@ -88,47 +71,7 @@ async function getClientVersion(): Promise<string> {
 }
 
 /**
- * Try to fetch version from Riot's official manifest endpoint
- */
-async function tryFetchFromRiotManifest(): Promise<string | null> {
-  let attempts = 0;
-  const maxAttempts = 3;
-  let lastError: Error | null = null;
-
-  while (attempts < maxAttempts) {
-    try {
-      const response = await fetch("https://riotclient.riotgames.com/riotclient/ux-middleware/bootstrap/manifest", {
-        signal: AbortSignal.timeout(5_000),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Riot's manifest endpoint returns { data: { manifests: { riotClientVersion: "..." } } }
-        const version: string = data.data.manifests.riotClientVersion;
-        return version;
-      } else {
-        lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      log.warn(`Failed to fetch from Riot manifest (Attempt ${attempts + 1}/${maxAttempts}):`, error);
-    }
-
-    attempts++;
-    if (attempts < maxAttempts) {
-      // Exponential backoff: 500ms, 1000ms, 2000ms
-      const delay = 500 * Math.pow(2, attempts - 1);
-      await new Promise(r => setTimeout(r, delay));
-    }
-  }
-
-  log.warn("Riot manifest endpoint failed after %d attempts. Last error: %s", maxAttempts, lastError?.message);
-  return null;
-}
-
-/**
  * Try to fetch version from valorant-api.com (public API)
- * This is used as a fallback when Riot's endpoint is unreachable
  */
 async function tryFetchFromValorantAPI(): Promise<string | null> {
   const response = await fetch("https://valorant-api.com/v1/version", {
@@ -211,97 +154,80 @@ const cachedShardByPuuid = new Map<string, string>();
 
 /**
  * Helper to fetch data with automatic shard fallback.
- * For initial shard discovery (no cached shard), tries all shards in parallel
- * and uses whichever responds first. On failure, falls back to sequential
- * retry with reduced timeout.
+ *
+ * Tries a single shard first — the one cached for this PUUID, or the session
+ * region on first use — and remembers it on success, so the common case is one
+ * request. Only when that shard fails are the other shards probed in parallel
+ * (skipping any that map to an already-tried PD host); probes that errored at
+ * the network level get one sequential retry with a longer timeout.
  */
 export async function fetchWithShardFallback(
   tokens: StoreTokens,
   endpointBuilder: (pdUrl: string) => string
 ): Promise<Response> {
   const regions = ["na", "eu", "ap", "kr"];
-
-  // Determine the order of regions to try
-  const cachedShard = cachedShardByPuuid.get(tokens.puuid);
-  const attempts: string[] = [cachedShard || tokens.region];
-  for (const r of regions) {
-    if (!attempts.includes(r)) attempts.push(r);
-  }
-  // Deduplicate to prevent redundant fetch calls when cachedShard === tokens.region
-  const uniqueAttempts = [...new Set(attempts)];
+  const preferred = cachedShardByPuuid.get(tokens.puuid) ?? tokens.region;
 
   const baseHeaders = await getStoreHeaders(tokens);
 
-  // Fast path: try cached shard first with a shorter timeout
-  if (cachedShard && cachedShard !== tokens.region) {
-    const pdUrl = getPdUrl(cachedShard);
-    const url = endpointBuilder(pdUrl);
-    log.info(`Fetching store for PUUID: ${tokens.puuid.substring(0, 8)} on cached shard: ${cachedShard.toUpperCase()}`);
+  // Fast path: one request to the preferred shard
+  try {
+    const response = await fetchWithRetry(endpointBuilder(getPdUrl(preferred)), baseHeaders, 10_000, true);
+    if (response.ok) {
+      cachedShardByPuuid.set(tokens.puuid, preferred);
+      return response;
+    }
+    if (![403, 404, 405].includes(response.status)) {
+      // Not a wrong-shard error (e.g. 401 expired token) — other shards won't help
+      const errorBody = await response.text().catch(() => "No error body");
+      throw new Error(`Request failed with status ${response.status}: ${errorBody}`);
+    }
+    log.warn(`Shard ${preferred.toUpperCase()} failed with ${response.status}, trying other shards`);
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Request failed with status")) throw err;
+    log.warn(`Network error on ${preferred.toUpperCase()}, trying other shards:`, err);
+  }
 
-    try {
-      const response = await fetchWithRetry(url, baseHeaders, 10_000, false);
-      if (response.ok) {
-        return response;
-      }
-    } catch {
-      // Cached shard failed, fall through to parallel discovery
-      log.warn(`Cached shard ${cachedShard.toUpperCase()} failed, trying all shards in parallel`);
+  // Remaining shards, deduplicated by PD host (e.g. "am" and "na" share pd.na)
+  const triedHosts = new Set([getPdUrl(preferred)]);
+  const others = [tokens.region, ...regions].filter((region) => {
+    const host = getPdUrl(region);
+    if (triedHosts.has(host)) return false;
+    triedHosts.add(host);
+    return true;
+  });
+
+  const results = await Promise.allSettled(
+    others.map(region => {
+      log.info(`Parallel shard probe: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
+      return fetchWithRetry(endpointBuilder(getPdUrl(region)), baseHeaders, 10_000, true).then(r => ({ response: r, region }));
+    })
+  );
+
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value.response.ok) {
+      const region = result.value.region;
+      log.info(`Shard discovery success: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
+      cachedShardByPuuid.set(tokens.puuid, region);
+      return result.value.response;
     }
   }
 
-  // Initial discovery: try all remaining shards in parallel
-  const remainingRegions = uniqueAttempts.filter(r => r !== cachedShard || !cachedShard);
-  if (remainingRegions.length > 1) {
-    const results = await Promise.allSettled(
-      remainingRegions.map(region => {
-        const pdUrl = getPdUrl(region);
-        const url = endpointBuilder(pdUrl);
-        log.info(`Parallel shard probe: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
-        return fetchWithRetry(url, baseHeaders, 10_000, true).then(r => ({ response: r, region }));
-      })
-    );
-
-    // Use first successful response
-    for (const result of results) {
-      if (result.status === "fulfilled" && result.value.response.ok) {
-        const region = result.value.region;
-        log.info(`Shard discovery success: ${region.toUpperCase()} for ${tokens.puuid.substring(0, 8)}`);
-        if (region !== tokens.region) {
-          cachedShardByPuuid.set(tokens.puuid, region);
-        }
-        return result.value.response;
-      }
-    }
-  }
-
-  // Fallback: try remaining regions sequentially with longer timeout
+  // Retry shards whose probe failed at the network level (timeouts), with a longer timeout
   let lastError: Error | null = null;
-  for (const region of remainingRegions) {
-    const pdUrl = getPdUrl(region);
-    const url = endpointBuilder(pdUrl);
-
+  for (const [i, result] of results.entries()) {
+    if (result.status === "fulfilled") continue;
+    const region = others[i]!;
     log.info(`Fetching store for PUUID: ${tokens.puuid.substring(0, 8)} on shard: ${region.toUpperCase()}`);
 
     try {
-      const response = await fetchWithRetry(url, baseHeaders, 30_000, false);
+      const response = await fetchWithRetry(endpointBuilder(getPdUrl(region)), baseHeaders, 30_000, false);
       if (response.ok) {
-        if (region !== tokens.region && region !== cachedShard) {
-          log.info(`Discovered correct shard: ${region.toUpperCase()}`);
-          cachedShardByPuuid.set(tokens.puuid, region);
-        }
+        log.info(`Discovered correct shard: ${region.toUpperCase()}`);
+        cachedShardByPuuid.set(tokens.puuid, region);
         return response;
       }
-
-      // If 404/403/405, it might be the wrong shard or method, so try next shard
-      if ([403, 404, 405].includes(response.status)) {
-        log.warn(`Shard ${region.toUpperCase()} failed with ${response.status}. Retrying...`);
-        const bodyText = await response.text().catch(() => "");
-        log.warn(`Error body: ${bodyText}`);
-        continue;
-      }
-
-      const errorBody = await response.text().catch(() => "No error body");
-      throw new Error(`Request failed with status ${response.status}: ${errorBody}`);
+      lastError = new Error(`Request failed with status ${response.status}`);
     } catch (err) {
       lastError = err as Error;
       log.warn(`Network error on ${region.toUpperCase()}:`, err);
@@ -320,10 +246,11 @@ async function fetchWithRetry(
   timeoutMs: number,
   isProbe: boolean
 ): Promise<Response> {
-  const isV3 = url.includes("/v3/");
-  const method = isV3 ? "POST" : "GET";
-  const body = isV3 ? "{}" : undefined;
-  const headers = isV3
+  // Only the v3 storefront is POST; other v3 endpoints (e.g. playerloadout) are GET
+  const isPost = url.includes("/store/v3/storefront/");
+  const method = isPost ? "POST" : "GET";
+  const body = isPost ? "{}" : undefined;
+  const headers = isPost
     ? { ...baseHeaders, "Content-Type": "application/json" }
     : baseHeaders;
 

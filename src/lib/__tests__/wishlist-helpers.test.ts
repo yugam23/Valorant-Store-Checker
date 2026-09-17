@@ -255,7 +255,7 @@ describe("addToWishlist()", () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.count).toBe(1);
-    expect(result.items[0].skinUuid).toBe(newItem.skinUuid);
+    expect(result.items[0]!.skinUuid).toBe(newItem.skinUuid);
   });
 });
 
@@ -280,7 +280,7 @@ describe("removeFromWishlist()", () => {
     const result = await removeFromWishlist(puuid, "remove-me");
 
     expect(result.items).toHaveLength(1);
-    expect(result.items[0].skinUuid).toBe("keep-me");
+    expect(result.items[0]!.skinUuid).toBe("keep-me");
     expect(result.count).toBe(1);
   });
 

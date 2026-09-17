@@ -8,6 +8,9 @@
 import { UserInfo } from "./riot-auth";
 import { parseWithLog } from "@/lib/schemas/parse";
 import { EntitlementsResponseSchema, UserInfoSchema } from "@/lib/schemas/riot-auth";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("riot-tokens");
 
 export { determineRegion } from "@/lib/region-utils";
 
@@ -117,6 +120,7 @@ export async function getEntitlementsToken(
     });
 
     if (!response.ok) {
+      log.warn(`Entitlements request failed: HTTP ${response.status}`);
       return null;
     }
 
@@ -145,6 +149,7 @@ export async function getUserInfo(
     });
 
     if (!response.ok) {
+      log.warn(`Userinfo request failed: HTTP ${response.status}`);
       return null;
     }
 

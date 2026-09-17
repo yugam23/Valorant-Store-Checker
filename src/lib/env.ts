@@ -59,13 +59,15 @@ export const env = {
 
   /** Optional: Upstash Redis REST URL for serverless cache persistence.
    *  Get from: Upstash Dashboard -> Redis -> Overview -> REST URL
+   *  Falls back to KV_REST_API_URL (Vercel Marketplace Upstash integration).
    */
-  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL as string | undefined,
+  UPSTASH_REDIS_REST_URL: (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) as string | undefined,
 
   /** Optional: Upstash Redis REST Token for serverless cache persistence.
    *  Get from: Upstash Dashboard -> Redis -> Overview -> REST Token
+   *  Falls back to KV_REST_API_TOKEN (Vercel Marketplace Upstash integration).
    */
-  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN as string | undefined,
+  UPSTASH_REDIS_REST_TOKEN: (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN) as string | undefined,
 
   /** Optional: Maximum auth requests per minute per IP for rate limiting.
    *  Defaults to 10 if not set.

@@ -13,7 +13,8 @@
  *
  * Architecture note (Redis-backed cache):
  * This module uses Upstash Redis for serverless-cold-start persistence.
- * TTL is 5 minutes (300 seconds).
+ * TTL is 6 hours — rank and level change rarely, and every miss costs a
+ * HenrikDev API request.
  */
 
 import { redis } from "@/lib/redis-client";
@@ -59,6 +60,7 @@ export interface ProfileData {
   fromCache: boolean;
   partial: boolean;
   cachedAt?: number;                // timestamp for "last updated" display (INFR-03)
+  nextUpdateAt?: number;            // when the cache expires and data will be re-fetched
   henrikFailed: boolean;            // true when Henrik API (account or MMR) fails
 }
 
@@ -68,7 +70,7 @@ interface ProfileCacheEntry {
 }
 
 const PROFILE_KEY_PREFIX = "profile:";
-const PROFILE_CACHE_TTL_SECONDS = 5 * 60; // 5 minutes
+const PROFILE_CACHE_TTL_SECONDS = 6 * 60 * 60; // 6 hours
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -84,7 +86,7 @@ const PROFILE_CACHE_TTL_SECONDS = 5 * 60; // 5 minutes
  * and image URLs via valorant-api.ts.
  *
  * Fallback behavior:
- * - Cache hit (< 5 min old) → return with fromCache: true (INFR-03)
+ * - Cache hit (< 6 h old) → return with fromCache: true (INFR-03)
  * - Any real data obtained → cache and return (partial: false)
  * - All APIs failed + stale cache → return stale with fromCache: true
  * - All APIs failed + no cache → return partial profile (partial: true)
@@ -107,7 +109,12 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
       const age = Date.now() - entry.cachedAt;
       if (age < PROFILE_CACHE_TTL_SECONDS * 1000) {
         log.info("Profile served from cache for PUUID:", tokens.puuid.substring(0, 8));
-        return { ...entry.data, fromCache: true, cachedAt: entry.cachedAt };
+        return {
+          ...entry.data,
+          fromCache: true,
+          cachedAt: entry.cachedAt,
+          nextUpdateAt: entry.cachedAt + PROFILE_CACHE_TTL_SECONDS * 1000,
+        };
       }
     } catch {
       // Malformed cache entry, treat as miss
@@ -194,7 +201,8 @@ export async function getProfileData(tokens: StoreTokens, region: string): Promi
 
   // Tier 1 success: at least some real data was obtained
   if (!profile.partial) {
-    const entry: ProfileCacheEntry = { data: profile, cachedAt: Date.now() };
+    profile.nextUpdateAt = profile.cachedAt! + PROFILE_CACHE_TTL_SECONDS * 1000;
+    const entry: ProfileCacheEntry = { data: profile, cachedAt: profile.cachedAt! };
     if (redis) await redis.set(key, JSON.stringify(entry), { ex: PROFILE_CACHE_TTL_SECONDS });
     log.info("Profile fetched successfully for PUUID:", tokens.puuid.substring(0, 8));
     return profile;

@@ -131,7 +131,7 @@ describe("setCachedStore", () => {
     await setCachedStore("test-puuid", storeData);
 
     expect(mockPipeline).toHaveBeenCalled();
-    const pipe = mockPipeline.mock.results[0].value;
+    const pipe = mockPipeline.mock.results[0]!.value;
     expect(pipe.set).toHaveBeenCalledWith(
       "store:test-puuid",
       expect.any(String),
@@ -153,7 +153,7 @@ describe("setCachedStore", () => {
     await setCachedStore("new-puuid", storeData);
 
     // zremrangebyrank trims to newest 10 entries
-    const pipe = mockPipeline.mock.results[0].value;
+    const pipe = mockPipeline.mock.results[0]!.value;
     expect(pipe.zremrangebyrank).toHaveBeenCalledWith("store:order", 0, -11);
     expect(pipe.set).toHaveBeenCalled();
   });
@@ -166,7 +166,7 @@ describe("setCachedStore", () => {
     await setCachedStore("existing-puuid", storeData);
 
     expect(mockPipeline).toHaveBeenCalled();
-    const pipe = mockPipeline.mock.results[0].value;
+    const pipe = mockPipeline.mock.results[0]!.value;
     expect(pipe.set).toHaveBeenCalled();
   });
 
@@ -187,7 +187,7 @@ describe("clearCachedStore", () => {
     await clearCachedStore("my-puuid");
 
     expect(mockPipeline).toHaveBeenCalled();
-    const pipe = mockPipeline.mock.results[0].value;
+    const pipe = mockPipeline.mock.results[0]!.value;
     expect(pipe.del).toHaveBeenCalledWith("store:my-puuid");
     expect(pipe.zrem).toHaveBeenCalledWith("store:order", "my-puuid");
     expect(pipe.exec).toHaveBeenCalled();

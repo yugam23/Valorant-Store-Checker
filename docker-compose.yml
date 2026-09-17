@@ -1,0 +1,72 @@
+services:
+  app:
+    build: .
+    image: valorant-store-checker:local
+    container_name: valorant-store-checker
+    restart: unless-stopped
+    depends_on:
+      - srh
+    ports:
+      # Bind to loopback by default. Put a TLS reverse proxy (Caddy, nginx,
+      # Traefik) in front of it — session cookies are `Secure` in production
+      # and browsers only send them over HTTPS (or plain http://localhost).
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env (openssl rand -base64 32)}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env (openssl rand -hex 32)}
+      HENRIK_API_KEY: ${HENRIK_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-warn}
+      TURSO_DATABASE_URL: ${TURSO_DATABASE_URL:-}
+      TURSO_AUTH_TOKEN: ${TURSO_AUTH_TOKEN:-}
+      # Defaults to the bundled Redis (via the SRH REST proxy below). Set these
+      # in .env to use a hosted Upstash database instead.
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-http://srh:80}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-${SRH_TOKEN}}
+      RATE_LIMIT_REQS_PER_MIN: ${RATE_LIMIT_REQS_PER_MIN:-10}
+    volumes:
+      # Encrypted session database (SQLite). Named volume so it survives rebuilds.
+      - session-data:/app/data
+    # Hardening: read-only root filesystem, no privilege escalation, minimal caps.
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+
+  # Redis for the profile/store cache and auth rate limiting.
+  # Cache data only — nothing here needs to survive a restart, so persistence is off.
+  redis:
+    image: redis:8-alpine
+    container_name: valorant-store-checker-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+    read_only: true
+    tmpfs:
+      - /data
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+
+  # serverless-redis-http: exposes Redis over the Upstash REST API, which is what
+  # @upstash/redis and @upstash/ratelimit speak. Internal network only — not published.
+  srh:
+    image: hiett/serverless-redis-http:0.0.10
+    container_name: valorant-store-checker-srh
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: ${SRH_TOKEN:?Set SRH_TOKEN in .env (openssl rand -hex 32)}
+      SRH_CONNECTION_STRING: redis://redis:6379
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+
+volumes:
+  session-data:

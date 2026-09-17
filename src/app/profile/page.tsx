@@ -14,6 +14,12 @@ function formatCachedAt(cachedAt: number): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatTimeUntil(timestamp: number): string {
+  const minutes = Math.max(0, Math.ceil((timestamp - Date.now()) / 60_000));
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
+}
+
 type LoadingState = "idle" | "loading" | "success" | "error";
 
 // Module-level profile cache (SWR-style) — survives across page navigations
@@ -247,11 +253,14 @@ export default function ProfilePage() {
               <RRProgressBar rankingInTier={profileData.rankingInTier} />
             </div>
 
-            {/* Last updated timestamp — shown when data is from cache */}
-            {profileData.fromCache && profileData.cachedAt && (
+            {/* Last updated / next update — profile data is cached server-side */}
+            {profileData.cachedAt && profileData.nextUpdateAt && (
               <div className="flex items-center gap-2 text-zinc-500 text-[10px] font-display uppercase tracking-wider px-1">
                 <Clock className="w-3 h-3" />
-                <span>Showing cached data from {formatCachedAt(profileData.cachedAt)}</span>
+                <span>
+                  Last updated {formatCachedAt(profileData.cachedAt)} · Next update in{" "}
+                  {formatTimeUntil(profileData.nextUpdateAt)}
+                </span>
               </div>
             )}
           </div>

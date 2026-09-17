@@ -29,11 +29,10 @@ const MOCK_TOKENS = {
 };
 
 const MOCK_VERSION = "10.02.3.1234";
-const MOCK_MANIFEST_RESPONSE = {
+const MOCK_VERSION_RESPONSE = {
+  status: 200,
   data: {
-    manifests: {
-      riotClientVersion: MOCK_VERSION,
-    },
+    riotClientVersion: MOCK_VERSION,
   },
 };
 
@@ -83,23 +82,18 @@ describe("getStorefront — client version fetching", () => {
     fetchSpy.mockRestore();
   });
 
-  it("fetches client version from Riot manifest endpoint", async () => {
-    fetchSpy.mockResolvedValue(makeOkResponse(MOCK_MANIFEST_RESPONSE));
+  it("fetches client version from valorant-api.com", async () => {
+    fetchSpy.mockResolvedValue(makeOkResponse(MOCK_VERSION_RESPONSE));
 
     await getStorefront(MOCK_TOKENS);
 
-    // Verify manifest endpoint was called
-    const manifestCalls = fetchSpy.mock.calls.filter(
-      (call) => (call[0] as string).includes("riotclient.riotgames.com")
-    );
-    expect(manifestCalls.length).toBeGreaterThan(0);
-    expect(manifestCalls[0][0]).toBe(
-      "https://riotclient.riotgames.com/riotclient/ux-middleware/bootstrap/manifest"
-    );
+    const urls = fetchSpy.mock.calls.map((call: unknown[]) => call[0] as string);
+    expect(urls[0]).toBe("https://valorant-api.com/v1/version");
+    // riotclient.riotgames.com no longer resolves — it must never be called
+    expect(urls.some((url: string) => url.includes("riotclient.riotgames.com"))).toBe(false);
   });
 
-  it("throws error after 3 failed manifest fetch attempts (network error)", async () => {
-    // Mock all fetch calls to fail - both riot manifest and valorant-api fallback
+  it("throws error when the version fetch fails (network error)", async () => {
     fetchSpy.mockRejectedValue(new Error("Network failure"));
 
     const result = getStorefront(MOCK_TOKENS).catch((e) => e);
@@ -108,17 +102,13 @@ describe("getStorefront — client version fetching", () => {
     const error = await result;
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toMatch(/Failed to fetch client version after 3 attempts/);
+    expect(error.message).toMatch(/Failed to fetch client version/);
   });
 
-  it("throws error on HTTP error responses after retries exhaust", async () => {
-    // Mock riot manifest to return HTTP errors and valorant-api fallback to fail
+  it("throws error on HTTP error responses", async () => {
     fetchSpy.mockImplementation((url: string) => {
-      if (url.includes("riotclient.riotgames.com")) {
-        return Promise.resolve(makeFailResponse(503));
-      }
       if (url.includes("valorant-api.com")) {
-        return Promise.reject(new Error("Valorant-API request failed"));
+        return Promise.resolve(makeFailResponse(503));
       }
       return Promise.resolve(makeOkResponse({}));
     });
@@ -129,7 +119,7 @@ describe("getStorefront — client version fetching", () => {
     const error = await result;
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toMatch(/Failed to fetch client version after 3 attempts/);
+    expect(error.message).toMatch(/Failed to fetch client version/);
   });
 
   it("uses cached version on subsequent calls within TTL", async () => {
@@ -140,10 +130,10 @@ describe("getStorefront — client version fetching", () => {
     vi.spyOn(globalThis.Date, "now").mockImplementation(() => fakeTime.current);
 
     fetchSpy.mockImplementation((url: string) => {
-      if ((url as string).includes("riotclient.riotgames.com")) {
+      if ((url as string).includes("valorant-api.com/v1/version")) {
         manifestCallCount++;
       }
-      return Promise.resolve(makeOkResponse(MOCK_MANIFEST_RESPONSE));
+      return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
     });
 
     // First call - populates cache (time = 0)
@@ -165,10 +155,10 @@ describe("getStorefront — client version fetching", () => {
   it("re-fetches manifest after cache TTL expires", async () => {
     let manifestCallCount = 0;
     fetchSpy.mockImplementation((url: string) => {
-      if ((url as string).includes("riotclient.riotgames.com")) {
+      if ((url as string).includes("valorant-api.com/v1/version")) {
         manifestCallCount++;
       }
-      return Promise.resolve(makeOkResponse(MOCK_MANIFEST_RESPONSE));
+      return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
     });
 
     // First call - populates cache
@@ -206,8 +196,8 @@ describe("getWallet — client version header inclusion", () => {
 
   it("fetches client version then wallet data", async () => {
     fetchSpy.mockImplementation((url: string) => {
-      if ((url as string).includes("riotclient.riotgames.com")) {
-        return Promise.resolve(makeOkResponse(MOCK_MANIFEST_RESPONSE));
+      if ((url as string).includes("valorant-api.com/v1/version")) {
+        return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
       }
       if ((url as string).includes("/store/v1/wallet/")) {
         return Promise.resolve(makeOkResponse(MOCK_WALLET));
@@ -219,9 +209,9 @@ describe("getWallet — client version header inclusion", () => {
 
     expect(result).toBeDefined();
 
-    // Verify manifest endpoint was called first (for client version)
+    // Verify version endpoint was called first (for client version)
     const manifestCalls = fetchSpy.mock.calls.filter(
-      (call) => (call[0] as string).includes("riotclient.riotgames.com")
+      (call: unknown[]) => (call[0] as string).includes("valorant-api.com/v1/version")
     );
     expect(manifestCalls.length).toBeGreaterThan(0);
   });
@@ -230,8 +220,8 @@ describe("getWallet — client version header inclusion", () => {
     let capturedHeaders: Record<string, string> = {};
 
     fetchSpy.mockImplementation(async (url: string, init?: RequestInit) => {
-      if ((url as string).includes("riotclient.riotgames.com")) {
-        return Promise.resolve(makeOkResponse(MOCK_MANIFEST_RESPONSE));
+      if ((url as string).includes("valorant-api.com/v1/version")) {
+        return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
       }
       if ((url as string).includes("/store/v1/wallet/")) {
         capturedHeaders = (init?.headers as Record<string, string>) || {};
@@ -244,5 +234,118 @@ describe("getWallet — client version header inclusion", () => {
 
     // Verify the client version header was set correctly
     expect(capturedHeaders["X-Riot-ClientVersion"]).toBe(MOCK_VERSION);
+  });
+});
+
+describe("fetchWithShardFallback — HTTP method selection", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let fetchWithShardFallback: typeof import("@/lib/riot-store").fetchWithShardFallback;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValue(makeOkResponse(MOCK_VERSION_RESPONSE));
+
+    const mod = await import("@/lib/riot-store");
+    fetchWithShardFallback = mod.fetchWithShardFallback;
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  function methodFor(fragment: string): string | undefined {
+    const call = fetchSpy.mock.calls.find((c: unknown[]) => (c[0] as string).includes(fragment));
+    return (call?.[1] as RequestInit | undefined)?.method;
+  }
+
+  it("uses POST for the v3 storefront", async () => {
+    await fetchWithShardFallback(MOCK_TOKENS, (pdUrl) => `${pdUrl}/store/v3/storefront/${MOCK_TOKENS.puuid}`);
+    expect(methodFor("/store/v3/storefront/")).toBe("POST");
+  });
+
+  it("uses GET for other v3 endpoints like the player loadout", async () => {
+    await fetchWithShardFallback(
+      MOCK_TOKENS,
+      (pdUrl) => `${pdUrl}/personalization/v3/players/${MOCK_TOKENS.puuid}/playerloadout`,
+    );
+    expect(methodFor("/personalization/v3/")).toBe("GET");
+  });
+});
+
+describe("fetchWithShardFallback — shard selection", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let fetchWithShardFallback: typeof import("@/lib/riot-store").fetchWithShardFallback;
+
+  const walletUrl = (pdUrl: string) => `${pdUrl}/store/v1/wallet/${MOCK_TOKENS.puuid}`;
+
+  /** Mocks fetch so only the given PD hosts succeed; everything else on pvp.net 404s. */
+  function mockShards(okHosts: string[]) {
+    fetchSpy.mockImplementation((url: string) => {
+      if (url.includes("valorant-api.com")) return Promise.resolve(makeOkResponse(MOCK_VERSION_RESPONSE));
+      const host = new URL(url).host;
+      return Promise.resolve(okHosts.includes(host) ? makeOkResponse(MOCK_WALLET) : makeFailResponse(404));
+    });
+  }
+
+  function pdHostsCalled(): string[] {
+    return fetchSpy.mock.calls
+      .map((c: unknown[]) => c[0] as string)
+      .filter((url: string) => url.includes(".a.pvp.net"))
+      .map((url: string) => new URL(url).host);
+  }
+
+  beforeEach(async () => {
+    vi.resetModules();
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+    const mod = await import("@/lib/riot-store");
+    fetchWithShardFallback = mod.fetchWithShardFallback;
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it("calls only the session region's shard when it succeeds", async () => {
+    mockShards(["pd.na.a.pvp.net"]);
+
+    const response = await fetchWithShardFallback({ ...MOCK_TOKENS, region: "na" }, walletUrl);
+
+    expect(response.ok).toBe(true);
+    expect(pdHostsCalled()).toEqual(["pd.na.a.pvp.net"]);
+  });
+
+  it("remembers the shard even when it matches the session region", async () => {
+    mockShards(["pd.na.a.pvp.net"]);
+    const tokens = { ...MOCK_TOKENS, region: "am" }; // affinity "am" maps to the NA PD host
+
+    await fetchWithShardFallback(tokens, walletUrl);
+    fetchSpy.mockClear();
+    await fetchWithShardFallback(tokens, walletUrl);
+
+    expect(pdHostsCalled()).toEqual(["pd.na.a.pvp.net"]);
+  });
+
+  it("probes other shards only when the session region fails, then remembers the winner", async () => {
+    mockShards(["pd.eu.a.pvp.net"]);
+    const tokens = { ...MOCK_TOKENS, region: "na" };
+
+    const first = await fetchWithShardFallback(tokens, walletUrl);
+    expect(first.ok).toBe(true);
+    expect(pdHostsCalled()[0]).toBe("pd.na.a.pvp.net");
+    expect(pdHostsCalled()).toContain("pd.eu.a.pvp.net");
+
+    fetchSpy.mockClear();
+    await fetchWithShardFallback(tokens, walletUrl);
+    expect(pdHostsCalled()).toEqual(["pd.eu.a.pvp.net"]);
+  });
+
+  it("never calls the same PD host twice in one lookup", async () => {
+    mockShards([]); // every shard fails
+
+    await fetchWithShardFallback({ ...MOCK_TOKENS, region: "am" }, walletUrl).catch(() => {});
+
+    const hosts = pdHostsCalled();
+    expect(hosts.length).toBe(new Set(hosts).size);
   });
 });

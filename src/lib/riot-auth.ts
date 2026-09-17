@@ -72,33 +72,34 @@ export interface RiotSessionCookies {
 }
 
 export interface UserInfo {
-  country: string;
-  sub: string; // PUUID
-  email_verified: boolean;
-  player_plocale?: string;
-  country_at?: number;
+  /** PUUID — the only field Riot always returns */
+  sub: string;
+  country?: string | null;
+  email_verified?: boolean | null;
+  player_plocale?: string | null;
+  country_at?: number | null;
   pw?: {
-    cng_at: number;
-    reset: boolean;
-    must_reset: boolean;
-  };
-  phone_number_verified: boolean;
-  account_verified: boolean;
-  ppid?: string;
-  player_locale?: string;
+    cng_at?: number | null;
+    reset?: boolean | null;
+    must_reset?: boolean | null;
+  } | null;
+  phone_number_verified?: boolean | null;
+  account_verified?: boolean | null;
+  ppid?: string | null;
+  player_locale?: string | null;
   acct?: {
-    type: number;
-    state: string;
-    adm: boolean;
-    game_name: string;
-    tag_line: string;
-    created_at: number;
-  };
-  age: number;
-  jti: string;
+    type?: number | null;
+    state?: string | null;
+    adm?: boolean | null;
+    game_name?: string | null;
+    tag_line?: string | null;
+    created_at?: number | null;
+  } | null;
+  age?: number | null;
+  jti?: string | null;
   affinity?: {
     [key: string]: string;
-  };
+  } | null;
 }
 
 /**
@@ -169,9 +170,9 @@ export async function completeAuthWithUrl(
         entitlementsToken,
         puuid: userInfo.sub,
         region,
-        gameName: userInfo.acct?.game_name,
-        tagLine: userInfo.acct?.tag_line,
-        country: userInfo.country,
+        gameName: userInfo.acct?.game_name ?? undefined,
+        tagLine: userInfo.acct?.tag_line ?? undefined,
+        country: userInfo.country ?? undefined,
       },
     };
   } catch (error) {
@@ -358,9 +359,9 @@ export async function authenticateRiotAccount(
         entitlementsToken,
         puuid: userInfo.sub,
         region,
-        gameName: userInfo.acct?.game_name,
-        tagLine: userInfo.acct?.tag_line,
-        country: userInfo.country,
+        gameName: userInfo.acct?.game_name ?? undefined,
+        tagLine: userInfo.acct?.tag_line ?? undefined,
+        country: userInfo.country ?? undefined,
       },
       riotCookies: allCookies,
       namedCookies,
@@ -467,9 +468,9 @@ export async function submitMfa(
         entitlementsToken,
         puuid: userInfo.sub,
         region,
-        gameName: userInfo.acct?.game_name,
-        tagLine: userInfo.acct?.tag_line,
-        country: userInfo.country,
+        gameName: userInfo.acct?.game_name ?? undefined,
+        tagLine: userInfo.acct?.tag_line ?? undefined,
+        country: userInfo.country ?? undefined,
       },
       riotCookies: allCookies,
       namedCookies,

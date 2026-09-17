@@ -71,6 +71,7 @@ describe("handleCredentialsAuth", () => {
         success: true,
         tokens: mockTokens,
         riotCookies: "ssid=x",
+        namedCookies: { raw: "ssid=x" },
       });
 
       const res = await handleCredentialsAuth(
@@ -124,6 +125,7 @@ describe("handleCredentialsAuth", () => {
       const { authenticateRiotAccount } = await import("@/lib/riot-auth");
       vi.mocked(authenticateRiotAccount).mockResolvedValue({
         success: true,
+        // @ts-expect-error — intentionally malformed: success without tokens
         tokens: null,
       });
 
@@ -138,6 +140,7 @@ describe("handleCredentialsAuth", () => {
 
     it("result.success with tokens, no riotCookies -> still returns 200", async () => {
       const { authenticateRiotAccount } = await import("@/lib/riot-auth");
+      // @ts-expect-error — intentionally malformed: success without riotCookies/namedCookies
       vi.mocked(authenticateRiotAccount).mockResolvedValue({
         success: true,
         tokens: mockTokens,

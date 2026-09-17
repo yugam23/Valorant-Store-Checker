@@ -1,0 +1,4 @@
+[tools]
+"npm:vercel" = "latest"
+pnpm = "latest"
+turso = "latest"

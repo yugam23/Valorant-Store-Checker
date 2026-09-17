@@ -18,6 +18,8 @@ const cspHeader = `
 `;
 
 const nextConfig: NextConfig = {
+  // Emit a self-contained server bundle (.next/standalone) for the Docker image.
+  output: "standalone",
   experimental: {
     optimizeCss: true,
   },

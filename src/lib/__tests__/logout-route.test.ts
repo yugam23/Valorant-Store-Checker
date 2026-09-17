@@ -73,7 +73,7 @@ describe("POST /api/auth/logout", () => {
     });
 
     const { getSession } = await import("@/lib/session");
-    vi.mocked(getSession).mockResolvedValue({ puuid: "test-puuid-1234" });
+    vi.mocked(getSession).mockResolvedValue({ puuid: "test-puuid-1234" } as Awaited<ReturnType<typeof getSession>>);
 
     const { getActiveAccount } = await import("@/lib/accounts");
     vi.mocked(getActiveAccount).mockResolvedValue({
@@ -155,7 +155,7 @@ describe("POST /api/auth/logout", () => {
     });
 
     const { getSession } = await import("@/lib/session");
-    vi.mocked(getSession).mockResolvedValue({ puuid: "test-puuid-1234" });
+    vi.mocked(getSession).mockResolvedValue({ puuid: "test-puuid-1234" } as Awaited<ReturnType<typeof getSession>>);
 
     const { getActiveAccount } = await import("@/lib/accounts");
     vi.mocked(getActiveAccount).mockResolvedValue(null);
